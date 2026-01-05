@@ -1,0 +1,8 @@
+{
+  "env": {
+    "INHERIT_FROM_SHELL": "true"
+  },
+  "sandbox": {
+    "enabled": true
+  }
+}
