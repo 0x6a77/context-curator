@@ -10,7 +10,8 @@
     "manage": "tsx scripts/manage.ts",
     "checkpoint": "tsx scripts/checkpoint.ts",
     "delete": "tsx scripts/delete.ts",
-    "dump": "tsx scripts/dump.ts"
+    "dump": "tsx scripts/dump.ts",
+    "help": "tsx scripts/help.ts"
   },
   "keywords": ["claude", "context", "session-manager"],
   "author": "",

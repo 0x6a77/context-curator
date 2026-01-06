@@ -1,0 +1,17 @@
+{
+  "name": "context-curator",
+  "version": "0.1.0",
+  "description": "Manage Claude Code session context",
+  "trigger": {
+    "sessionId": "context-curator"
+  },
+  "commands": {
+    "show": "Show all sessions for current project",
+    "summarize": "Analyze a specific session",
+    "manage": "Edit a session interactively",
+    "checkpoint": "Backup a session",
+    "delete": "Remove a session",
+    "dump": "View raw session data",
+    "help": "Show help"
+  }
+}

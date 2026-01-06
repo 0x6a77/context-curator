@@ -11,7 +11,8 @@ async function main() {
   
   try {
     const session = await readSession(sessionId);
-    console.log(`\nRaw JSONL for ${sessionId}:\n`);
+    console.log(`\nRaw JSONL for ${sessionId}`);
+    console.log(`Session type: ${session.isNamed ? 'Named' : 'Unnamed'}\n`);
     console.log('─'.repeat(70));
     
     for (const message of session.messages) {
