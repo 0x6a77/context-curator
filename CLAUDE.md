@@ -96,11 +96,22 @@ Remove a session (creates backup first, requires confirmation).
 npm --prefix ~/.claude/skills/context-curator run delete <session-id>
 ```
 
-### dump <session-id>
-Display raw JSONL contents of a session.
+### dump <session-id> [type]
+Display the raw "message" elements of JSONL contents of a session sorted in timestamp order and filtered by "type" == <type> if the user specified a type parameter.
+
+Arguments:
+- `session-id`: Session to dump (named or UUID)
+- `type` (optional): Filter by message type (user, assistant, file-history-snapshot, summary)
+
+Output format for each message:
+```
+--- MESSAGE <type> <timestamp> <message>
+```
 
 ```bash
 npm --prefix ~/.claude/skills/context-curator run dump <session-id>
+npm --prefix ~/.claude/skills/context-curator run dump <session-id> user
+npm --prefix ~/.claude/skills/context-curator run dump <session-id> assistant
 ```
 
 ### help
@@ -137,6 +148,9 @@ Users may phrase requests differently. Map these to commands:
 - "copy session X to Y" → checkpoint X Y
 - "remove session X" → delete X
 - "show raw data for X" → dump X
+- "dump session X" → dump X
+- "show user messages for X" → dump X user
+- "show assistant responses for X" → dump X assistant
 
 ## Tools You Have
 
@@ -166,6 +180,15 @@ User: "save a backup first"
 You: "What should I name it?"
 User: "before-cleanup"
 You: [Run checkpoint 8e14f625-bd1a-4e79-a382-2d6c0649df97 before-cleanup]
+
+**Dump session:**
+User: "dump session 8e14f625-bd1a-4e79-a382-2d6c0649df97"
+You: [Run dump 8e14f625-bd1a-4e79-a382-2d6c0649df97]
+     Display messages in format: --- MESSAGE <type> <timestamp> <message>
+
+User: "show just the user messages"
+You: [Run dump 8e14f625-bd1a-4e79-a382-2d6c0649df97 user]
+     Display only user messages with the same format
 
 ## Remember
 
