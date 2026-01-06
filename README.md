@@ -224,9 +224,12 @@ This means you can safely manage sessions from different projects without mixing
 - Help command
 - Setup script
 - CLAUDE.md agent instructions
-
-🚧 **Not Implemented:**
-- Interactive manage/editor mode (stub only)
+- Interactive manage/editor mode with Claude API integration
+  - Natural language change requests
+  - Staging system for changes
+  - @apply, @undo, @preview commands
+  - Before/after comparison
+  - Automatic backups
 
 ## Development
 
@@ -239,7 +242,7 @@ This means you can safely manage sessions from different projects without mixing
 │   ├── session-reader.ts      # Read named + unnamed sessions
 │   ├── session-writer.ts      # Write/modify sessions
 │   ├── session-analyzer.ts    # Analyze session content
-│   └── editor.ts              # Interactive editor (TODO)
+│   └── editor.ts              # Interactive editor with Claude API
 ├── scripts/
 │   ├── init.ts                # Initialization on resume
 │   ├── show-sessions.ts       # List sessions
@@ -247,7 +250,7 @@ This means you can safely manage sessions from different projects without mixing
 │   ├── checkpoint.ts          # Backup session
 │   ├── delete.ts              # Remove session
 │   ├── dump.ts                # Show raw JSONL
-│   ├── manage.ts              # Interactive editor (TODO)
+│   ├── manage.ts              # Interactive editor
 │   └── help.ts                # Show help
 ├── skill.json                 # Skill manifest
 ├── CLAUDE.md                  # Agent instructions
