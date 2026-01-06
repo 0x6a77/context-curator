@@ -1,0 +1,26 @@
+{
+  "name": "claude-context-curator",
+  "version": "0.1.0",
+  "description": "Claude Code session manager - helps manage and optimize your Claude Code sessions",
+  "type": "module",
+  "scripts": {
+    "init": "tsx scripts/init.ts",
+    "show": "tsx scripts/show-sessions.ts",
+    "summarize": "tsx scripts/summarize.ts",
+    "manage": "tsx scripts/manage.ts",
+    "checkpoint": "tsx scripts/checkpoint.ts",
+    "delete": "tsx scripts/delete.ts",
+    "dump": "tsx scripts/dump.ts"
+  },
+  "keywords": ["claude", "context", "session-manager"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
