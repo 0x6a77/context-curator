@@ -11,9 +11,8 @@
 **Core Concept**: A global skill that only activates from the "context-curator" session, managing both named sessions and unnamed project sessions.
 
 **Key Files**:
-- `~/.claude/skills/context-curator/` - Skill symlink
+- `~/.claude/skills/context-curator/` - Skill installation directory
 - `~/.claude/sessions/context-curator/` - The curator session
-- `~/.claude/context-curator/` - Source code repository
 
 **Invocation**: `claude -r context-curator` from any project directory
 
@@ -128,9 +127,9 @@ ls -la ~/.claude/projects/$PROJECT_DIR/
 **Priority:** P0
 
 ```bash
-# Create structure
-mkdir -p ~/.claude/context-curator
-cd ~/.claude/context-curator
+# Create structure (this will be the git repo root)
+mkdir -p ~/.claude/skills/context-curator
+cd ~/.claude/skills/context-curator
 
 # Initialize npm project
 npm init -y
@@ -148,7 +147,7 @@ mkdir -p src scripts
 
 **Project Structure:**
 ```
-~/.claude/context-curator/
+~/.claude/skills/context-curator/
 ├── skill.json             # Skill manifest
 ├── CLAUDE.md              # Skill instructions
 ├── src/
@@ -219,21 +218,7 @@ set -e
 echo "🚀 Setting up Claude Code Context Curator..."
 echo ""
 
-# Install dependencies
-echo "📦 Installing dependencies..."
-npm install
-echo "✓ Dependencies installed"
-echo ""
-
-# 1. Install the skill (symlink to current directory)
-SKILLS_DIR=~/.claude/skills
-echo "🔧 Installing skill..."
-mkdir -p "$SKILLS_DIR"
-ln -sf ~/.claude/context-curator "$SKILLS_DIR/context-curator"
-echo "✓ Skill installed: $SKILLS_DIR/context-curator"
-echo ""
-
-# 2. Create the context-curator session
+# Create the context-curator session
 SESSION_DIR=~/.claude/sessions/context-curator
 echo "📁 Creating session..."
 mkdir -p "$SESSION_DIR"
@@ -250,26 +235,26 @@ cat > "$SESSION_DIR/metadata.json" << METADATA
 {
   "createdAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "updatedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "projectPath": "$HOME/.claude/context-curator"
+  "projectPath": "$HOME/.claude/skills/context-curator"
 }
 METADATA
 
 echo "✓ Session created: context-curator"
 echo ""
 
-# Test the skill
+# Verify installation
 echo "🧪 Verifying installation..."
-if [ -L "$SKILLS_DIR/context-curator" ]; then
-  echo "✓ Skill symlink exists"
-else
-  echo "❌ Skill symlink not created"
-  exit 1
-fi
-
 if [ -f "$SESSION_DIR/conversation.jsonl" ]; then
   echo "✓ Session created"
 else
   echo "❌ Session not created"
+  exit 1
+fi
+
+if [ -f "skill.json" ]; then
+  echo "✓ Skill manifest exists"
+else
+  echo "❌ Skill manifest not found"
   exit 1
 fi
 
@@ -1014,9 +999,9 @@ summarize non-existent-session
 ## Testing Checklist
 
 ### Setup
-- [ ] `setup.sh` installs skill successfully
+- [ ] Repository cloned to `~/.claude/skills/context-curator`
 - [ ] `setup.sh` creates session successfully
-- [ ] Skill symlink exists in `~/.claude/skills/`
+- [ ] Skill files exist in `~/.claude/skills/context-curator`
 - [ ] Session can be resumed with `claude -r context-curator`
 - [ ] Init script runs and displays correct info
 
@@ -1114,6 +1099,7 @@ summarize non-existent-session
 - [ ] Tested on macOS and Linux
 - [ ] API key handling documented
 - [ ] Example workflows documented
-- [ ] GitHub repo ready
+- [ ] GitHub repo ready (with instructions to clone to `~/.claude/skills/`)
 - [ ] Demo video/GIF created
 - [ ] Skill manifest correct
+- [ ] Installation instructions clear

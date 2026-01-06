@@ -58,18 +58,17 @@ When you invoke the skill from `/Users/dev/my-project`, it manages:
 ### Initial Setup (One-Time)
 
 ```bash
-# 1. Clone the curator repository
-git clone https://github.com/yourusername/context-curator.git ~/.claude/context-curator
-cd ~/.claude/context-curator
+# 1. Clone the curator repository directly to skills directory
+git clone https://github.com/yourusername/context-curator.git ~/.claude/skills/context-curator
+cd ~/.claude/skills/context-curator
 
 # 2. Install dependencies
 npm install
 
-# 3. Install the skill and create the session
+# 3. Create the session
 ./setup.sh
 
 # You should see:
-# ✓ Skill installed to ~/.claude/skills/context-curator
 # ✓ Session created: context-curator
 #
 # Usage:
@@ -159,7 +158,24 @@ claude
 ```
 ~/.claude/
 ├── skills/
-│   └── context-curator/              # The skill (symlink to repo)
+│   └── context-curator/              # The skill (installed here)
+│       ├── skill.json                # Skill manifest
+│       ├── CLAUDE.md                 # Skill instructions
+│       ├── src/
+│       │   ├── session-reader.ts     # Read sessions (named + unnamed)
+│       │   ├── session-writer.ts
+│       │   ├── session-analyzer.ts
+│       │   ├── editor.ts
+│       │   └── utils.ts
+│       ├── scripts/
+│       │   ├── init.ts               # Initialization
+│       │   ├── show-sessions.ts
+│       │   ├── summarize.ts
+│       │   ├── manage.ts
+│       │   └── ...
+│       ├── setup.sh                  # Installation script
+│       ├── package.json
+│       └── README.md
 │
 ├── sessions/
 │   ├── context-curator/              # The curator session
@@ -168,32 +184,13 @@ claude
 │   ├── auth-workflow/                # Example named session
 │   └── [other named sessions]
 │
-├── projects/
-│   ├── -Users-dev-my-project/        # Project-specific unnamed sessions
-│   │   ├── 8e14f625-[...].jsonl      # Unnamed session 1
-│   │   ├── 340f0a71-[...].jsonl      # Unnamed session 2
-│   │   └── agent-a55a46e.jsonl       # Agent sessions
-│   └── -Users-dev-other-app/         # Different project
-│       └── [...]
-│
-└── context-curator/                  # Source repository
-    ├── skill.json                    # Skill manifest
-    ├── CLAUDE.md                     # Skill instructions
-    ├── src/
-    │   ├── session-reader.ts         # Read sessions (named + unnamed)
-    │   ├── session-writer.ts
-    │   ├── session-analyzer.ts
-    │   ├── editor.ts
-    │   └── utils.ts
-    ├── scripts/
-    │   ├── init.ts                   # Initialization
-    │   ├── show-sessions.ts
-    │   ├── summarize.ts
-    │   ├── manage.ts
-    │   └── ...
-    ├── setup.sh                      # Installation script
-    ├── package.json
-    └── README.md
+└── projects/
+    ├── -Users-dev-my-project/        # Project-specific unnamed sessions
+    │   ├── 8e14f625-[...].jsonl      # Unnamed session 1
+    │   ├── 340f0a71-[...].jsonl      # Unnamed session 2
+    │   └── agent-a55a46e.jsonl       # Agent sessions
+    └── -Users-dev-other-app/         # Different project
+        └── [...]
 ```
 
 ---
@@ -202,20 +199,14 @@ claude
 
 ### Setup Script
 
-**~/.claude/context-curator/setup.sh:**
+**~/.claude/skills/context-curator/setup.sh:**
 ```bash
 #!/bin/bash
 set -e
 
 echo "Setting up Context Curator..."
 
-# 1. Install the skill
-SKILLS_DIR=~/.claude/skills
-mkdir -p "$SKILLS_DIR"
-ln -sf ~/.claude/context-curator "$SKILLS_DIR/context-curator"
-echo "✓ Skill installed: $SKILLS_DIR/context-curator"
-
-# 2. Create the context-curator session
+# Create the context-curator session
 SESSION_DIR=~/.claude/sessions/context-curator
 mkdir -p "$SESSION_DIR"
 
@@ -229,7 +220,7 @@ cat > "$SESSION_DIR/metadata.json" << EOF
 {
   "createdAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "updatedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "projectPath": "$HOME/.claude/context-curator"
+  "projectPath": "$HOME/.claude/skills/context-curator"
 }
 EOF
 
@@ -270,7 +261,7 @@ echo "  manage <session-id> <model>"
 
 ### CLAUDE.md
 
-**~/.claude/context-curator/CLAUDE.md:**
+**~/.claude/skills/context-curator/CLAUDE.md:**
 ```markdown
 # Context Curator
 
@@ -281,7 +272,7 @@ You are the Context Curator, a specialized assistant for managing Claude Code se
 **CRITICAL**: Every time you are resumed, immediately run:
 
 ```bash
-npm --prefix ~/.claude/context-curator run init
+npm --prefix ~/.claude/skills/context-curator run init
 ```
 
 This will:
@@ -329,14 +320,14 @@ You operate on:
 List all sessions (named + unnamed) for the current project.
 
 ```bash
-npm --prefix ~/.claude/context-curator run show
+npm --prefix ~/.claude/skills/context-curator run show
 ```
 
 ### summarize <session-id>
 Analyze a specific session in detail.
 
 ```bash
-npm --prefix ~/.claude/context-curator run summarize <session-id>
+npm --prefix ~/.claude/skills/context-curator run summarize <session-id>
 ```
 
 ### manage <session-id> <model>
@@ -347,7 +338,7 @@ Arguments:
 - `model`: One of: sonnet, opus, haiku
 
 ```bash
-npm --prefix ~/.claude/context-curator run manage <session-id> <model>
+npm --prefix ~/.claude/skills/context-curator run manage <session-id> <model>
 ```
 
 In manage mode, the user can:
@@ -360,21 +351,21 @@ In manage mode, the user can:
 Create a backup/fork of a session.
 
 ```bash
-npm --prefix ~/.claude/context-curator run checkpoint <session-id> <new-name>
+npm --prefix ~/.claude/skills/context-curator run checkpoint <session-id> <new-name>
 ```
 
 ### delete <session-id>
 Remove a session (creates backup first, requires confirmation).
 
 ```bash
-npm --prefix ~/.claude/context-curator run delete <session-id>
+npm --prefix ~/.claude/skills/context-curator run delete <session-id>
 ```
 
 ### dump <session-id>
 Display raw JSONL contents of a session.
 
 ```bash
-npm --prefix ~/.claude/context-curator run dump <session-id>
+npm --prefix ~/.claude/skills/context-curator run dump <session-id>
 ```
 
 ### help
@@ -869,18 +860,17 @@ Curator: Good luck with the refactor! If it goes wrong, just resume the
 ### One-Time Setup
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/yourusername/context-curator.git ~/.claude/context-curator
+# 1. Clone the repository directly to skills directory
+git clone https://github.com/yourusername/context-curator.git ~/.claude/skills/context-curator
 
 # 2. Install dependencies
-cd ~/.claude/context-curator
+cd ~/.claude/skills/context-curator
 npm install
 
-# 3. Run setup (installs skill + creates session)
+# 3. Run setup (creates session)
 ./setup.sh
 
 # You should see:
-# ✓ Skill installed: ~/.claude/skills/context-curator
 # ✓ Session created: context-curator
 #
 # Usage:
