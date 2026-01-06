@@ -1,91 +1,130 @@
 # Developer Implementation Plan: Claude Code Context Curator
 
-**Version:** 4.0 (Final)  
-**Timeline:** 3-4 weeks to MVP  
-**Approach:** Global resumable session with directory scoping  
+**Version:** 5.0 (Final)
+**Timeline:** 3-4 weeks to MVP
+**Approach:** Global skill with dual session management (named + unnamed)
 
 ---
 
 ## Architecture Summary
 
-**Core Concept**: One global "context-curator" session that automatically scopes itself to the current directory when resumed.
+**Core Concept**: A global skill that only activates from the "context-curator" session, managing both named sessions and unnamed project sessions.
 
 **Key Files**:
-- `~/.claude/sessions/context-curator/` - The session itself
-- `~/.claude/context-curator/` - Code, scripts, CLAUDE.md
+- `~/.claude/skills/context-curator/` - Skill symlink
+- `~/.claude/sessions/context-curator/` - The curator session
+- `~/.claude/context-curator/` - Source code repository
 
 **Invocation**: `claude -r context-curator` from any project directory
 
-**Scoping**: Uses `process.cwd()` to operate only on sessions in current directory
+**Session Management**:
+- Named sessions: `~/.claude/sessions/<session-id>/`
+- Unnamed sessions: `~/.claude/projects/<project-dir>/`
+- Project directory formula: `projectDir = fullPath.replace(/\//g, '-')`
 
 ---
 
 ## Phase 0: Setup & Validation (Days 1-2)
 
 ### Goals
-- Understand session resumption mechanics
-- Validate directory-scoped approach
+- Understand Claude Code skills system
+- Validate session resumption mechanics
+- Test project directory formula
 - Create project skeleton
 
 ### Tasks
 
-#### T0.1: Validate Session Resumption
-**Duration:** 2 hours  
+#### T0.1: Validate Skills System
+**Duration:** 3 hours
 **Priority:** P0
 
 **Test Plan:**
 ```bash
-# 1. Create a test session manually
+# 1. Create a test skill
+mkdir -p ~/.claude/skills/test-skill
+cat > ~/.claude/skills/test-skill/skill.json << 'EOF'
+{
+  "name": "test-skill",
+  "version": "0.1.0",
+  "description": "Test skill",
+  "trigger": {
+    "sessionId": "test-session"
+  }
+}
+EOF
+
+# 2. Create a test session
 mkdir -p ~/.claude/sessions/test-session
 cat > ~/.claude/sessions/test-session/conversation.jsonl << 'EOF'
 {"role":"user","content":"Hello"}
-{"role":"assistant","content":"Hi there!"}
+{"role":"assistant","content":"Test skill active!"}
 EOF
 
-# 2. Try to resume it
+# 3. Test resumption
 claude -r test-session
 
-# Expected: Session resumes with that conversation
-# Verify this works before proceeding
+# Expected: Session resumes and skill is available
 ```
 
-**Validation:**
-- [ ] Can create session manually
-- [ ] Can resume with `claude -r <name>`
-- [ ] Session persists conversation history
+**Questions to Answer:**
+- [ ] How does Claude Code discover skills?
+- [ ] Does `trigger.sessionId` restrict skill availability?
+- [ ] Can skills access npm scripts?
+- [ ] How are skill commands invoked?
 
-#### T0.2: Test CLAUDE.md Loading
-**Duration:** 2 hours  
+#### T0.2: Validate Project Directory Formula
+**Duration:** 1 hour
 **Priority:** P0
 
 **Test Plan:**
 ```bash
-# 1. Create CLAUDE.md in project
-mkdir test-project && cd test-project
-cat > CLAUDE.md << 'EOF'
-# Test Agent
-When I start, I should say "Test agent activated!"
-EOF
+# Test the formula
+node -e "
+const cwd = process.cwd();
+const projectDir = cwd.replace(/\//g, '-');
+console.log('CWD:', cwd);
+console.log('Project Dir:', projectDir);
+console.log('Full Path:', \`~/.claude/projects/\${projectDir}/\`);
+"
 
-# 2. Start Claude Code
-claude
+# Check if this matches actual Claude Code behavior
+ls -la ~/.claude/projects/
 
-# Expected: Claude reads CLAUDE.md and follows instructions
+# Verify the formula is correct
 ```
 
-**Question to Answer:**
-- Does Claude Code automatically read CLAUDE.md from current directory?
-- Or do we need to use `--project-path` flag?
-- Can we reference a CLAUDE.md from outside the current directory?
+**Validation:**
+- [ ] Formula matches Claude Code's directory naming
+- [ ] Can read unnamed sessions from projects directory
+- [ ] Can distinguish between named and unnamed sessions
 
-**If CLAUDE.md must be in current directory:**
-We'll need a setup script that symlinks or copies CLAUDE.md to each project.
+#### T0.3: Test Session Types Discovery
+**Duration:** 2 hours
+**Priority:** P0
 
-**If we can reference external CLAUDE.md:**
-Much simpler - just point to `~/.claude/context-curator/CLAUDE.md`
+**Test Plan:**
+```bash
+# 1. List named sessions
+ls -la ~/.claude/sessions/
 
-#### T0.3: Project Initialization
-**Duration:** 2 hours  
+# 2. List unnamed sessions for current project
+PROJECT_DIR=$(pwd | tr '/' '-')
+ls -la ~/.claude/projects/$PROJECT_DIR/
+
+# 3. Test reading both types
+# Named: Read conversation.jsonl from directory
+# Unnamed: Read UUID.jsonl flat file
+
+# 4. Verify they have different structures
+```
+
+**Validation:**
+- [ ] Can distinguish named vs unnamed sessions
+- [ ] Can read both formats
+- [ ] Can extract metadata from both
+
+#### T0.4: Project Initialization
+**Duration:** 2 hours
 **Priority:** P0
 
 ```bash
@@ -110,17 +149,18 @@ mkdir -p src scripts
 **Project Structure:**
 ```
 ~/.claude/context-curator/
-├── CLAUDE.md              # Agent instructions
+├── skill.json             # Skill manifest
+├── CLAUDE.md              # Skill instructions
 ├── src/
 │   ├── types.ts
-│   ├── session-reader.ts
+│   ├── session-reader.ts  # Reads named + unnamed
 │   ├── session-writer.ts
 │   ├── session-analyzer.ts
 │   ├── editor.ts
 │   └── utils.ts
 ├── scripts/
 │   ├── init.ts            # Run on session resume
-│   ├── show-sessions.ts
+│   ├── show-sessions.ts   # Shows both types
 │   ├── summarize.ts
 │   ├── manage.ts
 │   ├── checkpoint.ts
@@ -134,12 +174,41 @@ mkdir -p src scripts
 
 ---
 
-## Phase 1: Session Creation & Core Scripts (Days 3-7)
+## Phase 1: Skill Setup & Core Scripts (Days 3-7)
 
 ### Tasks
 
-#### T1.1: Setup Script
-**Duration:** 4 hours  
+#### T1.1: Skill Manifest
+**Duration:** 1 hour
+**Priority:** P0
+
+**File: skill.json**
+```json
+{
+  "name": "context-curator",
+  "version": "0.1.0",
+  "description": "Manage Claude Code session context",
+  "trigger": {
+    "sessionId": "context-curator"
+  },
+  "commands": {
+    "show": "Show all sessions for current project",
+    "summarize": "Analyze a specific session",
+    "manage": "Edit a session interactively",
+    "checkpoint": "Backup a session",
+    "delete": "Remove a session",
+    "dump": "View raw session data",
+    "help": "Show help"
+  }
+}
+```
+
+**Notes:**
+- `trigger.sessionId` ensures skill only activates from context-curator session
+- Commands list helps with discoverability
+
+#### T1.2: Setup Script
+**Duration:** 4 hours
 **Priority:** P0
 
 **File: setup.sh**
@@ -156,21 +225,27 @@ npm install
 echo "✓ Dependencies installed"
 echo ""
 
-# Create the curator session
+# 1. Install the skill (symlink to current directory)
+SKILLS_DIR=~/.claude/skills
+echo "🔧 Installing skill..."
+mkdir -p "$SKILLS_DIR"
+ln -sf ~/.claude/context-curator "$SKILLS_DIR/context-curator"
+echo "✓ Skill installed: $SKILLS_DIR/context-curator"
+echo ""
+
+# 2. Create the context-curator session
 SESSION_DIR=~/.claude/sessions/context-curator
-echo "📁 Creating session directory..."
+echo "📁 Creating session..."
 mkdir -p "$SESSION_DIR"
 
 # Create initial conversation
-echo "💬 Creating initial conversation..."
 cat > "$SESSION_DIR/conversation.jsonl" << 'JSONL'
-{"role":"system","content":"You are the Context Curator. Read ~/.claude/context-curator/CLAUDE.md for your instructions.","timestamp":"2026-01-03T00:00:00Z"}
-{"role":"user","content":"Initialize as context curator","timestamp":"2026-01-03T00:00:01Z"}
-{"role":"assistant","content":"Context Curator initialized. I help manage Claude Code sessions in the current directory.\n\nType 'help' to see available commands.","timestamp":"2026-01-03T00:00:02Z"}
+{"role":"system","content":"You have access to the context-curator skill. This skill helps manage Claude Code sessions for the current project."}
+{"role":"user","content":"Initialize"}
+{"role":"assistant","content":"Context Curator ready. I can help manage your Claude Code sessions. Type 'help' to see available commands."}
 JSONL
 
 # Create metadata
-echo "📋 Creating metadata..."
 cat > "$SESSION_DIR/metadata.json" << METADATA
 {
   "createdAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
@@ -179,40 +254,48 @@ cat > "$SESSION_DIR/metadata.json" << METADATA
 }
 METADATA
 
-echo "✓ Session created"
+echo "✓ Session created: context-curator"
 echo ""
 
-# Test it
-echo "🧪 Testing session..."
-if [ -f "$SESSION_DIR/conversation.jsonl" ]; then
-  echo "✓ Session file exists"
+# Test the skill
+echo "🧪 Verifying installation..."
+if [ -L "$SKILLS_DIR/context-curator" ]; then
+  echo "✓ Skill symlink exists"
 else
-  echo "❌ Session file not created"
+  echo "❌ Skill symlink not created"
+  exit 1
+fi
+
+if [ -f "$SESSION_DIR/conversation.jsonl" ]; then
+  echo "✓ Session created"
+else
+  echo "❌ Session not created"
   exit 1
 fi
 
 echo ""
 echo "✅ Setup complete!"
 echo ""
-echo "To use the Context Curator:"
-echo "  1. cd into any project directory"
-echo "  2. Run: claude -r context-curator"
-echo ""
-echo "Example:"
-echo "  cd ~/my-project"
+echo "Usage:"
+echo "  cd ~/any-project"
 echo "  claude -r context-curator"
+echo ""
+echo "Commands:"
+echo "  show sessions"
+echo "  summarize <session-id>"
+echo "  manage <session-id> <model>"
 echo ""
 ```
 
-#### T1.2: Types Definition
-**Duration:** 1 hour  
+#### T1.3: Types Definition
+**Duration:** 2 hours
 **Priority:** P0
 
 **File: src/types.ts**
 ```typescript
 export interface Message {
   role: 'user' | 'assistant' | 'system';
-  content: string;
+  content: string | any;  // Can be string or structured content
   timestamp?: string;
   metadata?: Record<string, any>;
 }
@@ -229,7 +312,13 @@ export interface Session {
   metadata: SessionMetadata;
   messageCount: number;
   tokenCount: number;
-  directory: string;  // Which directory this session belongs to
+  isNamed: boolean;      // NEW: Distinguish session types
+  directory: string;     // Which directory this session belongs to
+}
+
+export interface SessionList {
+  named: string[];       // NEW: Named session IDs
+  unnamed: string[];     // NEW: Unnamed session UUIDs
 }
 
 export interface Task {
@@ -250,90 +339,175 @@ export interface SessionChange {
 }
 ```
 
-#### T1.3: Session Reader
-**Duration:** 4 hours  
+#### T1.4: Session Reader (Named + Unnamed)
+**Duration:** 6 hours
 **Priority:** P0
 
 **File: src/session-reader.ts**
 ```typescript
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { Session, Message, SessionMetadata } from './types.js';
+import { Session, Message, SessionMetadata, SessionList } from './types.js';
 
 /**
- * CRITICAL: Always use process.cwd() for directory scoping
+ * Project directory naming formula
+ * /Users/dev/my-project → -Users-dev-my-project
  */
-const getSessionsDir = () => path.join(process.cwd(), '.claude', 'sessions');
-
-export async function listSessionIds(): Promise<string[]> {
-  const sessionsDir = getSessionsDir();
-  
-  try {
-    const entries = await fs.readdir(sessionsDir);
-    return entries.filter(e => e.startsWith('sess-'));
-  } catch (err) {
-    return [];
-  }
+function getProjectDir(cwd: string): string {
+  return cwd.replace(/\//g, '-');
 }
 
+/**
+ * Get paths for both session types
+ */
+function getSessionPaths() {
+  const cwd = process.cwd();
+  const projectDir = getProjectDir(cwd);
+  const homeDir = process.env.HOME!;
+
+  return {
+    namedSessionsDir: path.join(homeDir, '.claude', 'sessions'),
+    unnamedSessionsDir: path.join(homeDir, '.claude', 'projects', projectDir),
+    projectDir,
+    cwd
+  };
+}
+
+/**
+ * List all session IDs (named + unnamed for current project)
+ */
+export async function listSessionIds(): Promise<SessionList> {
+  const { namedSessionsDir, unnamedSessionsDir } = getSessionPaths();
+
+  // Named sessions
+  let named: string[] = [];
+  try {
+    const entries = await fs.readdir(namedSessionsDir);
+    named = entries.filter(e => {
+      // Filter out agent sessions, only real named sessions
+      return !e.startsWith('agent-') && !e.startsWith('.');
+    });
+  } catch (err) {
+    // No named sessions directory
+  }
+
+  // Unnamed sessions for this project
+  let unnamed: string[] = [];
+  try {
+    const entries = await fs.readdir(unnamedSessionsDir);
+    unnamed = entries
+      .filter(e => {
+        // UUID pattern: starts with hex chars and ends with .jsonl
+        return e.endsWith('.jsonl') &&
+               !e.startsWith('agent-') &&
+               /^[0-9a-f]{8}-/.test(e);
+      })
+      .map(e => e.replace('.jsonl', ''));
+  } catch (err) {
+    // No unnamed sessions for this project
+  }
+
+  return { named, unnamed };
+}
+
+/**
+ * Read a session (auto-detect named vs unnamed)
+ */
 export async function readSession(sessionId: string): Promise<Session> {
-  const sessionsDir = getSessionsDir();
-  const sessionPath = path.join(sessionsDir, sessionId);
-  
-  // Read conversation.jsonl
-  const jsonlPath = path.join(sessionPath, 'conversation.jsonl');
+  const { namedSessionsDir, unnamedSessionsDir } = getSessionPaths();
+
+  // Try named first (directory structure)
+  const namedPath = path.join(namedSessionsDir, sessionId, 'conversation.jsonl');
+  const unnamedPath = path.join(unnamedSessionsDir, `${sessionId}.jsonl`);
+
+  let jsonlPath: string;
+  let isNamed: boolean;
+
+  try {
+    await fs.access(namedPath);
+    jsonlPath = namedPath;
+    isNamed = true;
+  } catch {
+    // Try unnamed (flat file)
+    try {
+      await fs.access(unnamedPath);
+      jsonlPath = unnamedPath;
+      isNamed = false;
+    } catch {
+      throw new Error(`Session not found: ${sessionId}`);
+    }
+  }
+
+  // Read conversation
   const content = await fs.readFile(jsonlPath, 'utf-8');
-  
   const messages: Message[] = content
     .split('\n')
     .filter(line => line.trim())
     .map(line => JSON.parse(line));
-  
-  // Read metadata.json
+
+  // Read metadata
   let metadata: SessionMetadata;
-  try {
-    const metadataPath = path.join(sessionPath, 'metadata.json');
-    const metadataContent = await fs.readFile(metadataPath, 'utf-8');
-    metadata = JSON.parse(metadataContent);
-  } catch {
-    // Fallback if metadata doesn't exist
+  if (isNamed) {
+    // Named sessions have metadata.json
+    try {
+      const metadataPath = path.join(namedSessionsDir, sessionId, 'metadata.json');
+      const metadataContent = await fs.readFile(metadataPath, 'utf-8');
+      metadata = JSON.parse(metadataContent);
+    } catch {
+      metadata = {
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+    }
+  } else {
+    // Unnamed sessions: use file stats
+    const stats = await fs.stat(jsonlPath);
     metadata = {
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      createdAt: stats.birthtime.toISOString(),
+      updatedAt: stats.mtime.toISOString()
     };
   }
-  
+
   return {
     id: sessionId,
     messages,
     metadata,
     messageCount: messages.length,
     tokenCount: estimateTokens(messages),
+    isNamed,
     directory: process.cwd()
   };
 }
 
+/**
+ * Check if session exists
+ */
 export async function sessionExists(sessionId: string): Promise<boolean> {
-  const sessionsDir = getSessionsDir();
-  const sessionPath = path.join(sessionsDir, sessionId);
-  
   try {
-    await fs.access(sessionPath);
+    await readSession(sessionId);
     return true;
   } catch {
     return false;
   }
 }
 
+/**
+ * Estimate tokens (rough approximation)
+ */
 function estimateTokens(messages: Message[]): number {
-  // Rough estimate: ~4 chars per token
-  const totalChars = messages.reduce((sum, msg) => sum + msg.content.length, 0);
+  // ~4 chars per token
+  const totalChars = messages.reduce((sum, msg) => {
+    const content = typeof msg.content === 'string'
+      ? msg.content
+      : JSON.stringify(msg.content);
+    return sum + content.length;
+  }, 0);
   return Math.ceil(totalChars / 4);
 }
 ```
 
-#### T1.4: Init Script
-**Duration:** 2 hours  
+#### T1.5: Init Script
+**Duration:** 3 hours
 **Priority:** P0
 
 **File: scripts/init.ts**
@@ -342,36 +516,56 @@ function estimateTokens(messages: Message[]): number {
 import * as path from 'path';
 import { listSessionIds } from '../src/session-reader.js';
 
+function getProjectDir(cwd: string): string {
+  return cwd.replace(/\//g, '-');
+}
+
 async function main() {
   const cwd = process.cwd();
-  const sessionsDir = path.join(cwd, '.claude', 'sessions');
-  
+  const projectDir = getProjectDir(cwd);
+
   console.log('\n' + '═'.repeat(70));
-  console.log('  Context Curator - Claude Code Session Manager');
+  console.log('  Context Curator - Session Manager');
   console.log('═'.repeat(70));
   console.log(`📁 Operating on: ${cwd}`);
-  console.log(`📂 Sessions: ${sessionsDir}`);
+  console.log(`🔧 Project dir:  ${projectDir}`);
   console.log('');
-  
+
   // List sessions
-  const sessionIds = await listSessionIds();
-  
-  if (sessionIds.length === 0) {
-    console.log('⚠️  No sessions found in this directory');
-    console.log('   Start a session with: claude');
-    console.log('');
-  } else {
-    console.log(`Found ${sessionIds.length} session(s):`);
-    const toShow = sessionIds.slice(0, 5);
-    for (const id of toShow) {
+  const { named, unnamed } = await listSessionIds();
+
+  console.log(`Found ${named.length} named session(s)`);
+  console.log(`Found ${unnamed.length} unnamed session(s) for this project`);
+  console.log('');
+
+  if (named.length > 0) {
+    console.log('Recent named sessions:');
+    for (const id of named.slice(0, 3)) {
       console.log(`  • ${id}`);
     }
-    if (sessionIds.length > 5) {
-      console.log(`  ... and ${sessionIds.length - 5} more`);
+    if (named.length > 3) {
+      console.log(`  ... and ${named.length - 3} more`);
     }
     console.log('');
   }
-  
+
+  if (unnamed.length > 0) {
+    console.log('Recent unnamed sessions:');
+    for (const id of unnamed.slice(0, 3)) {
+      console.log(`  • ${id.slice(0, 24)}...`);
+    }
+    if (unnamed.length > 3) {
+      console.log(`  ... and ${unnamed.length - 3} more`);
+    }
+    console.log('');
+  }
+
+  if (named.length === 0 && unnamed.length === 0) {
+    console.log('⚠️  No sessions found');
+    console.log('   Start a session with: claude');
+    console.log('');
+  }
+
   console.log('Available commands:');
   console.log('  show sessions              List all sessions with details');
   console.log('  summarize <id>             Analyze a session');
@@ -387,8 +581,8 @@ async function main() {
 main().catch(console.error);
 ```
 
-#### T1.5: Show Sessions Script
-**Duration:** 4 hours  
+#### T1.6: Show Sessions Script
+**Duration:** 4 hours
 **Priority:** P0
 
 **File: scripts/show-sessions.ts**
@@ -398,50 +592,91 @@ import { listSessionIds, readSession } from '../src/session-reader.js';
 
 async function main() {
   const cwd = process.cwd();
-  const sessionIds = await listSessionIds();
-  
-  if (sessionIds.length === 0) {
-    console.log('\nNo sessions found in this directory.');
+  const { named, unnamed } = await listSessionIds();
+
+  if (named.length === 0 && unnamed.length === 0) {
+    console.log('\nNo sessions found.');
     console.log('Start a session with: claude\n');
     return;
   }
-  
-  console.log(`\nSessions in ${cwd}/.claude/sessions/:\n`);
-  
-  // Load and sort sessions by recency
-  const sessions = await Promise.all(
-    sessionIds.map(async id => {
-      try {
-        return await readSession(id);
-      } catch (err) {
-        return null;
-      }
-    })
-  );
-  
-  const validSessions = sessions.filter(s => s !== null) as Session[];
-  validSessions.sort((a, b) => 
-    new Date(b.metadata.updatedAt).getTime() - 
-    new Date(a.metadata.updatedAt).getTime()
-  );
-  
-  // Display each session
-  for (let i = 0; i < validSessions.length; i++) {
-    const session = validSessions[i];
-    const percentCapacity = (session.tokenCount / 200000) * 100;
-    const capacityWarning = percentCapacity > 70 ? ' ⚠️ HIGH' : '';
-    const recentMarker = i === 0 ? ' [most recent]' : '';
-    
-    console.log(`${session.id}${recentMarker}`);
-    console.log(`├─ ${session.messageCount} messages, ${session.tokenCount.toLocaleString()} tokens (${percentCapacity.toFixed(1)}%)${capacityWarning}`);
-    console.log(`├─ Updated: ${formatRelativeTime(session.metadata.updatedAt)}`);
-    
-    // Show first user message as preview
-    const firstUserMsg = session.messages.find(m => m.role === 'user');
-    const preview = firstUserMsg ? firstUserMsg.content.slice(0, 60) : '(no messages)';
-    console.log(`└─ Task: ${preview}${preview.length >= 60 ? '...' : ''}`);
+
+  console.log(`\nSessions for ${cwd}:\n`);
+
+  // Show named sessions
+  if (named.length > 0) {
+    console.log('Named Sessions:');
+    console.log('─'.repeat(70));
+
+    const namedSessions = await Promise.all(
+      named.map(async id => {
+        try {
+          return await readSession(id);
+        } catch {
+          return null;
+        }
+      })
+    );
+
+    const validNamed = namedSessions.filter(s => s !== null);
+    validNamed.sort((a, b) =>
+      new Date(b!.metadata.updatedAt).getTime() -
+      new Date(a!.metadata.updatedAt).getTime()
+    );
+
+    for (let i = 0; i < validNamed.length; i++) {
+      const session = validNamed[i]!;
+      const label = i === 0 ? ' [most recent named]' : '';
+      printSession(session, label);
+    }
     console.log();
   }
+
+  // Show unnamed sessions
+  if (unnamed.length > 0) {
+    console.log('Unnamed Sessions:');
+    console.log('─'.repeat(70));
+
+    const unnamedSessions = await Promise.all(
+      unnamed.map(async id => {
+        try {
+          return await readSession(id);
+        } catch {
+          return null;
+        }
+      })
+    );
+
+    const validUnnamed = unnamedSessions.filter(s => s !== null);
+    validUnnamed.sort((a, b) =>
+      new Date(b!.metadata.updatedAt).getTime() -
+      new Date(a!.metadata.updatedAt).getTime()
+    );
+
+    for (let i = 0; i < validUnnamed.length; i++) {
+      const session = validUnnamed[i]!;
+      const label = i === 0 ? ' [current]' : '';
+      printSession(session, label);
+    }
+  }
+}
+
+function printSession(session: any, label: string) {
+  const percentCapacity = (session.tokenCount / 200000) * 100;
+  const capacityWarning = percentCapacity > 70 ? ' ⚠️ HIGH' : '';
+
+  console.log(`${session.id}${label}`);
+  console.log(`├─ ${session.messageCount} messages, ${(session.tokenCount / 1000).toFixed(0)}k tokens (${percentCapacity.toFixed(1)}%)${capacityWarning}`);
+  console.log(`├─ Updated: ${formatRelativeTime(session.metadata.updatedAt)}`);
+
+  // Show first user message as preview
+  const firstUserMsg = session.messages.find((m: any) => m.role === 'user');
+  const content = firstUserMsg?.content;
+  const preview = typeof content === 'string'
+    ? content.slice(0, 60)
+    : (content ? JSON.stringify(content).slice(0, 60) : '(no messages)');
+
+  console.log(`└─ Task: ${preview}${preview.length >= 60 ? '...' : ''}`);
+  console.log();
 }
 
 function formatRelativeTime(isoDate: string): string {
@@ -450,7 +685,7 @@ function formatRelativeTime(isoDate: string): string {
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
-  
+
   if (seconds < 60) return 'just now';
   if (minutes < 60) return `${minutes}m ago`;
   if (hours < 24) return `${hours}h ago`;
@@ -460,257 +695,153 @@ function formatRelativeTime(isoDate: string): string {
 main().catch(console.error);
 ```
 
-#### T1.6: CLAUDE.md
-**Duration:** 2 hours  
+#### T1.7: CLAUDE.md
+**Duration:** 2 hours
 **Priority:** P0
 
 **File: CLAUDE.md**
-```markdown
-# Context Curator
 
-You are the Context Curator, a specialized assistant for managing Claude Code sessions.
-
-## Initialization
-
-**CRITICAL**: Every time you are resumed, immediately run:
-
-```bash
-npm --prefix ~/.claude/context-curator run init
-```
-
-This will:
-1. Display the current working directory
-2. Show which sessions are available
-3. List available commands
-
-## Your Purpose
-
-You help developers manage Claude Code sessions **in the current directory only**.
-
-### Directory Scoping (CRITICAL)
-
-- You operate ONLY on `./.claude/sessions/` in the current directory
-- NEVER modify sessions from other directories  
-- Always show which directory you're operating on
-- All scripts automatically use `process.cwd()` for scoping
-
-## Available Commands
-
-### show sessions
-List all sessions in the current directory with details.
-
-```bash
-npm --prefix ~/.claude/context-curator run show
-```
-
-### summarize <session-id>
-Analyze a specific session in detail.
-
-```bash
-npm --prefix ~/.claude/context-curator run summarize <session-id>
-```
-
-### manage <session-id> <model>
-Enter interactive session editing mode.
-
-Arguments:
-- `session-id`: Session to edit
-- `model`: One of: sonnet, opus, haiku
-
-```bash
-npm --prefix ~/.claude/context-curator run manage <session-id> <model>
-```
-
-In manage mode, the user can:
-- Get optimization suggestions
-- Stage changes with natural language
-- Type `@apply` to commit changes
-- Type `@undo` or `@undo all` to revert
-
-### checkpoint <session-id> <new-name>
-Create a backup/fork of a session.
-
-```bash
-npm --prefix ~/.claude/context-curator run checkpoint <session-id> <new-name>
-```
-
-### delete <session-id>
-Remove a session (creates backup first, requires confirmation).
-
-```bash
-npm --prefix ~/.claude/context-curator run delete <session-id>
-```
-
-### dump <session-id>
-Display raw JSONL contents of a session.
-
-```bash
-npm --prefix ~/.claude/context-curator run dump <session-id>
-```
-
-### help
-Show detailed help and command reference.
-
-## Behavior Guidelines
-
-### Safety
-- ALWAYS create backups before modifications
-- REQUIRE user confirmation for destructive operations
-- NEVER touch sessions from other directories
-- WARN if attempting to modify an active session
-
-### User Experience
-- Display current directory prominently
-- Show before/after states for changes
-- Highlight token savings
-- Use clear formatting
-- Be concise but informative
-
-### Command Interpretation
-
-Users may phrase requests differently. Map these to commands:
-
-- "show me my sessions" → show sessions
-- "what sessions do I have" → show sessions
-- "list sessions" → show sessions
-- "tell me about session X" → summarize X
-- "analyze session X" → summarize X
-- "clean up session X" → manage X sonnet
-- "optimize session X" → manage X sonnet
-- "backup session X" → checkpoint X <name>
-- "copy session X to Y" → checkpoint X Y
-- "remove session X" → delete X
-- "show raw data for X" → dump X
-
-## Tools You Have
-
-- **Bash**: Run npm scripts, check file system
-- **Read**: Read files to inspect sessions
-- **Write**: Modify sessions (only after confirmation)
-- **Glob/Grep**: Search for patterns
-
-## Example Interactions
-
-**Simple listing:**
-User: "show sessions"
-You: [Run init if needed, then run show command, display results]
-
-**Analysis request:**
-User: "my auth session feels slow"
-You: "Let me check. [Run show sessions] I see sess-abc123 is your most recent. Let me analyze it. [Run summarize sess-abc123]"
-
-**Optimization:**
-User: "can you clean it up?"
-You: "I'll use the editor mode. [Run manage sess-abc123 sonnet]"
-
-**Checkpoint:**
-User: "save a backup first"
-You: "What should I name it?"
-User: "before-cleanup"
-You: [Run checkpoint sess-abc123 before-cleanup]
-
-## Remember
-
-- You are focused on ONE task: managing sessions in the current directory
-- Be helpful, safe, and efficient
-- Always confirm the current directory
-- Protect user data with backups
-```
+(Use the exact content from PRD v5.0 section "### CLAUDE.md")
 
 ---
 
 ## Phase 2: Analysis & Optimization (Days 8-14)
 
 ### T2.1: Session Analyzer
-**Duration:** 1 day  
+**Duration:** 1 day
 **Priority:** P0
 
-(Implementation similar to previous version, but ensure all file paths use `process.cwd()`)
+**File: src/session-analyzer.ts**
+
+Key updates:
+- Handle both named and unnamed sessions
+- Work with structured content (not just strings)
+- Detect task boundaries
+- Calculate token distributions
 
 ### T2.2: Summarize Script
-**Duration:** 4 hours  
+**Duration:** 4 hours
 **Priority:** P0
 
-(Implementation from previous version)
+**File: scripts/summarize.ts**
+```typescript
+#!/usr/bin/env tsx
+import { readSession } from '../src/session-reader.js';
+import { analyzeSession } from '../src/session-analyzer.js';
+
+async function main() {
+  const sessionId = process.argv[2];
+
+  if (!sessionId) {
+    console.error('Usage: npm run summarize <session-id>');
+    process.exit(1);
+  }
+
+  console.log(`\nAnalyzing session: ${sessionId}\n`);
+
+  try {
+    const session = await readSession(sessionId);
+    const analysis = await analyzeSession(session);
+
+    console.log(`Session Type: ${session.isNamed ? 'Named' : 'Unnamed'}`);
+    console.log(`Messages: ${session.messageCount}`);
+    console.log(`Tokens: ${session.tokenCount.toLocaleString()}`);
+    console.log(`Capacity: ${((session.tokenCount / 200000) * 100).toFixed(1)}%`);
+    console.log('');
+
+    // Show task breakdown
+    console.log('Task Breakdown:');
+    console.log('─'.repeat(70));
+    for (const task of analysis.tasks) {
+      console.log(`\nMessages ${task.startIndex}-${task.endIndex}`);
+      console.log(`├─ ${task.messageCount} messages, ${task.tokenCount} tokens`);
+      console.log(`├─ Status: ${task.status}`);
+      console.log(`└─ Task: ${task.firstPrompt.slice(0, 60)}...`);
+    }
+
+    // Show recommendations
+    if (analysis.recommendations.length > 0) {
+      console.log('\n\nRecommendations:');
+      console.log('─'.repeat(70));
+      for (const rec of analysis.recommendations) {
+        console.log(`\n⚠️  ${rec.description}`);
+        console.log(`   Potential savings: ${rec.tokenSavings} tokens`);
+      }
+    }
+
+    console.log('\n');
+  } catch (err) {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
+  }
+}
+
+main().catch(console.error);
+```
 
 ### T2.3: Session Writer
-**Duration:** 4 hours  
+**Duration:** 4 hours
 **Priority:** P0
 
 **File: src/session-writer.ts**
-```typescript
-import * as path from 'path';
-import * as fs from 'fs/promises';
-import { Message } from './types.js';
 
-const getSessionsDir = () => path.join(process.cwd(), '.claude', 'sessions');
-const BACKUP_DIR = path.join(process.env.HOME!, '.claude-context-backups');
-
-export async function writeSession(
-  sessionId: string,
-  messages: Message[]
-): Promise<void> {
-  const sessionsDir = getSessionsDir();
-  const sessionPath = path.join(sessionsDir, sessionId);
-  
-  await fs.mkdir(sessionPath, { recursive: true });
-  
-  // Write conversation.jsonl
-  const jsonlPath = path.join(sessionPath, 'conversation.jsonl');
-  const content = messages.map(m => JSON.stringify(m)).join('\n');
-  await fs.writeFile(jsonlPath, content, 'utf-8');
-  
-  // Update metadata
-  const metadataPath = path.join(sessionPath, 'metadata.json');
-  const metadata = {
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-  await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2), 'utf-8');
-}
-
-export async function backupSession(sessionId: string): Promise<string> {
-  const sessionsDir = getSessionsDir();
-  const sourcePath = path.join(sessionsDir, sessionId);
-  
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-  const backupId = `${sessionId}-${timestamp}`;
-  const backupPath = path.join(BACKUP_DIR, backupId);
-  
-  await fs.mkdir(BACKUP_DIR, { recursive: true });
-  await fs.cp(sourcePath, backupPath, { recursive: true });
-  
-  return backupPath;
-}
-
-export async function deleteSession(
-  sessionId: string,
-  createBackup: boolean = true
-): Promise<string | null> {
-  const sessionsDir = getSessionsDir();
-  const sessionPath = path.join(sessionsDir, sessionId);
-  
-  let backupPath = null;
-  if (createBackup) {
-    backupPath = await backupSession(sessionId);
-  }
-  
-  await fs.rm(sessionPath, { recursive: true, force: true });
-  
-  return backupPath;
-}
-```
+Key updates:
+- Support writing both named and unnamed sessions
+- Auto-detect session type from ID
+- Handle metadata appropriately for each type
+- Create backups before modifications
 
 ### T2.4: Checkpoint Script
-**Duration:** 2 hours  
+**Duration:** 3 hours
 **Priority:** P0
 
-### T2.5: Delete Script  
-**Duration:** 2 hours  
+**File: scripts/checkpoint.ts**
+```typescript
+#!/usr/bin/env tsx
+import { readSession } from '../src/session-reader.js';
+import { writeSession } from '../src/session-writer.js';
+
+async function main() {
+  const sourceId = process.argv[2];
+  const newName = process.argv[3];
+
+  if (!sourceId || !newName) {
+    console.error('Usage: npm run checkpoint <session-id> <new-name>');
+    process.exit(1);
+  }
+
+  console.log(`\nCreating checkpoint: ${sourceId} → ${newName}\n`);
+
+  try {
+    // Read source session (can be named or unnamed)
+    const session = await readSession(sourceId);
+
+    console.log(`Source: ${sourceId} (${session.isNamed ? 'named' : 'unnamed'})`);
+    console.log(`Target: ${newName} (will be named)`);
+    console.log('');
+
+    // Write as named session
+    await writeSession(newName, session.messages, true);
+
+    console.log(`✓ Checkpoint created: ${newName}`);
+    console.log('');
+    console.log(`Resume with: claude -r ${newName}`);
+    console.log('');
+  } catch (err) {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
+  }
+}
+
+main().catch(console.error);
+```
+
+### T2.5: Delete Script
+**Duration:** 2 hours
 **Priority:** P0
 
 ### T2.6: Dump Script
-**Duration:** 2 hours  
+**Duration:** 2 hours
 **Priority:** P0
 
 ---
@@ -718,121 +849,217 @@ export async function deleteSession(
 ## Phase 3: Editor Mode (Days 15-21)
 
 ### T3.1: Change Tracker
-**Duration:** 4 hours  
+**Duration:** 4 hours
 **Priority:** P0
 
 (Same as previous implementation)
 
 ### T3.2: Editor Implementation
-**Duration:** 2 days  
+**Duration:** 2 days
 **Priority:** P0
 
-(Similar to previous, ensure all paths use `process.cwd()`)
+**File: src/editor.ts**
+
+Key updates:
+- Work with both named and unnamed sessions
+- Handle structured message content
+- Support @apply and @undo commands
+- Show clear before/after states
 
 ### T3.3: Manage Script
-**Duration:** 1 day  
+**Duration:** 1 day
 **Priority:** P0
+
+**File: scripts/manage.ts**
+```typescript
+#!/usr/bin/env tsx
+import { readSession } from '../src/session-reader.js';
+import { SessionEditor } from '../src/editor.js';
+
+async function main() {
+  const sessionId = process.argv[2];
+  const model = process.argv[3] as 'sonnet' | 'opus' | 'haiku';
+
+  if (!sessionId || !model) {
+    console.error('Usage: npm run manage <session-id> <model>');
+    process.exit(1);
+  }
+
+  console.log(`\nLaunching editor for session: ${sessionId}`);
+  console.log(`Model: ${model}\n`);
+
+  try {
+    const session = await readSession(sessionId);
+    console.log(`Session type: ${session.isNamed ? 'Named' : 'Unnamed'}`);
+    console.log(`Messages: ${session.messageCount}`);
+    console.log(`Tokens: ${session.tokenCount.toLocaleString()}`);
+    console.log('');
+
+    const editor = new SessionEditor(session, model);
+    await editor.start();
+  } catch (err) {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
+  }
+}
+
+main().catch(console.error);
+```
 
 ---
 
 ## Phase 4: Testing & Polish (Days 22-28)
 
 ### T4.1: Integration Testing
-**Duration:** 2 days  
+**Duration:** 2 days
 **Priority:** P0
 
 **Test Scenarios:**
 
-1. **Multi-directory scoping:**
+1. **Skill activation:**
 ```bash
-# Create two test projects
-mkdir -p ~/test-proj-a && cd ~/test-proj-a
-claude  # Create session
-exit
-
-mkdir -p ~/test-proj-b && cd ~/test-proj-b
-claude  # Create session
-exit
-
-# Test curator sees correct sessions
-cd ~/test-proj-a
+# Should only work from context-curator session
 claude -r context-curator
-# Should see only proj-a's sessions
+# Commands should be available
 
-cd ~/test-proj-b
-claude -r context-curator
-# Should see only proj-b's sessions
+# Should NOT work from other sessions
+claude -r some-other-session
+# Commands should not be available
 ```
 
-2. **Session modification:**
+2. **Named vs Unnamed sessions:**
 ```bash
-cd ~/test-proj-a
+# Create named session
+mkdir -p ~/.claude/sessions/test-named
+echo '{"role":"user","content":"test"}' > ~/.claude/sessions/test-named/conversation.jsonl
+
+# Create unnamed session (simulate)
+PROJECT_DIR=$(pwd | tr '/' '-')
+mkdir -p ~/.claude/projects/$PROJECT_DIR
+echo '{"role":"user","content":"test"}' > ~/.claude/projects/$PROJECT_DIR/abc123.jsonl
+
+# Test curator sees both
 claude -r context-curator
-# Test manage, checkpoint, delete commands
+# show sessions should list both types separately
 ```
 
-3. **Error handling:**
+3. **Project directory scoping:**
 ```bash
-cd ~/empty-directory
+# Test in different directories
+cd ~/project-a
 claude -r context-curator
-# Should handle gracefully (no sessions)
+# Should see project-a's unnamed sessions
+
+cd ~/project-b
+claude -r context-curator
+# Should see project-b's unnamed sessions
+# Should still see all named sessions
+```
+
+4. **Session operations:**
+```bash
+# Test all commands on both session types
+cd ~/test-project
+claude -r context-curator
+
+# Test on unnamed session
+show sessions
+summarize <uuid>
+manage <uuid> sonnet
+checkpoint <uuid> backup-name
+delete <uuid>
+
+# Test on named session
+summarize test-named
+checkpoint test-named backup-named
+```
+
+5. **Error handling:**
+```bash
+# Directory with no sessions
+mkdir ~/empty-dir && cd ~/empty-dir
+claude -r context-curator
+# Should handle gracefully
+
+# Invalid session ID
+claude -r context-curator
+summarize non-existent-session
+# Should show clear error
 ```
 
 ### T4.2: Documentation
-**Duration:** 1 day  
+**Duration:** 1 day
 **Priority:** P0
 
 **README.md** with:
 - Quick start guide
 - Installation instructions
+- Session types explanation
 - Command reference
-- Examples
+- Examples for both named and unnamed sessions
 - Troubleshooting
 
 ### T4.3: Polish
-**Duration:** 1 day  
+**Duration:** 1 day
 **Priority:** P1
 
 - Improve error messages
 - Better output formatting
 - Progress indicators
 - Confirmation prompts
+- Session type indicators
 
 ---
 
 ## Testing Checklist
 
 ### Setup
+- [ ] `setup.sh` installs skill successfully
 - [ ] `setup.sh` creates session successfully
+- [ ] Skill symlink exists in `~/.claude/skills/`
 - [ ] Session can be resumed with `claude -r context-curator`
-- [ ] Init script runs and displays correct directory
+- [ ] Init script runs and displays correct info
+
+### Skill Behavior
+- [ ] Skill only activates from context-curator session
+- [ ] Commands not available in other sessions
+- [ ] Can invoke npm scripts from skill
+
+### Session Discovery
+- [ ] Discovers named sessions
+- [ ] Discovers unnamed sessions for current project
+- [ ] Project directory formula works correctly
+- [ ] Correctly filters out agent sessions
+- [ ] Handles missing directories gracefully
+
+### Session Operations
+- [ ] Can read both named and unnamed sessions
+- [ ] show sessions displays both types separately
+- [ ] summarize works on both types
+- [ ] checkpoint converts unnamed to named
+- [ ] delete works on both types (with backup)
+- [ ] dump displays correct format for each type
 
 ### Directory Scoping
-- [ ] Only sees sessions in current directory
-- [ ] Correctly ignores sessions from other directories
-- [ ] Works from any directory
-
-### Commands
-- [ ] show sessions works (0, 1, many sessions)
-- [ ] summarize provides useful analysis
-- [ ] checkpoint creates valid session copy
-- [ ] delete removes session (with backup)
-- [ ] dump displays raw JSONL correctly
-- [ ] manage enters interactive mode
+- [ ] Named sessions visible from all directories
+- [ ] Unnamed sessions scoped to current project
+- [ ] Changing directories shows correct unnamed sessions
+- [ ] Project dir formula handles all path types
 
 ### Editor Mode
-- [ ] Launches successfully
-- [ ] Provides optimization suggestions
-- [ ] Stages changes correctly
-- [ ] @apply commits changes
+- [ ] Works on both session types
+- [ ] Handles structured message content
+- [ ] @apply commits changes correctly
 - [ ] @undo reverts changes
-- [ ] Modified session loads in Claude Code
+- [ ] Modified sessions load in Claude Code
+- [ ] Preserves session type after modification
 
 ### Safety
 - [ ] Backups created before modifications
 - [ ] Confirmations required for destructive ops
 - [ ] No data loss in any scenario
 - [ ] Clear error messages
+- [ ] Session type preserved through operations
 
 ---
 
@@ -840,8 +1067,8 @@ claude -r context-curator
 
 | Days | Phase | Deliverables |
 |------|-------|--------------|
-| 1-2 | Setup | Validation, project structure |
-| 3-7 | Core | Session creation, basic scripts, CLAUDE.md |
+| 1-2 | Setup | Skill validation, project structure |
+| 3-7 | Core | Skill manifest, dual session reader, basic scripts |
 | 8-14 | Analysis | Analyzer, summarize, checkpoint, delete |
 | 15-21 | Editor | Interactive editing with @apply/@undo |
 | 22-28 | Polish | Testing, documentation, refinement |
@@ -853,14 +1080,16 @@ claude -r context-curator
 ## Success Criteria
 
 ### Technical
-- Works from any directory
-- Correctly scopes to current directory only
-- All commands functional
+- Skill only activates from context-curator session
+- Correctly handles named and unnamed sessions
+- Project directory formula works correctly
+- All commands functional on both session types
 - Zero data loss
 - Handles edge cases gracefully
 
 ### User Experience
 - Easy to install (one command)
+- Clear distinction between session types
 - Intuitive to use
 - Clear feedback
 - Helpful error messages
@@ -869,8 +1098,9 @@ claude -r context-curator
 ### Documentation
 - Clear README
 - Installation guide
+- Session types explained
 - Command reference
-- Examples
+- Examples for both types
 - Troubleshooting guide
 
 ---
@@ -878,9 +1108,12 @@ claude -r context-curator
 ## Launch Checklist
 
 - [ ] All tests passing
+- [ ] Both session types work correctly
+- [ ] Project directory formula validated
 - [ ] Documentation complete
 - [ ] Tested on macOS and Linux
 - [ ] API key handling documented
 - [ ] Example workflows documented
 - [ ] GitHub repo ready
 - [ ] Demo video/GIF created
+- [ ] Skill manifest correct
