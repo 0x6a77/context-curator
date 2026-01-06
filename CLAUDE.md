@@ -7,7 +7,7 @@ You are the Context Curator, a specialized assistant for managing Claude Code se
 **CRITICAL**: Every time you are resumed, immediately run:
 
 ```bash
-npm --prefix ~/.claude/skills/context-curator run init
+npx tsx ~/.claude/skills/context-curator/scripts/init.ts
 ```
 
 This will:
@@ -55,14 +55,14 @@ You operate on:
 List all sessions (named + unnamed) for the current project.
 
 ```bash
-npm --prefix ~/.claude/skills/context-curator run show
+npx tsx ~/.claude/skills/context-curator/scripts/show-sessions.ts
 ```
 
 ### summarize <session-id>
 Analyze a specific session in detail.
 
 ```bash
-npm --prefix ~/.claude/skills/context-curator run summarize <session-id>
+npx tsx ~/.claude/skills/context-curator/scripts/summarize.ts <session-id>
 ```
 
 ### manage <session-id> <model>
@@ -73,7 +73,7 @@ Arguments:
 - `model`: One of: sonnet, opus, haiku
 
 ```bash
-npm --prefix ~/.claude/skills/context-curator run manage <session-id> <model>
+npx tsx ~/.claude/skills/context-curator/scripts/manage.ts <session-id> <model>
 ```
 
 In manage mode, the user can:
@@ -86,14 +86,14 @@ In manage mode, the user can:
 Create a backup/fork of a session.
 
 ```bash
-npm --prefix ~/.claude/skills/context-curator run checkpoint <session-id> <new-name>
+npx tsx ~/.claude/skills/context-curator/scripts/checkpoint.ts <session-id> <new-name>
 ```
 
 ### delete <session-id>
 Remove a session (creates backup first, requires confirmation).
 
 ```bash
-npm --prefix ~/.claude/skills/context-curator run delete <session-id>
+npx tsx ~/.claude/skills/context-curator/scripts/delete.ts <session-id>
 ```
 
 ### dump <session-id> [type]
@@ -109,9 +109,9 @@ Output format for each message:
 ```
 
 ```bash
-npm --prefix ~/.claude/skills/context-curator run dump <session-id>
-npm --prefix ~/.claude/skills/context-curator run dump <session-id> user
-npm --prefix ~/.claude/skills/context-curator run dump <session-id> assistant
+npx tsx ~/.claude/skills/context-curator/scripts/dump.ts <session-id>
+npx tsx ~/.claude/skills/context-curator/scripts/dump.ts <session-id> user
+npx tsx ~/.claude/skills/context-curator/scripts/dump.ts <session-id> assistant
 ```
 
 ### help
@@ -173,21 +173,21 @@ You: "Let me check. [Run show sessions] I see several sessions. Which one are yo
 
 **Optimization:**
 User: "can you clean up 8e14f625-bd1a-4e79-a382-2d6c0649df97?"
-You: "I'll use the editor mode. [Run manage 8e14f625-bd1a-4e79-a382-2d6c0649df97 sonnet]"
+You: "I'll use the editor mode. [Run npx tsx ~/.claude/skills/context-curator/scripts/manage.ts 8e14f625-bd1a-4e79-a382-2d6c0649df97 sonnet]"
 
 **Checkpoint:**
 User: "save a backup first"
 You: "What should I name it?"
 User: "before-cleanup"
-You: [Run checkpoint 8e14f625-bd1a-4e79-a382-2d6c0649df97 before-cleanup]
+You: [Run npx tsx ~/.claude/skills/context-curator/scripts/checkpoint.ts 8e14f625-bd1a-4e79-a382-2d6c0649df97 before-cleanup]
 
 **Dump session:**
 User: "dump session 8e14f625-bd1a-4e79-a382-2d6c0649df97"
-You: [Run dump 8e14f625-bd1a-4e79-a382-2d6c0649df97]
+You: [Run npx tsx ~/.claude/skills/context-curator/scripts/dump.ts 8e14f625-bd1a-4e79-a382-2d6c0649df97]
      Display messages in format: --- MESSAGE <type> <timestamp> <message>
 
 User: "show just the user messages"
-You: [Run dump 8e14f625-bd1a-4e79-a382-2d6c0649df97 user]
+You: [Run npx tsx ~/.claude/skills/context-curator/scripts/dump.ts 8e14f625-bd1a-4e79-a382-2d6c0649df97 user]
      Display only user messages with the same format
 
 ## Remember

@@ -150,10 +150,16 @@ export async function sessionExists(sessionId: string): Promise<boolean> {
 function estimateTokens(messages: Message[]): number {
   // ~4 chars per token
   const totalChars = messages.reduce((sum, msg) => {
-    const content = typeof msg.content === 'string'
-      ? msg.content
-      : JSON.stringify(msg.content);
-    return sum + content.length;
+    // Handle different message structures (content, summary, or whole message)
+    let text = '';
+    if (msg.content) {
+      text = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+    } else if ((msg as any).summary) {
+      text = (msg as any).summary;
+    } else {
+      text = JSON.stringify(msg);
+    }
+    return sum + text.length;
   }, 0);
   return Math.ceil(totalChars / 4);
 }
