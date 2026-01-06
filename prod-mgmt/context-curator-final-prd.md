@@ -361,8 +361,10 @@ Remove a session (creates backup first, requires confirmation).
 npm --prefix ~/.claude/skills/context-curator run delete <session-id>
 ```
 
-### dump <session-id>
-Display raw JSONL contents of a session.
+### dump <session-id> <type>
+Display the raw "message" elements of JSONL contents of a session sorted in timestamp order and filtered by "type" == <type> if the user specified a type parameter. Add the following label to each message output:
+
+   --- MESSAGE <type> <timestamp> <message>
 
 ```bash
 npm --prefix ~/.claude/skills/context-curator run dump <session-id>
