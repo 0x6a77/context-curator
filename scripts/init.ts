@@ -21,7 +21,7 @@ async function main() {
 
   console.log(`${named.length} named, ${unnamed.length} unnamed sessions for this project`);
   console.log('');
-  console.log('Commands: show | summarize | manage | checkpoint | delete | dump | help');
+  console.log('Commands: context list | analyze | manage | checkpoint | delete | dump | help');
   console.log('═'.repeat(70));
   console.log('');
 }

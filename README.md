@@ -83,39 +83,47 @@ The curator will show:
 
 Once in the curator session, you can use natural language or these commands:
 
-#### Show Sessions
+All commands use the unified `context` interface.
+
+#### List Sessions
 ```
-show sessions
+context list
 ```
 Lists all sessions (named + unnamed) with details like message count, token usage, and recency.
 
-#### Summarize a Session
+#### Analyze a Session
 ```
-summarize <session-id>
+context analyze <session-id>
 ```
 Analyzes a specific session, shows task breakdown and optimization recommendations.
 
+#### Manage a Session
+```
+context manage <session-id> <model>
+```
+Interactive session editor with Claude API integration. Models: sonnet, opus, haiku.
+
 #### Checkpoint a Session
 ```
-checkpoint <session-id> <new-name>
+context checkpoint <session-id> <new-name>
 ```
 Creates a backup/fork as a named session. Useful for converting unnamed → named.
 
 #### Delete a Session
 ```
-delete <session-id>
+context delete <session-id>
 ```
 Removes a session (creates automatic backup, requires confirmation).
 
 #### Dump Raw Data
 ```
-dump <session-id>
+context dump <session-id> [type]
 ```
-Shows the raw JSONL contents of a session.
+Shows the raw message contents of a session. Optional type filter: user, assistant, file-history-snapshot, summary.
 
 #### Help
 ```
-help
+context help
 ```
 Shows detailed help with command examples.
 
@@ -138,7 +146,7 @@ Operating on: /Users/dev/my-app
 Found 1 named session(s)
 Found 2 unnamed session(s) for this project
 
-You: show sessions
+You: context list
 
 Curator:
 Named Sessions:
@@ -155,11 +163,11 @@ Unnamed Sessions:
 ├─ Updated: 5m ago
 └─ Task: Implement JWT token refresh logic
 
-You: summarize 8e14f625-bd1a-4e79-a382-2d6c0649df97
+You: context analyze 8e14f625-bd1a-4e79-a382-2d6c0649df97
 
 Curator: [Shows detailed task breakdown and recommendations]
 
-You: checkpoint 8e14f625-bd1a-4e79-a382-2d6c0649df97 auth-work
+You: context checkpoint 8e14f625-bd1a-4e79-a382-2d6c0649df97 auth-work
 Curator: ✓ Checkpoint created: auth-work
 Resume with: claude -r auth-work
 

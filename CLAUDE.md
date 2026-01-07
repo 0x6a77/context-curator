@@ -54,21 +54,23 @@ You operate on:
 
 ## Available Commands
 
-### show sessions
+All commands use the unified `context` interface.
+
+### context list
 List all sessions (named + unnamed) for the current project.
 
 ```bash
-npx tsx ~/.claude/skills/context-curator/scripts/show-sessions.ts
+npm --prefix ~/.claude/skills/context-curator run context list
 ```
 
-### summarize <session-id>
+### context analyze <session-id>
 Analyze a specific session in detail.
 
 ```bash
-npx tsx ~/.claude/skills/context-curator/scripts/summarize.ts <session-id>
+npm --prefix ~/.claude/skills/context-curator run context analyze <session-id>
 ```
 
-### manage <session-id> <model>
+### context manage <session-id> <model>
 Enter interactive session editing mode.
 
 Arguments:
@@ -76,7 +78,7 @@ Arguments:
 - `model`: One of: sonnet, opus, haiku
 
 ```bash
-npx tsx ~/.claude/skills/context-curator/scripts/manage.ts <session-id> <model>
+npm --prefix ~/.claude/skills/context-curator run context manage <session-id> <model>
 ```
 
 In manage mode, the user can:
@@ -85,21 +87,21 @@ In manage mode, the user can:
 - Type `@apply` to commit changes
 - Type `@undo` or `@undo all` to revert
 
-### checkpoint <session-id> <new-name>
+### context checkpoint <session-id> <new-name>
 Create a backup/fork of a session.
 
 ```bash
-npx tsx ~/.claude/skills/context-curator/scripts/checkpoint.ts <session-id> <new-name>
+npm --prefix ~/.claude/skills/context-curator run context checkpoint <session-id> <new-name>
 ```
 
-### delete <session-id>
+### context delete <session-id>
 Remove a session (creates backup first, requires confirmation).
 
 ```bash
-npx tsx ~/.claude/skills/context-curator/scripts/delete.ts <session-id>
+npm --prefix ~/.claude/skills/context-curator run context delete <session-id>
 ```
 
-### dump <session-id> [type]
+### context dump <session-id> [type]
 Display the raw "message" elements of JSONL contents of a session sorted in timestamp order and filtered by "type" == <type> if the user specified a type parameter.
 
 Arguments:
@@ -108,16 +110,17 @@ Arguments:
 
 Output format for each message:
 ```
---- MESSAGE <type> <timestamp> <message>
+--- MESSAGE <type> <timestamp>
+<message content>
 ```
 
 ```bash
-npx tsx ~/.claude/skills/context-curator/scripts/dump.ts <session-id>
-npx tsx ~/.claude/skills/context-curator/scripts/dump.ts <session-id> user
-npx tsx ~/.claude/skills/context-curator/scripts/dump.ts <session-id> assistant
+npm --prefix ~/.claude/skills/context-curator run context dump <session-id>
+npm --prefix ~/.claude/skills/context-curator run context dump <session-id> user
+npm --prefix ~/.claude/skills/context-curator run context dump <session-id> assistant
 ```
 
-### help
+### context help
 Show detailed help and command reference.
 
 ## Behavior Guidelines
@@ -140,20 +143,20 @@ Show detailed help and command reference.
 
 Users may phrase requests differently. Map these to commands:
 
-- "show me my sessions" → show sessions
-- "what sessions do I have" → show sessions
-- "list sessions" → show sessions
-- "tell me about session X" → summarize X
-- "analyze session X" → summarize X
-- "clean up session X" → manage X sonnet
-- "optimize session X" → manage X sonnet
-- "backup session X" → checkpoint X <name>
-- "copy session X to Y" → checkpoint X Y
-- "remove session X" → delete X
-- "show raw data for X" → dump X
-- "dump session X" → dump X
-- "show user messages for X" → dump X user
-- "show assistant responses for X" → dump X assistant
+- "show me my sessions" → context list
+- "what sessions do I have" → context list
+- "list sessions" → context list
+- "tell me about session X" → context analyze X
+- "analyze session X" → context analyze X
+- "clean up session X" → context manage X sonnet
+- "optimize session X" → context manage X sonnet
+- "backup session X" → context checkpoint X <name>
+- "copy session X to Y" → context checkpoint X Y
+- "remove session X" → context delete X
+- "show raw data for X" → context dump X
+- "dump session X" → context dump X
+- "show user messages for X" → context dump X user
+- "show assistant responses for X" → context dump X assistant
 
 ## Tools You Have
 
@@ -166,32 +169,23 @@ Users may phrase requests differently. Map these to commands:
 
 **Simple listing:**
 User: "show sessions"
-You: [Run init if needed, then run show command, display results]
+You: [Run init if needed, then run context list, display results]
 
 **Analysis request:**
 User: "my auth session feels slow"
-You: "Let me check. [Run show sessions] I see several sessions. Which one are you referring to? Could be:
+You: "Let me check. [Run context list] I see several sessions. Which one are you referring to? Could be:
   - auth-workflow (named session, 89k tokens)
   - 8e14f625-... (current unnamed, 67k tokens)"
 
 **Optimization:**
 User: "can you clean up 8e14f625-bd1a-4e79-a382-2d6c0649df97?"
-You: "I'll use the editor mode. [Run npx tsx ~/.claude/skills/context-curator/scripts/manage.ts 8e14f625-bd1a-4e79-a382-2d6c0649df97 sonnet]"
+You: "I'll use the editor mode. [Run context manage 8e14f625-bd1a-4e79-a382-2d6c0649df97 sonnet]"
 
 **Checkpoint:**
 User: "save a backup first"
 You: "What should I name it?"
 User: "before-cleanup"
-You: [Run npx tsx ~/.claude/skills/context-curator/scripts/checkpoint.ts 8e14f625-bd1a-4e79-a382-2d6c0649df97 before-cleanup]
-
-**Dump session:**
-User: "dump session 8e14f625-bd1a-4e79-a382-2d6c0649df97"
-You: [Run npx tsx ~/.claude/skills/context-curator/scripts/dump.ts 8e14f625-bd1a-4e79-a382-2d6c0649df97]
-     Display messages in format: --- MESSAGE <type> <timestamp> <message>
-
-User: "show just the user messages"
-You: [Run npx tsx ~/.claude/skills/context-curator/scripts/dump.ts 8e14f625-bd1a-4e79-a382-2d6c0649df97 user]
-     Display only user messages with the same format
+You: [Run context checkpoint 8e14f625-bd1a-4e79-a382-2d6c0649df97 before-cleanup]
 
 ## Remember
 

@@ -1,12 +1,13 @@
 {
   "name": "claude-context-curator",
-  "version": "0.1.0",
-  "description": "Claude Code session manager - helps manage and optimize your Claude Code sessions",
+  "version": "0.2.0",
+  "description": "Claude Code session manager with unified context interface",
   "type": "module",
   "scripts": {
     "init": "tsx scripts/init.ts",
-    "show": "tsx scripts/show-sessions.ts",
-    "summarize": "tsx scripts/summarize.ts",
+    "context": "tsx scripts/context.ts",
+    "list": "tsx scripts/list.ts",
+    "analyze": "tsx scripts/analyze.ts",
     "manage": "tsx scripts/manage.ts",
     "checkpoint": "tsx scripts/checkpoint.ts",
     "delete": "tsx scripts/delete.ts",
