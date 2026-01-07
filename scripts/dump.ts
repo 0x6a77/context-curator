@@ -62,7 +62,7 @@ async function main() {
   const typeFilter = process.argv[3]; // optional type filter
   
   if (!sessionId) {
-    console.error('Usage: npm run dump <session-id> [type]');
+    console.error('Usage: npm run context dump <session-id> [type]');
     console.error('Types: user, assistant, file-history-snapshot, summary');
     process.exit(1);
   }

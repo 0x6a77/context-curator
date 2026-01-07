@@ -276,12 +276,12 @@ npm install
 
 # Run any script
 npm run init
-npm run show
-npm run summarize <session-id>
-npm run checkpoint <id> <name>
-npm run delete <id>
-npm run dump <id>
-npm run help
+npm run context list
+npm run context analyze <session-id>
+npm run context checkpoint <id> <name>
+npm run context delete <id>
+npm run context dump <id>
+npm run context help
 ```
 
 ## Requirements

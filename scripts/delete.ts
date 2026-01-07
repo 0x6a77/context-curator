@@ -21,7 +21,7 @@ async function main() {
   const sessionId = process.argv[2];
 
   if (!sessionId) {
-    console.error('Usage: npm run delete <session-id>');
+    console.error('Usage: npm run context delete <session-id>');
     process.exit(1);
   }
 

@@ -7,7 +7,7 @@ async function main() {
   const newName = process.argv[3];
 
   if (!sourceId || !newName) {
-    console.error('Usage: npm run checkpoint <session-id> <new-name>');
+    console.error('Usage: npm run context checkpoint <session-id> <new-name>');
     process.exit(1);
   }
 

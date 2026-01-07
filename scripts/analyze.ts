@@ -6,7 +6,7 @@ async function main() {
   const sessionId = process.argv[2];
 
   if (!sessionId) {
-    console.error('Usage: npm run summarize <session-id>');
+    console.error('Usage: npm run context analyze <session-id>');
     process.exit(1);
   }
 
