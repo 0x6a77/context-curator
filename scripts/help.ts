@@ -7,20 +7,22 @@ function main() {
   console.log('');
   console.log('A tool for managing Claude Code session context.');
   console.log('');
+  
   console.log('SESSION TYPES:');
   console.log('');
   console.log('  Named Sessions');
-  console.log('  - Stored in ~/.claude/sessions/<session-id>/');
-  console.log('  - Globally accessible by name');
-  console.log('  - Resume with: claude -r <name>');
-  console.log('  - Examples: context-curator, my-workflow');
+  console.log('  • Stored in ~/.claude/sessions/<session-id>/');
+  console.log('  • Globally accessible by name');
+  console.log('  • Resume with: claude -r <name>');
+  console.log('  • Examples: context-curator, my-workflow');
   console.log('');
   console.log('  Unnamed Sessions');
-  console.log('  - Stored in ~/.claude/projects/<project-dir>/<uuid>.jsonl');
-  console.log('  - Project-specific (scoped by directory)');
-  console.log('  - Automatically created by Claude Code');
-  console.log('  - Example: 8e14f625-bd1a-4e79-a382-2d6c0649df97');
+  console.log('  • Stored in ~/.claude/projects/<project-dir>/<uuid>.jsonl');
+  console.log('  • Project-specific (scoped by directory)');
+  console.log('  • Automatically created by Claude Code');
+  console.log('  • Example: 8e14f625-bd1a-4e79-a382-2d6c0649df97');
   console.log('');
+  
   console.log('PROJECT DIRECTORY FORMULA:');
   console.log('');
   console.log('  /Users/dev/my-project  →  -Users-dev-my-project');
@@ -28,44 +30,98 @@ function main() {
   console.log('');
   console.log('  Formula: projectDir = fullPath.replace(/\\//g, \'-\')');
   console.log('');
+  
   console.log('COMMANDS:');
   console.log('');
+  
   console.log('  show sessions');
   console.log('    List all sessions (named + unnamed for current project)');
-  console.log('    Usage: npm --prefix ~/.claude/skills/context-curator run show');
+  console.log('    Usage: npm run show');
   console.log('');
+  
   console.log('  summarize <session-id>');
-  console.log('    Analyze a session and show token breakdown');
-  console.log('    Usage: npm --prefix ~/.claude/skills/context-curator run summarize <id>');
+  console.log('    Analyze a session and show token breakdown with recommendations');
+  console.log('    Usage: npm run summarize <session-id>');
+  console.log('    Example: npm run summarize 8e14f625-bd1a-4e79-a382-2d6c0649df97');
   console.log('');
+  
+  console.log('  manage <session-id> <model>');
+  console.log('    Interactive session editor with Claude API integration');
+  console.log('    Models: sonnet, opus, haiku');
+  console.log('    Usage: npm run manage <session-id> <model>');
+  console.log('    Example: npm run manage 8e14f625-bd1a-4e79-a382-2d6c0649df97 sonnet');
+  console.log('');
+  console.log('    In manage mode:');
+  console.log('    • Describe changes in natural language');
+  console.log('    • @apply    - Apply staged changes');
+  console.log('    • @undo     - Undo last staged change');
+  console.log('    • @undo all - Undo all staged changes');
+  console.log('    • @preview  - Show before/after comparison');
+  console.log('    • @exit     - Exit without saving');
+  console.log('');
+  
   console.log('  checkpoint <session-id> <new-name>');
   console.log('    Create a backup/fork of a session as a named session');
-  console.log('    Usage: npm --prefix ~/.claude/skills/context-curator run checkpoint <id> <name>');
+  console.log('    Usage: npm run checkpoint <session-id> <new-name>');
+  console.log('    Example: npm run checkpoint 8e14f625-bd1a-4e79-a382-2d6c0649df97 auth-backup');
   console.log('');
+  
   console.log('  delete <session-id>');
-  console.log('    Remove a session (creates backup first)');
-  console.log('    Usage: npm --prefix ~/.claude/skills/context-curator run delete <id>');
+  console.log('    Remove a session (creates backup first, requires confirmation)');
+  console.log('    Usage: npm run delete <session-id>');
+  console.log('    Example: npm run delete old-session');
   console.log('');
-  console.log('  dump <session-id>');
-  console.log('    View raw JSONL contents of a session');
-  console.log('    Usage: npm --prefix ~/.claude/skills/context-curator run dump <id>');
+  
+  console.log('  dump <session-id> [type]');
+  console.log('    Display session messages sorted by timestamp');
+  console.log('    Types: user, assistant, file-history-snapshot, summary');
+  console.log('    Usage: npm run dump <session-id> [type]');
+  console.log('    Examples:');
+  console.log('      npm run dump 8e14f625-bd1a-4e79-a382-2d6c0649df97');
+  console.log('      npm run dump 8e14f625-bd1a-4e79-a382-2d6c0649df97 user');
+  console.log('      npm run dump my-session assistant');
   console.log('');
+  
   console.log('  help');
   console.log('    Show this help message');
-  console.log('    Usage: npm --prefix ~/.claude/skills/context-curator run help');
+  console.log('    Usage: npm run help');
   console.log('');
-  console.log('INSTALLATION:');
+  
+  console.log('QUICK START:');
   console.log('');
-  console.log('  git clone <repo> ~/.claude/skills/context-curator');
-  console.log('  cd ~/.claude/skills/context-curator');
-  console.log('  npm install');
-  console.log('  ./setup.sh');
+  console.log('  1. Installation:');
+  console.log('     git clone <repo> ~/.claude/skills/context-curator');
+  console.log('     cd ~/.claude/skills/context-curator');
+  console.log('     npm install');
+  console.log('     ./setup.sh');
   console.log('');
-  console.log('USAGE:');
+  console.log('  2. Usage:');
+  console.log('     cd ~/any-project');
+  console.log('     claude -r context-curator');
   console.log('');
-  console.log('  cd ~/any-project');
-  console.log('  claude -r context-curator');
+  console.log('  3. Common workflow:');
+  console.log('     • "show sessions" - see what you have');
+  console.log('     • "summarize <id>" - analyze a session');
+  console.log('     • "checkpoint <id> <name>" - backup before editing');
+  console.log('     • "manage <id> sonnet" - optimize with Claude');
   console.log('');
+  
+  console.log('TIPS:');
+  console.log('');
+  console.log('  • Always checkpoint before using manage mode');
+  console.log('  • Use sonnet model for best balance of speed and quality');
+  console.log('  • Sessions over 70% capacity (140k tokens) should be optimized');
+  console.log('  • The curator only manages sessions for the current project');
+  console.log('  • Named sessions are visible from any directory');
+  console.log('');
+  
+  console.log('REQUIREMENTS:');
+  console.log('');
+  console.log('  • Claude Code installed');
+  console.log('  • Node.js 18+');
+  console.log('  • ANTHROPIC_API_KEY environment variable (for manage mode)');
+  console.log('');
+  
   console.log('═'.repeat(70));
   console.log('');
 }
