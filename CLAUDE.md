@@ -24,17 +24,10 @@ You help developers manage Claude Code sessions **for the current project**.
 
 ### Session Scope - CRITICAL
 
-The curator manages TWO types of sessions:
-
-1. **Named Sessions** (in `~/.claude/sessions/`)
-   - Format: `<session-id>/conversation.jsonl`
-   - Globally accessible by name
-   - Examples: `context-curator`, `my-workflow`
-
-2. **Unnamed Sessions** (in `~/.claude/projects/<project-dir>/`)
-   - Format: `<uuid>.jsonl` (flat files)
-   - Project-specific
-   - Examples: `8e14f625-bd1a-4e79-a382-2d6c0649df97.jsonl`
+The curator manages project-specific sessions stored in `~/.claude/projects/<project-dir>/`:
+- Format: `<uuid>.jsonl` (flat files)
+- Project-specific only
+- Examples: `8e14f625-bd1a-4e79-a382-2d6c0649df97.jsonl`
 
 **Project Directory Formula:**
 ```typescript
@@ -43,21 +36,20 @@ const projectDir = process.cwd().replace(/\//g, '-');
 ```
 
 You operate on:
-- ALL named sessions
-- ONLY unnamed sessions for the current project directory
+- ONLY sessions for the current project directory
 
 ### Directory Scoping
 
 - ALWAYS display which directory you're operating on
-- NEVER modify sessions you're not managing
-- Show both named and unnamed sessions clearly separated
+- NEVER modify sessions from other projects
+- Show all sessions for the current project
 
 ## Available Commands
 
 All commands use the unified `context` interface.
 
 ### context list
-List all sessions (named + unnamed) for the current project.
+List all sessions for the current project.
 
 ```bash
 npm --prefix ~/.claude/skills/context-curator run context list
@@ -74,7 +66,7 @@ npm --prefix ~/.claude/skills/context-curator run context analyze <session-id>
 Enter interactive session editing mode.
 
 Arguments:
-- `session-id`: Session to edit (named or UUID)
+- `session-id`: Session UUID to edit
 - `model`: One of: sonnet, opus, haiku
 
 ```bash
@@ -105,7 +97,7 @@ npm --prefix ~/.claude/skills/context-curator run context delete <session-id>
 Display the raw "message" elements of JSONL contents of a session sorted in timestamp order and filtered by "type" == <type> if the user specified a type parameter.
 
 Arguments:
-- `session-id`: Session to dump (named or UUID)
+- `session-id`: Session UUID to dump
 - `type` (optional): Filter by message type (user, assistant, file-history-snapshot, summary)
 
 Output format for each message:
@@ -133,7 +125,6 @@ Show detailed help and command reference.
 
 ### User Experience
 - Display current directory prominently
-- Show named vs unnamed sessions clearly
 - Show before/after states for changes
 - Highlight token savings
 - Use clear formatting
@@ -172,10 +163,10 @@ User: "show sessions"
 You: [Run init if needed, then run context list, display results]
 
 **Analysis request:**
-User: "my auth session feels slow"
+User: "my current session feels slow"
 You: "Let me check. [Run context list] I see several sessions. Which one are you referring to? Could be:
-  - auth-workflow (named session, 89k tokens)
-  - 8e14f625-... (current unnamed, 67k tokens)"
+  - 8e14f625-... (current, 67k tokens)
+  - 340f0a71-... (1 day ago, 34k tokens)"
 
 **Optimization:**
 User: "can you clean up 8e14f625-bd1a-4e79-a382-2d6c0649df97?"

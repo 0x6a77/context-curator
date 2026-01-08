@@ -1,54 +1,38 @@
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { Session, Message, SessionMetadata, SessionList } from './types.js';
+import { Session, Message } from './types.js';
 
 /**
  * Project directory naming formula
- * Converts /Users/dev/my-project → -Users-dev-my-project
  */
 function getProjectDir(cwd: string): string {
   return cwd.replace(/\//g, '-');
 }
 
 /**
- * Get paths for both session types
+ * Get session storage path for current project
  */
-function getSessionPaths() {
+function getSessionPath() {
   const cwd = process.cwd();
   const projectDir = getProjectDir(cwd);
   const homeDir = process.env.HOME!;
 
   return {
-    namedSessionsDir: path.join(homeDir, '.claude', 'sessions'),
-    unnamedSessionsDir: path.join(homeDir, '.claude', 'projects', projectDir),
+    sessionsDir: path.join(homeDir, '.claude', 'projects', projectDir),
     projectDir,
     cwd
   };
 }
 
 /**
- * List all session IDs (named + unnamed for current project)
+ * List all session IDs for current project
  */
-export async function listSessionIds(): Promise<SessionList> {
-  const { namedSessionsDir, unnamedSessionsDir } = getSessionPaths();
+export async function listSessionIds(): Promise<string[]> {
+  const { sessionsDir } = getSessionPath();
 
-  // Named sessions
-  let named: string[] = [];
   try {
-    const entries = await fs.readdir(namedSessionsDir);
-    named = entries.filter(e => {
-      // Filter out agent sessions and hidden files
-      return !e.startsWith('agent-') && !e.startsWith('.');
-    });
-  } catch (err) {
-    // No named sessions directory
-  }
-
-  // Unnamed sessions for this project
-  let unnamed: string[] = [];
-  try {
-    const entries = await fs.readdir(unnamedSessionsDir);
-    unnamed = entries
+    const entries = await fs.readdir(sessionsDir);
+    return entries
       .filter(e => {
         // UUID pattern: starts with hex chars and ends with .jsonl
         return e.endsWith('.jsonl') &&
@@ -57,69 +41,37 @@ export async function listSessionIds(): Promise<SessionList> {
       })
       .map(e => e.replace('.jsonl', ''));
   } catch (err) {
-    // No unnamed sessions for this project
+    // No sessions for this project
+    return [];
   }
-
-  return { named, unnamed };
 }
 
 /**
- * Read a session (auto-detect named vs unnamed)
+ * Read a session by ID
  */
 export async function readSession(sessionId: string): Promise<Session> {
-  const { namedSessionsDir, unnamedSessionsDir } = getSessionPaths();
-
-  // Try named first (directory structure)
-  const namedPath = path.join(namedSessionsDir, sessionId, 'conversation.jsonl');
-  const unnamedPath = path.join(unnamedSessionsDir, `${sessionId}.jsonl`);
-
-  let jsonlPath: string;
-  let isNamed: boolean;
+  const { sessionsDir, cwd } = getSessionPath();
+  const sessionPath = path.join(sessionsDir, `${sessionId}.jsonl`);
 
   try {
-    await fs.access(namedPath);
-    jsonlPath = namedPath;
-    isNamed = true;
+    await fs.access(sessionPath);
   } catch {
-    // Try unnamed (flat file)
-    try {
-      await fs.access(unnamedPath);
-      jsonlPath = unnamedPath;
-      isNamed = false;
-    } catch {
-      throw new Error(`Session not found: ${sessionId}`);
-    }
+    throw new Error(`Session not found: ${sessionId}`);
   }
 
   // Read conversation
-  const content = await fs.readFile(jsonlPath, 'utf-8');
+  const content = await fs.readFile(sessionPath, 'utf-8');
   const messages: Message[] = content
     .split('\n')
     .filter(line => line.trim())
     .map(line => JSON.parse(line));
 
-  // Read metadata
-  let metadata: SessionMetadata;
-  if (isNamed) {
-    // Named sessions have metadata.json
-    try {
-      const metadataPath = path.join(namedSessionsDir, sessionId, 'metadata.json');
-      const metadataContent = await fs.readFile(metadataPath, 'utf-8');
-      metadata = JSON.parse(metadataContent);
-    } catch {
-      metadata = {
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-    }
-  } else {
-    // Unnamed sessions: use file stats
-    const stats = await fs.stat(jsonlPath);
-    metadata = {
-      createdAt: stats.birthtime.toISOString(),
-      updatedAt: stats.mtime.toISOString()
-    };
-  }
+  // Get metadata from file stats
+  const stats = await fs.stat(sessionPath);
+  const metadata = {
+    createdAt: stats.birthtime.toISOString(),
+    updatedAt: stats.mtime.toISOString()
+  };
 
   return {
     id: sessionId,
@@ -127,8 +79,7 @@ export async function readSession(sessionId: string): Promise<Session> {
     metadata,
     messageCount: messages.length,
     tokenCount: estimateTokens(messages),
-    isNamed,
-    directory: process.cwd()
+    directory: cwd
   };
 }
 
@@ -148,18 +99,11 @@ export async function sessionExists(sessionId: string): Promise<boolean> {
  * Estimate tokens (rough approximation)
  */
 function estimateTokens(messages: Message[]): number {
-  // ~4 chars per token
   const totalChars = messages.reduce((sum, msg) => {
-    // Handle different message structures (content, summary, or whole message)
-    let text = '';
-    if (msg.content) {
-      text = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
-    } else if ((msg as any).summary) {
-      text = (msg as any).summary;
-    } else {
-      text = JSON.stringify(msg);
-    }
-    return sum + text.length;
+    const content = typeof msg.content === 'string'
+      ? msg.content
+      : JSON.stringify(msg.content);
+    return sum + content.length;
   }, 0);
   return Math.ceil(totalChars / 4);
 }

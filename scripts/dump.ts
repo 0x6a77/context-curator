@@ -87,7 +87,6 @@ async function main() {
     }
     
     console.log(`\nSession Dump: ${sessionId}`);
-    console.log(`Session type: ${session.isNamed ? 'Named' : 'Unnamed'}`);
     if (typeFilter) {
       console.log(`Filter: ${typeFilter}`);
       console.log(`Matching messages: ${messages.length} of ${session.messageCount}`);

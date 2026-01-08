@@ -1,272 +1,257 @@
 # Claude Code Context Curator
 
-A **global skill** for Claude Code that helps you manage, analyze, and optimize your Claude Code sessions across all your projects.
+A tool for managing Claude Code sessions with a unified `context` command interface.
 
 ## What is This?
 
-Context Curator is a Claude Code skill that manages both **named sessions** (globally accessible) and **unnamed sessions** (project-specific). It automatically scopes itself to show you the right sessions based on your current directory.
+Context Curator helps you analyze, optimize, and manage your Claude Code sessions for the current project. It provides commands to view session health, clean up context, and manage session files.
 
-## Session Types
+## Session Storage
 
-### Named Sessions
-- Stored in `~/.claude/sessions/<session-id>/`
-- Globally accessible by name
-- Resume with: `claude -r <name>`
-- Examples: `context-curator`, `my-workflow`
+Claude Code stores sessions as JSONL files in project-specific directories:
 
-### Unnamed Sessions
-- Stored in `~/.claude/projects/<project-dir>/<uuid>.jsonl`
-- Project-specific (automatically scoped by directory)
-- Created automatically by Claude Code
-- Examples: `8e14f625-bd1a-4e79-a382-2d6c0649df97`
+**Storage Location:**
+- `~/.claude/projects/<project-dir>/`
 
-### Project Directory Formula
+**File Format:**
+- `<uuid>.jsonl` - Flat JSONL files
 
-```typescript
-projectDir = fullPath.replace(/\//g, '-')
-// /Users/dev/my-project → -Users-dev-my-project
-// /home/user/work/app → -home-user-work-app
+**Examples:**
+- `~/.claude/projects/-Users-dev-my-project/8e14f625-bd1a-4e79-a382-2d6c0649df97.jsonl`
+- `~/.claude/projects/-home-user-work-app/340f0a71-99d6-40be-83f3-825d87ff1811.jsonl`
+
+### Project Path Formula
+
+Claude Code creates project directories by replacing all forward slashes with hyphens:
+
+```
+/Users/dev/my-project  →  -Users-dev-my-project
+/home/user/work/app    →  -home-user-work-app
 ```
 
-## Features
+Formula: `projectDir = fullPath.replace(/\//g, '-')`
 
-- 📊 **List Sessions**: View both named and unnamed sessions with token usage stats
-- 🔍 **Analyze Sessions**: Get detailed breakdowns of conversation history
-- 💾 **Checkpoint Sessions**: Create backups/forks (unnamed → named)
-- 🗑️ **Delete Sessions**: Safely remove sessions (with automatic backup)
-- 📄 **Dump Sessions**: View raw JSONL data
+### Directory Scoping
+
+The curator automatically scopes itself based on `process.cwd()`:
+- Shows ONLY sessions for the current project directory
+- Each project's sessions are completely isolated
 
 ## Installation
 
 ### One-Time Setup
 
 ```bash
-# 1. Clone to global skills directory
+# 1. Clone to skills directory
 git clone <repo-url> ~/.claude/skills/context-curator
 cd ~/.claude/skills/context-curator
 
 # 2. Install dependencies
 npm install
 
-# 3. Run setup
-./setup.sh
-```
-
-This will:
-- Install dependencies (TypeScript, tsx, Anthropic SDK)
-- Create the `context-curator` session
-- Verify installation
-
-### Verify Installation
-
-```bash
+# 3. Test installation
 cd ~/any-project
-claude -r context-curator
+npm --prefix ~/.claude/skills/context-curator run init
 ```
-
-You should see the Context Curator initialization screen showing session counts.
 
 ## Usage
 
-### From Any Project Directory
+All commands use the unified `context` interface:
 
 ```bash
-cd ~/my-project
-claude -r context-curator
+context list                           # List all sessions for current project
+context analyze <session-id>           # Analyze a session
+context manage <session-id> <model>    # Edit session interactively
+context checkpoint <session-id> <name> # Backup a session
+context delete <session-id>            # Remove a session
+context dump <session-id> [type]       # View raw session data
+context help                           # Show help
 ```
 
-The curator will show:
-- **All named sessions** (globally accessible)
-- **Unnamed sessions for `~/my-project`** only
-
-### Available Commands
-
-Once in the curator session, you can use natural language or these commands:
-
-All commands use the unified `context` interface.
-
-#### List Sessions
-```
-context list
-```
-Lists all sessions (named + unnamed) with details like message count, token usage, and recency.
-
-#### Analyze a Session
-```
-context analyze <session-id>
-```
-Analyzes a specific session, shows task breakdown and optimization recommendations.
-
-#### Manage a Session
-```
-context manage <session-id> <model>
-```
-Interactive session editor with Claude API integration. Models: sonnet, opus, haiku.
-
-#### Checkpoint a Session
-```
-context checkpoint <session-id> <new-name>
-```
-Creates a backup/fork as a named session. Useful for converting unnamed → named.
-
-#### Delete a Session
-```
-context delete <session-id>
-```
-Removes a session (creates automatic backup, requires confirmation).
-
-#### Dump Raw Data
-```
-context dump <session-id> [type]
-```
-Shows the raw message contents of a session. Optional type filter: user, assistant, file-history-snapshot, summary.
-
-#### Help
-```
-context help
-```
-Shows detailed help with command examples.
-
-## Example Workflow
+### Daily Workflow
 
 ```bash
 # Working on a project
-cd ~/my-app
+cd ~/my-project
 claude
 You: implement authentication
 Claude: [working... session getting large]
 ^D
 
-# Check session health
-claude -r context-curator
+# Check session health from project directory
+cd ~/my-project
+npm --prefix ~/.claude/skills/context-curator run context list
 
-Curator: Context Curator initialized
-Operating on: /Users/dev/my-app
+Sessions for /Users/dev/my-project:
 
-Found 1 named session(s)
-Found 2 unnamed session(s) for this project
-
-You: context list
-
-Curator:
-Named Sessions:
-─────────────────
-context-curator [most recent named]
-├─ 12 messages, 3k tokens (1.5%)
-├─ Updated: just now
-└─ Task: Initialize
-
-Unnamed Sessions:
-─────────────────
 8e14f625-bd1a-4e79-a382-2d6c0649df97 [current]
 ├─ 312 messages, 67k tokens (34%)
-├─ Updated: 5m ago
+├─ Updated: 5 minutes ago
 └─ Task: Implement JWT token refresh logic
 
-You: context analyze 8e14f625-bd1a-4e79-a382-2d6c0649df97
+340f0a71-99d6-40be-83f3-825d87ff1811
+├─ 203 messages, 34k tokens (17%)
+├─ Updated: 1 day ago
+└─ Task: Payment webhook debugging
 
-Curator: [Shows detailed task breakdown and recommendations]
+# Analyze a session
+npm run context analyze 8e14f625-bd1a-4e79-a382-2d6c0649df97
 
-You: context checkpoint 8e14f625-bd1a-4e79-a382-2d6c0649df97 auth-work
-Curator: ✓ Checkpoint created: auth-work
-Resume with: claude -r auth-work
+# Optimize the session
+npm run context manage 8e14f625-bd1a-4e79-a382-2d6c0649df97 sonnet
 
-You: exit
+Editor: [Interactive editing session]
+You: remove all failed cookie attempts but keep the working solution
+Editor: [analyzes and stages changes]
+You: @apply
+Curator: ✓ Session optimized
+  Before: 312 messages, 67k tokens
+  After: 189 messages, 38k tokens
+  Saved: 29k tokens (43%)
 
-# Resume work with the same session
-claude
-# Or resume the named checkpoint
-claude -r auth-work
+# Create a checkpoint before risky changes
+npm run context checkpoint 8e14f625-bd1a-4e79-a382-2d6c0649df97 auth-backup-2026-01-07
+
+Curator: ✓ Checkpoint created: auth-backup-2026-01-07
 ```
 
-## How It Works
+## Commands Reference
 
-### Directory Scoping
+### context list
 
-The Context Curator automatically scopes itself based on `process.cwd()`:
+List all sessions for the current project.
 
-- **Named sessions**: Always visible from any directory
-- **Unnamed sessions**: Only shows sessions for the current project
-
-This means you can safely manage sessions from different projects without mixing them up.
-
-### File Structure
-
-```
-~/.claude/
-├── skills/
-│   └── context-curator/         # The skill (this repo)
-│       ├── skill.json          # Skill manifest
-│       ├── CLAUDE.md            # Agent instructions
-│       ├── src/                 # TypeScript source
-│       ├── scripts/             # Command scripts
-│       └── setup.sh
-│
-├── sessions/
-│   ├── context-curator/         # The curator session
-│   │   ├── conversation.jsonl
-│   │   └── metadata.json
-│   ├── auth-work/               # Example named session
-│   └── [other named sessions]
-│
-└── projects/
-    ├── -Users-dev-my-project/   # Project sessions
-    │   ├── 8e14f625-[...].jsonl
-    │   └── 340f0a71-[...].jsonl
-    └── -Users-dev-other-app/
-        └── [...]
+```bash
+npm --prefix ~/.claude/skills/context-curator run context list
 ```
 
-## Implementation Status
+Shows:
+- All sessions for the current project directory
+- Token usage and capacity percentage
+- Last updated time
+- First task preview
 
-✅ **Fully Implemented:**
-- Dual session type support (named + unnamed)
-- Global installation as skill
-- Project directory formula
-- Session reading and listing
-- Show sessions command
-- Summarize command with analysis
-- Checkpoint command
-- Delete command with confirmation
-- Dump command
-- Help command
-- Setup script
-- CLAUDE.md agent instructions
-- Interactive manage/editor mode with Claude API integration
-  - Natural language change requests
-  - Staging system for changes
-  - @apply, @undo, @preview commands
-  - Before/after comparison
-  - Automatic backups
+### context analyze <session-id>
 
-## Development
+Analyze a specific session in detail.
 
-### Project Structure
+```bash
+npm --prefix ~/.claude/skills/context-curator run context analyze <session-id>
+```
+
+Output:
+- Task breakdown by message ranges
+- Token distribution
+- Optimization recommendations
+- Potential savings
+
+### context manage <session-id> <model>
+
+Enter interactive session editing mode.
+
+Arguments:
+- `session-id`: Session UUID to edit
+- `model`: One of: sonnet, opus, haiku
+
+```bash
+npm --prefix ~/.claude/skills/context-curator run context manage <session-id> <model>
+```
+
+Interactive commands:
+- Natural language: Describe changes you want
+- `@apply` - Apply staged changes
+- `@undo` - Undo last staged change
+- `@undo all` - Undo all staged changes
+- `@preview` - Show before/after comparison
+- `@exit` - Exit without saving
+
+### context checkpoint <session-id> <new-name>
+
+Create a backup/fork of a session.
+
+```bash
+npm --prefix ~/.claude/skills/context-curator run context checkpoint <session-id> <new-name>
+```
+
+Result:
+- Creates a backup file in the same project directory
+- Original session unchanged
+
+### context delete <session-id>
+
+Remove a session (creates backup first, requires confirmation).
+
+```bash
+npm --prefix ~/.claude/skills/context-curator run context delete <session-id>
+```
+
+Safety:
+- Creates automatic backup before deletion
+- Requires user confirmation
+- Shows backup name for recovery
+
+### context dump <session-id> [type]
+
+Display session messages sorted by timestamp.
+
+Arguments:
+- `session-id`: Session UUID to dump
+- `type` (optional): Filter by message type (user, assistant, file-history-snapshot, summary)
+
+```bash
+npm --prefix ~/.claude/skills/context-curator run context dump <session-id>
+npm --prefix ~/.claude/skills/context-curator run context dump <session-id> user
+```
+
+Output format:
+```
+--- MESSAGE <type> <timestamp>
+<message content>
+```
+
+### context help
+
+Show detailed help and command reference.
+
+```bash
+npm --prefix ~/.claude/skills/context-curator run context help
+```
+
+## File Structure
 
 ```
-.
+~/.claude/skills/context-curator/
+├── skill.json                  # Skill manifest
 ├── src/
-│   ├── types.ts               # TypeScript type definitions
-│   ├── session-reader.ts      # Read named + unnamed sessions
-│   ├── session-writer.ts      # Write/modify sessions
-│   ├── session-analyzer.ts    # Analyze session content
-│   └── editor.ts              # Interactive editor with Claude API
+│   ├── types.ts
+│   ├── session-reader.ts       # Reads project sessions
+│   ├── session-writer.ts
+│   ├── session-analyzer.ts
+│   └── editor.ts
 ├── scripts/
-│   ├── init.ts                # Initialization on resume
-│   ├── show-sessions.ts       # List sessions
-│   ├── summarize.ts           # Analyze session
-│   ├── checkpoint.ts          # Backup session
-│   ├── delete.ts              # Remove session
-│   ├── dump.ts                # Show raw JSONL
-│   ├── manage.ts              # Interactive editor
-│   └── help.ts                # Show help
-├── skill.json                 # Skill manifest
-├── CLAUDE.md                  # Agent instructions
-├── setup.sh                   # One-time setup
+│   ├── context.ts              # Main entry point
+│   ├── init.ts
+│   ├── list.ts
+│   ├── analyze.ts
+│   ├── manage.ts
+│   ├── checkpoint.ts
+│   ├── delete.ts
+│   ├── dump.ts
+│   └── help.ts
+├── setup.sh
 ├── package.json
-├── tsconfig.json
 └── README.md
 ```
+
+## Requirements
+
+- Claude Code installed
+- Node.js 18+
+- `ANTHROPIC_API_KEY` (for manage mode)
+- TypeScript 5+
+- tsx for running scripts
+
+## Development
 
 ### Running Scripts Locally
 
@@ -284,12 +269,6 @@ npm run context dump <id>
 npm run context help
 ```
 
-## Requirements
-
-- Claude Code installed
-- Node.js 18+ (for TypeScript scripts)
-- `ANTHROPIC_API_KEY` set in environment (for future editor mode)
-
 ## Troubleshooting
 
 ### Sessions not showing up
@@ -305,6 +284,7 @@ npm run context help
 
 MIT
 
-## Contributing
+## Version History
 
-Contributions welcome! This is v0.1.0 with core functionality implemented.
+- **v0.2.0** (2026-01-07): Unified context command interface, project-only scoping
+- **v0.1.0**: Initial implementation

@@ -16,7 +16,7 @@ async function main() {
     const session = await readSession(sessionId);
     const analysis = analyzeSession(session);
 
-    console.log(`Session Type: ${session.isNamed ? 'Named' : 'Unnamed'}`);
+    console.log(`Session ID: ${sessionId}`);
     console.log(`Messages: ${session.messageCount}`);
     console.log(`Tokens: ${session.tokenCount.toLocaleString()}`);
     console.log(`Capacity: ${analysis.capacityPercent.toFixed(1)}%`);

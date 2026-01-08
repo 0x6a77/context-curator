@@ -30,7 +30,6 @@ async function main() {
     const session = await readSession(sessionId);
 
     console.log(`\nSession: ${sessionId}`);
-    console.log(`Type: ${session.isNamed ? 'Named' : 'Unnamed'}`);
     console.log(`Messages: ${session.messageCount}`);
     console.log(`Tokens: ${session.tokenCount.toLocaleString()}`);
     console.log('');
@@ -50,8 +49,6 @@ async function main() {
     console.log(`✓ Session deleted: ${sessionId}`);
     if (backupName) {
       console.log(`✓ Backup created: ${backupName}`);
-      console.log('');
-      console.log(`Restore with: claude -r ${backupName}`);
     }
     console.log('');
 

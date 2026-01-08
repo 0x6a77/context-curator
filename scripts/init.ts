@@ -17,9 +17,9 @@ async function main() {
   console.log('');
 
   // Quick count only - no detailed listing for speed
-  const { named, unnamed } = await listSessionIds();
+  const sessionIds = await listSessionIds();
 
-  console.log(`${named.length} named, ${unnamed.length} unnamed sessions for this project`);
+  console.log(`${sessionIds.length} session(s) for this project`);
   console.log('');
   console.log('Commands: context list | analyze | manage | checkpoint | delete | dump | help');
   console.log('═'.repeat(70));

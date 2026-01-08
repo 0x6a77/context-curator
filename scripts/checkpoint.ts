@@ -14,19 +14,17 @@ async function main() {
   console.log(`\nCreating checkpoint: ${sourceId} → ${newName}\n`);
 
   try {
-    // Read source session (can be named or unnamed)
+    // Read source session
     const session = await readSession(sourceId);
 
-    console.log(`Source: ${sourceId} (${session.isNamed ? 'named' : 'unnamed'})`);
-    console.log(`Target: ${newName} (will be named)`);
+    console.log(`Source: ${sourceId}`);
+    console.log(`Target: ${newName}`);
     console.log('');
 
-    // Write as named session
-    await writeSession(newName, session.messages, true);
+    // Write as checkpoint
+    await writeSession(newName, session.messages);
 
     console.log(`✓ Checkpoint created: ${newName}`);
-    console.log('');
-    console.log(`Resume with: claude -r ${newName}`);
     console.log('');
   } catch (err) {
     console.error(`\n❌ Error: ${err instanceof Error ? err.message : 'Unknown error'}\n`);
