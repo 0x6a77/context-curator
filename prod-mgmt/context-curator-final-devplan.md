@@ -1,6 +1,6 @@
 # Developer Implementation Plan: Unified Context Command Interface
 
-**Version:** 6.0
+**Version:** 6.1
 **Timeline:** 2-3 days
 **Approach:** Refactor to unified `context <command>` syntax
 
@@ -10,12 +10,14 @@
 
 This plan implements the unified command interface where all curator operations use the `context` prefix. The core functionality (session reading, analysis, editor) is already implemented. This refactoring focuses on the command interface layer.
 
+**Important Note:** Claude Code only has project-specific sessions stored in `~/.claude/projects/<project-dir>/`. There are no "named" or "global" sessions.
+
 ---
 
 ## Completed Work
 
 ✅ **Already Implemented:**
-- Session reader (named + unnamed)
+- Session reader for project-specific sessions
 - Session writer with backups
 - Session analyzer with recommendations
 - Interactive editor with Claude API
@@ -23,18 +25,74 @@ This plan implements the unified command interface where all curator operations 
 - TypeScript compilation working
 - Help system
 - Init script optimized
+- Unified `context` command interface
 
 ---
 
-## Remaining Work: Command Interface Refactor
+## Current Architecture
 
-### Phase 1: Command Dispatcher (Day 1)
+### Session Storage
 
-#### T1.1: Create Main Entry Point
-**Duration:** 2 hours
-**Priority:** P0
+Claude Code stores sessions in:
+```
+~/.claude/projects/<project-dir>/<uuid>.jsonl
+```
 
-**File: scripts/context.ts**
+Where `<project-dir>` is computed by replacing `/` with `-`:
+```typescript
+const projectDir = process.cwd().replace(/\//g, '-');
+// /Users/dev/my-project → -Users-dev-my-project
+```
+
+### File Structure
+
+```
+~/.claude/skills/context-curator/
+├── skill.json
+├── src/
+│   ├── types.ts
+│   ├── session-reader.ts      # Reads from ~/.claude/projects/
+│   ├── session-writer.ts
+│   ├── session-analyzer.ts
+│   └── editor.ts
+├── scripts/
+│   ├── context.ts             # Main dispatcher
+│   ├── init.ts
+│   ├── list.ts
+│   ├── analyze.ts
+│   ├── manage.ts
+│   ├── checkpoint.ts
+│   ├── delete.ts
+│   ├── dump.ts
+│   └── help.ts
+├── setup.sh
+├── package.json
+└── README.md
+```
+
+---
+
+## Command Interface
+
+All commands use the unified syntax:
+
+```bash
+context list
+context analyze <session-id>
+context manage <session-id> <model>
+context checkpoint <session-id> <name>
+context delete <session-id>
+context dump <session-id> [type]
+context help
+```
+
+---
+
+## Implementation Details
+
+### Main Entry Point
+
+**scripts/context.ts:**
 ```typescript
 #!/usr/bin/env tsx
 import { spawn } from 'child_process';
@@ -82,297 +140,139 @@ proc.on('exit', (code) => {
 });
 ```
 
-**Testing:**
-```bash
-tsx scripts/context.ts list
-tsx scripts/context.ts analyze <session-id>
-tsx scripts/context.ts help
-tsx scripts/context.ts invalid-command  # Should show usage
-```
+### Session Reader
 
-#### T1.2: Rename Script Files
-**Duration:** 30 minutes
-**Priority:** P0
+**src/session-reader.ts:**
+```typescript
+import * as path from 'path';
+import * as fs from 'fs/promises';
+import { Session, Message } from './types.js';
 
-**Renames:**
-```bash
-mv scripts/show-sessions.ts scripts/list.ts
-mv scripts/summarize.ts scripts/analyze.ts
-```
+/**
+ * Project directory naming formula
+ */
+function getProjectDir(cwd: string): string {
+  return cwd.replace(/\//g, '-');
+}
 
-**Update imports in renamed files:**
-- No code changes needed, just file renames
-- Scripts already have correct functionality
+/**
+ * Get session storage path for current project
+ */
+function getSessionPath() {
+  const cwd = process.cwd();
+  const projectDir = getProjectDir(cwd);
+  const homeDir = process.env.HOME!;
 
-#### T1.3: Update package.json
-**Duration:** 15 minutes
-**Priority:** P0
+  return {
+    sessionsDir: path.join(homeDir, '.claude', 'projects', projectDir),
+    projectDir,
+    cwd
+  };
+}
 
-**File: package.json**
-```json
-{
-  "name": "claude-context-curator",
-  "version": "0.2.0",
-  "description": "Claude Code session manager with unified context interface",
-  "type": "module",
-  "scripts": {
-    "init": "tsx scripts/init.ts",
-    "context": "tsx scripts/context.ts",
-    "list": "tsx scripts/list.ts",
-    "analyze": "tsx scripts/analyze.ts",
-    "manage": "tsx scripts/manage.ts",
-    "checkpoint": "tsx scripts/checkpoint.ts",
-    "delete": "tsx scripts/delete.ts",
-    "dump": "tsx scripts/dump.ts",
-    "help": "tsx scripts/help.ts"
-  },
-  "keywords": ["claude", "context", "session-manager"],
-  "author": "",
-  "license": "MIT",
-  "dependencies": {
-    "@anthropic-ai/sdk": "^0.32.0"
-  },
-  "devDependencies": {
-    "@types/node": "^22.0.0",
-    "tsx": "^4.19.0",
-    "typescript": "^5.7.0"
+/**
+ * List all session IDs for current project
+ */
+export async function listSessionIds(): Promise<string[]> {
+  const { sessionsDir } = getSessionPath();
+
+  try {
+    const entries = await fs.readdir(sessionsDir);
+    return entries
+      .filter(e => {
+        // UUID pattern: starts with hex chars and ends with .jsonl
+        return e.endsWith('.jsonl') &&
+               !e.startsWith('agent-') &&
+               /^[0-9a-f]{8}-/.test(e);
+      })
+      .map(e => e.replace('.jsonl', ''));
+  } catch (err) {
+    // No sessions for this project
+    return [];
   }
+}
+
+/**
+ * Read a session by ID
+ */
+export async function readSession(sessionId: string): Promise<Session> {
+  const { sessionsDir, cwd } = getSessionPath();
+  const sessionPath = path.join(sessionsDir, `${sessionId}.jsonl`);
+
+  try {
+    await fs.access(sessionPath);
+  } catch {
+    throw new Error(`Session not found: ${sessionId}`);
+  }
+
+  // Read conversation
+  const content = await fs.readFile(sessionPath, 'utf-8');
+  const messages: Message[] = content
+    .split('\n')
+    .filter(line => line.trim())
+    .map(line => JSON.parse(line));
+
+  // Get metadata from file stats
+  const stats = await fs.stat(sessionPath);
+  const metadata = {
+    createdAt: stats.birthtime.toISOString(),
+    updatedAt: stats.mtime.toISOString()
+  };
+
+  return {
+    id: sessionId,
+    messages,
+    metadata,
+    messageCount: messages.length,
+    tokenCount: estimateTokens(messages),
+    directory: cwd
+  };
+}
+
+function estimateTokens(messages: Message[]): number {
+  const totalChars = messages.reduce((sum, msg) => {
+    const content = typeof msg.content === 'string'
+      ? msg.content
+      : JSON.stringify(msg.content);
+    return sum + content.length;
+  }, 0);
+  return Math.ceil(totalChars / 4);
 }
 ```
 
-**Testing:**
-```bash
-npm run context list
-npm run context analyze <id>
-npm run context help
-```
-
 ---
 
-### Phase 2: Documentation Updates (Day 2)
+## Testing Checklist
 
-#### T2.1: Update CLAUDE.md
-**Duration:** 2 hours
-**Priority:** P0
+### Command Dispatcher
+- [x] `npm run context` shows usage
+- [x] `npm run context help` works
+- [x] `npm run context list` works
+- [x] `npm run context analyze <id>` works
+- [x] `npm run context manage <id> <model>` works
+- [x] `npm run context checkpoint <id> <name>` works
+- [x] `npm run context delete <id>` works
+- [x] `npm run context dump <id>` works
+- [x] Invalid commands show helpful error
 
-**File: CLAUDE.md**
+### Session Management
+- [x] Discovers sessions for current project only
+- [x] Project directory formula works correctly
+- [x] Correctly filters out agent sessions
+- [x] Handles missing directories gracefully
+- [x] Sessions from different projects are isolated
 
-Key changes:
-- Update initialization instructions
-- Replace all command examples with `context` syntax
-- Update command interpretation mapping
-- Add natural language to context command mappings
-
-**Updated command examples:**
-```markdown
-### context list
-List all sessions (named + unnamed for current project).
-
-Usage:
-```bash
-npx tsx ~/.claude/skills/context-curator/scripts/context.ts list
-```
-
-Or using npm:
-```bash
-npm --prefix ~/.claude/skills/context-curator run context list
-```
-
-### context analyze <session-id>
-Analyze a specific session in detail.
-
-Usage:
-```bash
-npx tsx ~/.claude/skills/context-curator/scripts/context.ts analyze <session-id>
-```
-
-[etc...]
-```
-
-**Updated command interpretation:**
-```markdown
-### Command Interpretation
-
-Users may phrase requests differently. Map these to commands:
-
-- "show sessions", "list sessions" → context list
-- "tell me about session X" → context analyze X
-- "analyze session X" → context analyze X
-- "clean up session X" → context manage X sonnet
-- "optimize session X" → context manage X sonnet
-- "backup session X as Y" → context checkpoint X Y
-- "remove session X" → context delete X
-- "dump session X" → context dump X
-- "show user messages for X" → context dump X user
-- "help" → context help
-```
-
-#### T2.2: Update help.ts
-**Duration:** 1 hour
-**Priority:** P0
-
-**File: scripts/help.ts**
-
-Update all command syntax to use `context` prefix:
-
-```typescript
-console.log('COMMANDS:');
-console.log('');
-
-console.log('  context list');
-console.log('    List all sessions (named + unnamed for current project)');
-console.log('    Usage: npm run context list');
-console.log('');
-
-console.log('  context analyze <session-id>');
-console.log('    Analyze a session and show token breakdown with recommendations');
-console.log('    Usage: npm run context analyze <session-id>');
-console.log('    Example: npm run context analyze 8e14f625-bd1a-4e79-a382-2d6c0649df97');
-console.log('');
-
-console.log('  context manage <session-id> <model>');
-console.log('    Interactive session editor with Claude API integration');
-console.log('    Models: sonnet, opus, haiku');
-console.log('    Usage: npm run context manage <session-id> <model>');
-console.log('    Example: npm run context manage 8e14f625-bd1a-4e79-a382-2d6c0649df97 sonnet');
-// [etc...]
-```
-
-#### T2.3: Update README.md
-**Duration:** 1 hour
-**Priority:** P0
-
-**File: README.md**
-
-Update:
-- Usage examples with new syntax
-- Command reference section
-- Quick start guide
-- Examples section
-
-**Key sections to update:**
-```markdown
-## Available Commands
-
-All commands use the unified `context` interface:
-
-### context list
-List all sessions with details like message count and token usage.
-
-```bash
-npm run context list
-```
-
-### context analyze <session-id>
-Get detailed analysis of a specific session.
-
-```bash
-npm run context analyze 8e14f625-bd1a-4e79-a382-2d6c0649df97
-```
-
-[etc...]
-```
-
-#### T2.4: Update setup.sh
-**Duration:** 30 minutes
-**Priority:** P0
-
-**File: setup.sh**
-
-Update example commands in the output:
-
-```bash
-echo "Commands:"
-echo "  context list"
-echo "  context analyze <session-id>"
-echo "  context manage <session-id> <model>"
-```
-
----
-
-### Phase 3: Testing & Validation (Day 3)
-
-#### T3.1: Unit Testing
-**Duration:** 2 hours
-**Priority:** P0
-
-**Test all command paths:**
-
-```bash
-# Test dispatcher
-npm run context                    # Should show usage
-npm run context invalid            # Should show usage
-npm run context help               # Should show help
-
-# Test all commands
-npm run context list
-npm run context analyze <session-id>
-npm run context manage <session-id> sonnet
-npm run context checkpoint <id> backup
-npm run context delete <id>
-npm run context dump <id>
-npm run context dump <id> user
-```
-
-**Validation checklist:**
-- [ ] `context.ts` dispatches to correct scripts
-- [ ] All commands work with new names
-- [ ] Error messages show correct syntax
-- [ ] Help shows all commands with examples
-- [ ] Tab completion friendly syntax
-
-#### T3.2: Integration Testing
-**Duration:** 2 hours
-**Priority:** P0
-
-**Test full workflows:**
-
-1. **List and analyze workflow:**
-```bash
-claude -r context-curator
-context list
-context analyze <session-id>
-```
-
-2. **Optimize workflow:**
-```bash
-context list
-context checkpoint <id> before-optimize
-context manage <id> sonnet
-# [make changes]
-@apply
-```
-
-3. **Dump workflow:**
-```bash
-context dump <id>
-context dump <id> user
-context dump <id> assistant
-```
-
-**Validation:**
-- [ ] Natural language requests map correctly
-- [ ] Commands work from curator session
-- [ ] Error messages are helpful
-- [ ] All session types (named/unnamed) work
-- [ ] TypeScript compilation passes
-
-#### T3.3: Documentation Review
-**Duration:** 1 hour
-**Priority:** P0
-
-**Review all documentation:**
-- [ ] README has correct command syntax
-- [ ] CLAUDE.md has correct examples
-- [ ] help.ts shows correct usage
-- [ ] Package.json scripts are correct
-- [ ] All code comments updated
+### Safety
+- [x] Backups created before modifications
+- [x] Confirmations required for destructive ops
+- [x] No data loss in any scenario
+- [x] Clear error messages
 
 ---
 
 ## File Changes Summary
 
-### New Files
+### Created Files
 - `scripts/context.ts` - Main command dispatcher
 
 ### Renamed Files
@@ -380,67 +280,15 @@ context dump <id> assistant
 - `scripts/summarize.ts` → `scripts/analyze.ts`
 
 ### Modified Files
-- `package.json` - Update scripts and version
-- `CLAUDE.md` - Update all command examples
-- `scripts/help.ts` - Update command syntax
-- `README.md` - Update documentation
-- `setup.sh` - Update example commands
-- `scripts/init.ts` - Update displayed commands
+- `package.json` - Updated scripts and version to 0.2.0
+- `src/session-reader.ts` - Simplified to only read project sessions
+- `src/types.ts` - Removed `isNamed` field
+- All documentation files updated to remove named sessions
 
-### No Changes Needed
-- `src/` directory (all core logic unchanged)
-- `scripts/manage.ts`
-- `scripts/checkpoint.ts`
-- `scripts/delete.ts`
-- `scripts/dump.ts`
-
----
-
-## Testing Checklist
-
-### Command Dispatcher
-- [ ] `npm run context` shows usage
-- [ ] `npm run context help` works
-- [ ] `npm run context list` works
-- [ ] `npm run context analyze <id>` works
-- [ ] `npm run context manage <id> <model>` works
-- [ ] `npm run context checkpoint <id> <name>` works
-- [ ] `npm run context delete <id>` works
-- [ ] `npm run context dump <id>` works
-- [ ] `npm run context dump <id> user` works
-- [ ] Invalid commands show helpful error
-
-### Natural Language Mapping
-- [ ] "show sessions" → context list
-- [ ] "analyze session X" → context analyze X
-- [ ] "optimize session X" → context manage X sonnet
-- [ ] "backup session X as Y" → context checkpoint X Y
-- [ ] "dump session X" → context dump X
-
-### Documentation
-- [ ] README has correct command syntax
-- [ ] CLAUDE.md has correct examples
-- [ ] help command shows all commands
-- [ ] setup.sh shows correct examples
-- [ ] All examples use `context` prefix
-
-### Backward Compatibility
-- [ ] Old npm scripts still work (list, analyze, etc.)
-- [ ] Existing sessions still readable
-- [ ] No data migration needed
-
----
-
-## Timeline
-
-| Day | Tasks | Hours |
-|-----|-------|-------|
-| 1 | Command dispatcher, renames, package.json | 3 |
-| 2 | Documentation updates (CLAUDE.md, README, help, setup) | 4.5 |
-| 3 | Testing, validation, polish | 5 |
-| **Total** | | **12.5 hours** |
-
-**Estimated completion: 2-3 days**
+### Removed Concepts
+- Named sessions at `~/.claude/sessions/`
+- Session type distinction (everything is project-scoped)
+- Global session accessibility
 
 ---
 
@@ -450,54 +298,38 @@ context dump <id> assistant
 - Single entry point (`context.ts`) routes all commands
 - All commands work with new syntax
 - TypeScript compilation passes
-- No breaking changes to core functionality
-- Backward compatibility maintained
+- Project-scoped sessions only
+- No references to non-existent named sessions
 
 ### User Experience
 - Intuitive command structure
 - Consistent syntax across all operations
 - Clear error messages with command suggestions
-- Helpful usage examples
+- Project isolation is clear
 
 ### Documentation
-- All docs updated with new syntax
+- All docs reflect project-only sessions
+- No references to ~/.claude/sessions/
 - Clear migration examples
 - Comprehensive help command
-- README shows all commands
 
 ---
 
 ## Launch Checklist
 
-- [ ] `scripts/context.ts` implemented
-- [ ] Scripts renamed (show-sessions → list, summarize → analyze)
-- [ ] `package.json` updated
-- [ ] `CLAUDE.md` updated
-- [ ] `help.ts` updated
-- [ ] `README.md` updated
-- [ ] `setup.sh` updated
-- [ ] All tests passing
-- [ ] TypeScript compilation clean
-- [ ] Documentation complete
-- [ ] Version bumped to 0.2.0
+- [x] `scripts/context.ts` implemented
+- [x] Scripts renamed (show-sessions → list, summarize → analyze)
+- [x] `package.json` updated
+- [x] All docs updated to remove named sessions
+- [x] All tests passing
+- [x] TypeScript compilation clean
+- [x] Version bumped to 0.2.0
 
 ---
 
-## Migration Notes
+## Notes
 
-### For Users
-
-Old command style still works via npm:
-```bash
-# Old (still works)
-npm run show
-npm run summarize <id>
-
-# New (recommended)
-npm run context list
-npm run context analyze <id>
-```
-
-### For the Curator Agent
-
-Update CLAUDE.md instructions to use new syntax in examples and interpretations. The agent should translate user requests to the new `context` commands while maintaining backward compatibility.
+- **Critical Fix**: Removed incorrect concept of "named sessions" at `~/.claude/sessions/`
+- Claude Code only stores sessions in `~/.claude/projects/<project-dir>/`
+- All sessions are project-scoped automatically
+- Simplified architecture with single session storage location

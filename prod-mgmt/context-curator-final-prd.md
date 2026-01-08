@@ -1,6 +1,6 @@
 # Product Requirements Document: Claude Code Context Curator
 
-**Version:** 6.0
+**Version:** 6.1
 **Last Updated:** January 7, 2026
 **Status:** Ready for Implementation
 
@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-Claude Code Context Curator is a **global skill** that helps developers manage their Claude Code sessions. The skill provides a unified `context` command interface for analyzing, optimizing, and managing session context.
+Claude Code Context Curator is a tool that helps developers manage their Claude Code sessions. It provides a unified `context` command interface for analyzing, optimizing, and managing session context for the current project.
 
 ---
 
@@ -17,7 +17,7 @@ Claude Code Context Curator is a **global skill** that helps developers manage t
 All curator operations use a consistent `context <command>` syntax:
 
 ```bash
-context list                           # List all sessions
+context list                           # List all sessions for current project
 context analyze <session-id>           # Analyze a session
 context manage <session-id> <model>    # Edit session interactively
 context checkpoint <session-id> <name> # Backup a session
@@ -28,17 +28,21 @@ context help                           # Show help
 
 ---
 
-## Session Types
+## Session Management
 
-**Named Sessions** (globally accessible):
-- Stored in: `~/.claude/sessions/<session-id>/`
-- Structure: Directory containing `conversation.jsonl` + `metadata.json`
-- Examples: `context-curator`, `my-workflow`, `documentation`
+### Session Storage
 
-**Unnamed Sessions** (project-specific):
-- Stored in: `~/.claude/projects/<project-path>/`
-- Structure: Flat JSONL files named by UUID
-- Examples: `8e14f625-bd1a-4e79-a382-2d6c0649df97.jsonl`
+Claude Code stores sessions as JSONL files in project-specific directories:
+
+**Storage Location:**
+- `~/.claude/projects/<project-path>/`
+
+**File Format:**
+- `<uuid>.jsonl` - Flat JSONL files
+
+**Examples:**
+- `~/.claude/projects/-Users-dev-my-project/8e14f625-bd1a-4e79-a382-2d6c0649df97.jsonl`
+- `~/.claude/projects/-home-user-work-app/340f0a71-99d6-40be-83f3-825d87ff1811.jsonl`
 
 ### Project Path Formula
 
@@ -50,6 +54,12 @@ Claude Code creates project directories by replacing all forward slashes with hy
 ```
 
 Formula: `projectDir = fullPath.replace(/\//g, '-')`
+
+### Directory Scoping
+
+The curator automatically scopes itself based on `process.cwd()`:
+- Shows ONLY sessions for the current project directory
+- Each project's sessions are completely isolated
 
 ---
 
@@ -65,46 +75,42 @@ cd ~/.claude/skills/context-curator
 # 2. Install dependencies
 npm install
 
-# 3. Run setup
-./setup.sh
-
-# 4. Test installation
+# 3. Test installation
 cd ~/any-project
-claude -r context-curator
+npm --prefix ~/.claude/skills/context-curator run init
 ```
 
 ### Daily Usage
 
 ```bash
-# Start curator session
+# Working on a project
 cd ~/my-project
-claude -r context-curator
+claude
+You: implement authentication
+Claude: [working... session getting large]
 
-Curator: Context Curator ready
-Operating on: /Users/dev/my-project
+# Exit and check session health
+^D
 
-# List all sessions
-You: context list
+# Run curator from project directory
+cd ~/my-project
+npm --prefix ~/.claude/skills/context-curator run context list
 
 Curator:
 Sessions for /Users/dev/my-project:
 
-Named Sessions:
-─────────────────
-auth-workflow
-├─ 487 messages, 89k tokens (45%)
-├─ Updated: 2 days ago
-└─ Task: User authentication implementation
-
-Unnamed Sessions:
-─────────────────
 8e14f625-bd1a-4e79-a382-2d6c0649df97 [current]
 ├─ 312 messages, 67k tokens (34%)
 ├─ Updated: 5 minutes ago
 └─ Task: Implement JWT token refresh logic
 
+340f0a71-99d6-40be-83f3-825d87ff1811
+├─ 203 messages, 34k tokens (17%)
+├─ Updated: 1 day ago
+└─ Task: Payment webhook debugging
+
 # Analyze a session
-You: context analyze 8e14f625-bd1a-4e79-a382-2d6c0649df97
+You: npm run context analyze 8e14f625-bd1a-4e79-a382-2d6c0649df97
 
 Curator: [detailed analysis]
 - Messages 1-120: Auth setup (completed) - 25k tokens
@@ -115,7 +121,7 @@ Recommendations:
 ⚠️ Messages 121-280 contain many failed attempts (38k tokens)
 
 # Optimize the session
-You: context manage 8e14f625-bd1a-4e79-a382-2d6c0649df97 sonnet
+You: npm run context manage 8e14f625-bd1a-4e79-a382-2d6c0649df97 sonnet
 
 Editor: [Interactive editing session]
 
@@ -128,10 +134,9 @@ Curator: ✓ Session optimized
   Saved: 29k tokens (43%)
 
 # Create a checkpoint before risky changes
-You: context checkpoint 8e14f625-bd1a-4e79-a382-2d6c0649df97 auth-backup
+You: npm run context checkpoint 8e14f625-bd1a-4e79-a382-2d6c0649df97 auth-backup-2026-01-07
 
-Curator: ✓ Checkpoint created: auth-backup
-Resume with: claude -r auth-backup
+Curator: ✓ Checkpoint created: auth-backup-2026-01-07
 ```
 
 ---
@@ -140,16 +145,15 @@ Resume with: claude -r auth-backup
 
 ### context list
 
-List all sessions (named + unnamed for current project).
+List all sessions for the current project.
 
 **Usage:**
 ```bash
-context list
+npm --prefix ~/.claude/skills/context-curator run context list
 ```
 
 **Output:**
-- Named sessions (globally accessible)
-- Unnamed sessions (current project only)
+- All sessions for the current project directory
 - Token usage and capacity percentage
 - Last updated time
 - First task preview
@@ -159,12 +163,11 @@ context list
 Analyze a specific session in detail.
 
 **Arguments:**
-- `session-id`: Session to analyze (named or UUID)
+- `session-id`: Session UUID to analyze
 
 **Usage:**
 ```bash
-context analyze 8e14f625-bd1a-4e79-a382-2d6c0649df97
-context analyze my-session
+npm --prefix ~/.claude/skills/context-curator run context analyze 8e14f625-bd1a-4e79-a382-2d6c0649df97
 ```
 
 **Output:**
@@ -178,12 +181,12 @@ context analyze my-session
 Enter interactive session editing mode.
 
 **Arguments:**
-- `session-id`: Session to edit (named or UUID)
+- `session-id`: Session UUID to edit
 - `model`: One of: sonnet, opus, haiku
 
 **Usage:**
 ```bash
-context manage 8e14f625-bd1a-4e79-a382-2d6c0649df97 sonnet
+npm --prefix ~/.claude/skills/context-curator run context manage 8e14f625-bd1a-4e79-a382-2d6c0649df97 sonnet
 ```
 
 **Interactive Commands:**
@@ -196,34 +199,31 @@ context manage 8e14f625-bd1a-4e79-a382-2d6c0649df97 sonnet
 
 ### context checkpoint <session-id> <new-name>
 
-Create a backup/fork of a session as a named session.
+Create a backup/fork of a session.
 
 **Arguments:**
-- `session-id`: Source session (named or UUID)
-- `new-name`: Name for the checkpoint (will be a named session)
+- `session-id`: Source session UUID
+- `new-name`: Name for the checkpoint file (will be stored with this name)
 
 **Usage:**
 ```bash
-context checkpoint 8e14f625-bd1a-4e79-a382-2d6c0649df97 before-refactor
-context checkpoint my-session backup-2026-01-07
+npm --prefix ~/.claude/skills/context-curator run context checkpoint 8e14f625-bd1a-4e79-a382-2d6c0649df97 before-refactor
 ```
 
 **Result:**
-- Creates a named session with the specified name
+- Creates a backup file in the same project directory
 - Original session unchanged
-- Can resume checkpoint with: `claude -r <new-name>`
 
 ### context delete <session-id>
 
 Remove a session (creates backup first, requires confirmation).
 
 **Arguments:**
-- `session-id`: Session to delete (named or UUID)
+- `session-id`: Session UUID to delete
 
 **Usage:**
 ```bash
-context delete old-session
-context delete 8e14f625-bd1a-4e79-a382-2d6c0649df97
+npm --prefix ~/.claude/skills/context-curator run context delete 8e14f625-bd1a-4e79-a382-2d6c0649df97
 ```
 
 **Safety:**
@@ -236,14 +236,13 @@ context delete 8e14f625-bd1a-4e79-a382-2d6c0649df97
 Display session messages sorted by timestamp.
 
 **Arguments:**
-- `session-id`: Session to dump (named or UUID)
+- `session-id`: Session UUID to dump
 - `type` (optional): Filter by message type (user, assistant, file-history-snapshot, summary)
 
 **Usage:**
 ```bash
-context dump 8e14f625-bd1a-4e79-a382-2d6c0649df97
-context dump my-session user
-context dump 8e14f625-bd1a-4e79-a382-2d6c0649df97 assistant
+npm --prefix ~/.claude/skills/context-curator run context dump 8e14f625-bd1a-4e79-a382-2d6c0649df97
+npm --prefix ~/.claude/skills/context-curator run context dump 8e14f625-bd1a-4e79-a382-2d6c0649df97 user
 ```
 
 **Output Format:**
@@ -258,7 +257,7 @@ Show detailed help and command reference.
 
 **Usage:**
 ```bash
-context help
+npm --prefix ~/.claude/skills/context-curator run context help
 ```
 
 ---
@@ -270,18 +269,17 @@ context help
 ```
 ~/.claude/skills/context-curator/
 ├── skill.json                  # Skill manifest
-├── CLAUDE.md                   # Agent instructions
 ├── src/
 │   ├── types.ts
-│   ├── session-reader.ts
+│   ├── session-reader.ts       # Reads project sessions
 │   ├── session-writer.ts
 │   ├── session-analyzer.ts
 │   └── editor.ts
 ├── scripts/
-│   ├── context.ts              # Main entry point (NEW)
+│   ├── context.ts              # Main entry point
 │   ├── init.ts
-│   ├── list.ts                 # Renamed from show-sessions.ts
-│   ├── analyze.ts              # Renamed from summarize.ts
+│   ├── list.ts
+│   ├── analyze.ts
 │   ├── manage.ts
 │   ├── checkpoint.ts
 │   ├── delete.ts
@@ -352,32 +350,28 @@ import(scriptPath).catch(err => {
 
 ```bash
 cd ~/my-app
-claude -r context-curator
+npm --prefix ~/.claude/skills/context-curator run context list
 
-You: context list
+Sessions for /Users/dev/my-app:
 
-Curator: [Shows all sessions with stats]
+8e14f625-bd1a-4e79-a382-2d6c0649df97 [current]
+├─ 312 messages, 67k tokens (34%)
+├─ Updated: 5m ago
+└─ Task: Implement JWT token refresh logic
 
-You: context analyze 8e14f625-bd1a-4e79-a382-2d6c0649df97
-
-Curator: [Shows detailed breakdown with recommendations]
+npm run context analyze 8e14f625-bd1a-4e79-a382-2d6c0649df97
+[Shows detailed breakdown]
 ```
 
 ### Example 2: Optimizing Current Session
 
 ```bash
-claude -r context-curator
+cd ~/my-app
+npm --prefix ~/.claude/skills/context-curator run context list
 
-You: My current session is slow
+# See current session is 67k tokens with many errors
 
-Curator: Let me check. [runs context list]
-  Your current session (8e14f625-...) has 67k tokens.
-  
-You: context analyze 8e14f625-bd1a-4e79-a382-2d6c0649df97
-
-Curator: [Shows analysis with many failed attempts]
-
-You: context manage 8e14f625-bd1a-4e79-a382-2d6c0649df97 sonnet
+npm run context manage 8e14f625-bd1a-4e79-a382-2d6c0649df97 sonnet
 
 Editor: [Interactive editing mode]
 ```
@@ -385,32 +379,10 @@ Editor: [Interactive editing mode]
 ### Example 3: Creating Checkpoint Before Risky Change
 
 ```bash
-claude -r context-curator
+npm run context checkpoint 8e14f625-bd1a-4e79-a382-2d6c0649df97 before-refactor
 
-You: context checkpoint 8e14f625-bd1a-4e79-a382-2d6c0649df97 before-refactor
-
-Curator: ✓ Checkpoint created: before-refactor
-Resume with: claude -r before-refactor
+✓ Checkpoint created: before-refactor
 ```
-
----
-
-## Command Mapping (Natural Language)
-
-The curator should interpret these natural language requests:
-
-| User Says | Maps To |
-|-----------|---------|
-| "show sessions", "list sessions" | context list |
-| "tell me about session X" | context analyze X |
-| "analyze session X" | context analyze X |
-| "clean up session X" | context manage X sonnet |
-| "optimize session X" | context manage X sonnet |
-| "backup session X as Y" | context checkpoint X Y |
-| "remove session X" | context delete X |
-| "dump session X" | context dump X |
-| "show user messages for X" | context dump X user |
-| "help", "show commands" | context help |
 
 ---
 
@@ -419,7 +391,7 @@ The curator should interpret these natural language requests:
 ### Technical
 - Single entry point with clean command routing
 - Consistent command syntax across all operations
-- Works with both named and unnamed sessions
+- Works with project-scoped sessions
 - Project directory formula works correctly
 - Zero data loss
 - Fast execution
@@ -429,66 +401,12 @@ The curator should interpret these natural language requests:
 - Easy to remember (all start with "context")
 - Clear error messages
 - Helpful command suggestions
-- Tab completion friendly
+- Project isolation clear to users
 
 ### Documentation
 - Clear README with examples
 - Installation guide
 - Command reference
-- Migration guide from old commands
-
----
-
-## Migration Plan
-
-### For Existing Users
-
-Old commands still work via npm scripts, but new unified syntax is recommended:
-
-```bash
-# Old way (still works)
-npm run show
-npm run summarize <id>
-
-# New way (recommended)
-context list
-context analyze <id>
-```
-
-### CLAUDE.md Updates
-
-```markdown
-## Available Commands
-
-All commands use the `context` prefix:
-
-### context list
-List all sessions (named + unnamed for current project).
-
-### context analyze <session-id>
-Analyze a specific session in detail.
-
-### context manage <session-id> <model>
-Enter interactive session editing mode.
-
-[etc...]
-```
-
----
-
-## Future Enhancements
-
-### v0.2
-- `context search <query>` - Search across all sessions
-- `context merge <id1> <id2>` - Merge two sessions
-- `context split <id> <range>` - Split session into parts
-- `context export <id>` - Export to markdown/PDF
-
-### v0.3
-- `context stats` - Global statistics dashboard
-- `context trends` - Usage trends over time
-- `context recommend` - AI-powered optimization suggestions
-- `context schedule` - Auto-cleanup scheduling
 
 ---
 
@@ -504,8 +422,9 @@ Enter interactive session editing mode.
 
 ## Version History
 
+- **v6.1** (2026-01-07): Removed named sessions concept, project-only scoping
 - **v6.0** (2026-01-07): Unified `context` command interface
-- **v5.0** (2026-01-06): Dual session support (named + unnamed)
+- **v5.0** (2026-01-06): Dual session support (named + unnamed) - DEPRECATED
 - **v4.0**: Interactive editor mode
 - **v3.0**: Session analysis and optimization
 - **v2.0**: Basic session management
