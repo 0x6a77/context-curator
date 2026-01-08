@@ -16,7 +16,7 @@ async function main() {
 
   // Load all sessions
   const sessions = await Promise.all(
-    sessionIds.map(async id => {
+    sessionIds.map(async (id: string) => {
       try {
         return await readSession(id);
       } catch {
@@ -26,7 +26,7 @@ async function main() {
   );
 
   // Filter out failed reads and sort by most recent
-  const validSessions = sessions.filter(s => s !== null) as Session[];
+  const validSessions = sessions.filter((s): s is Session => s !== null);
   validSessions.sort((a, b) =>
     new Date(b.metadata.updatedAt).getTime() -
     new Date(a.metadata.updatedAt).getTime()

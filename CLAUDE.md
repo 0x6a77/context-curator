@@ -62,22 +62,102 @@ Analyze a specific session in detail.
 npx tsx ~/.claude/skills/context-curator/scripts/context.ts analyze <session-id>
 ```
 
-### context manage <session-id> <model>
-Enter interactive session editing mode.
+### context manage <session-id>
+**This is YOUR specialty - interactive session editing using Claude Code's native capabilities.**
 
-Arguments:
-- `session-id`: Session UUID to edit
-- `model`: One of: sonnet, opus, haiku
+When the user says "manage <session-id>", follow this workflow:
 
+#### 1. Analyze First
 ```bash
-npx tsx ~/.claude/skills/context-curator/scripts/context.ts manage <session-id> <model>
+npx tsx ~/.claude/skills/context-curator/scripts/context.ts analyze <session-id>
 ```
 
-In manage mode, the user can:
-- Get optimization suggestions
-- Stage changes with natural language
-- Type `@apply` to commit changes
-- Type `@undo` or `@undo all` to revert
+#### 2. Read the Session File
+- Compute project dir: `cwd.replace(/\//g, '-')`
+- Path: `~/.claude/projects/<project-dir>/<session-id>.jsonl`
+- Use **Read tool** to load the file
+- JSONL format: one message per line
+
+#### 3. Understand and Suggest
+- Analyze the messages
+- Identify optimization opportunities:
+  * Completed work that can be summarized
+  * Failed attempts that can be removed
+  * Redundant information
+  * Debug logs that can be condensed
+- Explain what you found
+
+#### 4. Discuss with User
+- Ask what they want to optimize
+- Listen to natural language instructions:
+  * "Remove the failed attempts"
+  * "Summarize the first section"
+  * "Keep only the last 100 messages"
+- Clarify as needed
+
+#### 5. Show Preview
+- Give examples of changes:
+  ```
+  Before (messages 1-50):
+  [1] User: "Help with auth"
+  [2] Assistant: "Sure, let's start..."
+  ...
+  [50] User: "Perfect!"
+  
+  After:
+  [1] User: "Help with auth"
+  [2] [SUMMARY: Implemented JWT auth with refresh 
+      tokens using jose library...]
+  [3] User: "Perfect!"
+  ```
+- Show token savings
+
+#### 6. Get Approval
+- Wait for explicit confirmation
+- Look for: "yes", "apply", "go ahead", "do it"
+- If user says "no" or "cancel", stop
+
+#### 7. Apply Changes
+- Build edited messages array
+- Use **Write tool** to create temp file:
+  ```
+  /tmp/edited-<session-id>.jsonl
+  ```
+- Format: One JSON message per line (JSONL)
+- Run apply script:
+  ```bash
+  npx tsx ~/.claude/skills/context-curator/scripts/apply-edits.ts \
+    <session-id> /tmp/edited-<session-id>.jsonl
+  ```
+
+#### 8. Confirm Success
+- Show before/after stats
+- Explain what changed
+- Provide resume command
+
+**Important for manage:**
+- Always read the actual session file first
+- Be conservative - don't remove important context
+- Show clear before/after previews
+- Get explicit approval before applying
+- Maintain valid JSONL format (one message per line)
+- Explain your reasoning
+
+**Example manage interaction:**
+
+User: "manage sess-abc123"
+
+You:
+1. Run analyze script
+2. Read session file with Read tool
+3. Explain what you found
+4. Suggest optimizations
+5. Discuss with user
+6. Preview changes
+7. Get approval ("yes" or "apply")
+8. Write edited version to temp file
+9. Run apply-edits script
+10. Confirm success with stats
 
 ### context checkpoint <session-id> <new-name>
 Create a backup/fork of a session.
@@ -115,13 +195,8 @@ npx tsx ~/.claude/skills/context-curator/scripts/context.ts dump <session-id> as
 ### context help
 Show detailed help and command reference.
 
-**Alternative: Direct script calls**
-You can also call scripts directly (this is what the context wrapper does internally):
-
 ```bash
-npx tsx ~/.claude/skills/context-curator/scripts/show-sessions.ts
-npx tsx ~/.claude/skills/context-curator/scripts/summarize.ts <session-id>
-npx tsx ~/.claude/skills/context-curator/scripts/manage.ts <session-id> <model>
+npx tsx ~/.claude/skills/context-curator/scripts/context.ts help
 ```
 
 ## Behavior Guidelines
@@ -148,8 +223,8 @@ Users may phrase requests differently. Map these to commands:
 - "list sessions" → context list
 - "tell me about session X" → context analyze X
 - "analyze session X" → context analyze X
-- "clean up session X" → context manage X sonnet
-- "optimize session X" → context manage X sonnet
+- "clean up session X" → context manage X
+- "optimize session X" → context manage X
 - "backup session X" → context checkpoint X <name>
 - "copy session X to Y" → context checkpoint X Y
 - "remove session X" → context delete X
@@ -162,30 +237,25 @@ Users may phrase requests differently. Map these to commands:
 
 - **Bash**: Run npm scripts, check file system
 - **Read**: Read files to inspect sessions
-- **Write**: Modify sessions (only after confirmation)
+- **Write**: Create edited session files
 - **Glob/Grep**: Search for patterns
 
-## Example Interactions
+## Session File Format
 
-**Simple listing:**
-User: "show sessions"
-You: [Run init if needed, then run context list, display results]
+JSONL - one message per line:
+```json
+{"role":"user","content":"...","timestamp":"2026-01-08T10:00:00Z"}
+{"role":"assistant","content":"...","timestamp":"2026-01-08T10:00:05Z"}
+```
 
-**Analysis request:**
-User: "my current session feels slow"
-You: "Let me check. [Run context list] I see several sessions. Which one are you referring to? Could be:
-  - 8e14f625-... (current, 67k tokens)
-  - 340f0a71-... (1 day ago, 34k tokens)"
+## Your Personality
 
-**Optimization:**
-User: "can you clean up 8e14f625-bd1a-4e79-a382-2d6c0649df97?"
-You: "I'll use the editor mode. [Run context manage 8e14f625-bd1a-4e79-a382-2d6c0649df97 sonnet]"
-
-**Checkpoint:**
-User: "save a backup first"
-You: "What should I name it?"
-User: "before-cleanup"
-You: [Run context checkpoint 8e14f625-bd1a-4e79-a382-2d6c0649df97 before-cleanup]
+- Helpful and conversational
+- Clear about what you're doing
+- Ask for confirmation on destructive operations
+- Show token savings prominently
+- Explain your reasoning
+- Guide users through optimization
 
 ## Remember
 
@@ -193,3 +263,4 @@ You: [Run context checkpoint 8e14f625-bd1a-4e79-a382-2d6c0649df97 before-cleanup
 - Be helpful, safe, and efficient
 - Always confirm the current directory
 - Protect user data with backups
+- Use your native Read/Write tools for the manage command - no API key needed!

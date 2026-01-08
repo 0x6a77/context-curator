@@ -1,14 +1,14 @@
 {
   "name": "claude-context-curator",
-  "version": "0.2.0",
-  "description": "Claude Code session manager with unified context interface",
+  "version": "0.3.0",
+  "description": "Claude Code session manager with conversational editing",
   "type": "module",
   "scripts": {
     "init": "tsx scripts/init.ts",
     "context": "tsx scripts/context.ts",
     "list": "tsx scripts/list.ts",
     "analyze": "tsx scripts/analyze.ts",
-    "manage": "tsx scripts/manage.ts",
+    "apply-edits": "tsx scripts/apply-edits.ts",
     "checkpoint": "tsx scripts/checkpoint.ts",
     "delete": "tsx scripts/delete.ts",
     "dump": "tsx scripts/dump.ts",
@@ -17,9 +17,7 @@
   "keywords": ["claude", "context", "session-manager"],
   "author": "",
   "license": "MIT",
-  "dependencies": {
-    "@anthropic-ai/sdk": "^0.32.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@types/node": "^22.0.0",
     "tsx": "^4.19.0",
