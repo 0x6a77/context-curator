@@ -19,10 +19,15 @@ export interface SessionAnalysis {
  */
 function estimateTokens(messages: Message[]): number {
   const totalChars = messages.reduce((sum, msg) => {
-    const content = typeof msg.content === 'string'
-      ? msg.content
-      : JSON.stringify(msg.content);
-    return sum + content.length;
+    let text = '';
+    if (msg.content) {
+      text = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+    } else if ((msg as any).summary) {
+      text = (msg as any).summary;
+    } else {
+      text = JSON.stringify(msg);
+    }
+    return sum + text.length;
   }, 0);
   return Math.ceil(totalChars / 4);
 }
@@ -38,8 +43,9 @@ function detectTasks(messages: Message[]): Task[] {
 
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
+    const isUser = msg.role === 'user' || (msg as any).type === 'user';
 
-    if (msg.role === 'user') {
+    if (isUser) {
       // If we have a previous task and there's a gap, close it
       if (lastUserIndex >= 0 && i - lastUserIndex > 10) {
         const taskMessages = messages.slice(currentTaskStart, lastUserIndex + 5);
@@ -78,8 +84,16 @@ function detectTasks(messages: Message[]): Task[] {
  */
 function getFirstUserContent(messages: Message[], startIndex: number): string {
   for (let i = startIndex; i < messages.length; i++) {
-    if (messages[i].role === 'user') {
-      const content = messages[i].content;
+    const msg = messages[i];
+    const isUser = msg.role === 'user' || (msg as any).type === 'user';
+
+    if (isUser) {
+      const content = msg.content;
+      if (!content) {
+        // Try summary or stringify the whole message
+        const text = (msg as any).summary || JSON.stringify(msg);
+        return text.slice(0, 100);
+      }
       const str = typeof content === 'string' ? content : JSON.stringify(content);
       return str.slice(0, 100);
     }
@@ -113,7 +127,13 @@ function generateRecommendations(
   let errorStart = -1;
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
-    const content = typeof msg.content === 'string' ? msg.content.toLowerCase() : '';
+    let contentStr = '';
+    if (msg.content) {
+      contentStr = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+    } else if ((msg as any).summary) {
+      contentStr = (msg as any).summary;
+    }
+    const content = contentStr.toLowerCase();
 
     if (content.includes('error') || content.includes('failed') || content.includes('wrong')) {
       if (errorStart === -1) errorStart = i;

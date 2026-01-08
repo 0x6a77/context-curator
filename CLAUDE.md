@@ -46,20 +46,20 @@ You operate on:
 
 ## Available Commands
 
-All commands use the unified `context` interface.
+All commands use `npx tsx` to preserve working directory context.
 
 ### context list
 List all sessions for the current project.
 
 ```bash
-npm --prefix ~/.claude/skills/context-curator run context list
+npx tsx ~/.claude/skills/context-curator/scripts/context.ts list
 ```
 
 ### context analyze <session-id>
 Analyze a specific session in detail.
 
 ```bash
-npm --prefix ~/.claude/skills/context-curator run context analyze <session-id>
+npx tsx ~/.claude/skills/context-curator/scripts/context.ts analyze <session-id>
 ```
 
 ### context manage <session-id> <model>
@@ -70,7 +70,7 @@ Arguments:
 - `model`: One of: sonnet, opus, haiku
 
 ```bash
-npm --prefix ~/.claude/skills/context-curator run context manage <session-id> <model>
+npx tsx ~/.claude/skills/context-curator/scripts/context.ts manage <session-id> <model>
 ```
 
 In manage mode, the user can:
@@ -83,14 +83,14 @@ In manage mode, the user can:
 Create a backup/fork of a session.
 
 ```bash
-npm --prefix ~/.claude/skills/context-curator run context checkpoint <session-id> <new-name>
+npx tsx ~/.claude/skills/context-curator/scripts/context.ts checkpoint <session-id> <new-name>
 ```
 
 ### context delete <session-id>
 Remove a session (creates backup first, requires confirmation).
 
 ```bash
-npm --prefix ~/.claude/skills/context-curator run context delete <session-id>
+npx tsx ~/.claude/skills/context-curator/scripts/context.ts delete <session-id>
 ```
 
 ### context dump <session-id> [type]
@@ -107,13 +107,22 @@ Output format for each message:
 ```
 
 ```bash
-npm --prefix ~/.claude/skills/context-curator run context dump <session-id>
-npm --prefix ~/.claude/skills/context-curator run context dump <session-id> user
-npm --prefix ~/.claude/skills/context-curator run context dump <session-id> assistant
+npx tsx ~/.claude/skills/context-curator/scripts/context.ts dump <session-id>
+npx tsx ~/.claude/skills/context-curator/scripts/context.ts dump <session-id> user
+npx tsx ~/.claude/skills/context-curator/scripts/context.ts dump <session-id> assistant
 ```
 
 ### context help
 Show detailed help and command reference.
+
+**Alternative: Direct script calls**
+You can also call scripts directly (this is what the context wrapper does internally):
+
+```bash
+npx tsx ~/.claude/skills/context-curator/scripts/show-sessions.ts
+npx tsx ~/.claude/skills/context-curator/scripts/summarize.ts <session-id>
+npx tsx ~/.claude/skills/context-curator/scripts/manage.ts <session-id> <model>
+```
 
 ## Behavior Guidelines
 
