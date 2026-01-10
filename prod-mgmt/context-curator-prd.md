@@ -1,719 +1,1224 @@
-# Product Requirements Document: Claude Code Context Curator
+# Product Requirements Document: Claude Code Context Curator with Task Management
 
-**Version:** 7.0  
+**Version:** 9.0  
 **Last Updated:** January 8, 2026  
-**Status:** Ready for Implementation  
+**Status:** Ready for Implementation
 
 ---
 
 ## Executive Summary
 
-Claude Code Context Curator is a conversational assistant that helps developers manage their Claude Code sessions. Invoked with `claude -r context-curator`, it provides commands for analyzing, optimizing, and managing session context for the current project.
+Claude Code Context Curator is a **task-based context management system** implemented as custom slash commands. It enables developers to organize their work into tasks with dedicated environments (CLAUDE.md, skills, sub-agents) and manage context snapshots within each task.
 
-**Key Innovation**: The `manage` command uses Claude Code's own intelligence to interactively edit sessions - no API key required.
+**Key Innovation**:
+- **Tasks** = Reusable work environments with specific tools and configuration
+- **Contexts** = Named session snapshots saved within tasks
+- **Atomic task switching** = Hard reset + environment swap + context load in one command
 
----
-
-## How It Works
-
-### Invocation
-
-From any project directory:
-```bash
-cd ~/my-project
-claude -r context-curator
-```
-
-This starts a dedicated Claude Code session configured as a context management assistant. The session has access to helper scripts and special instructions that enable it to:
-- List and analyze sessions
-- Read session files
-- Edit sessions conversationally
-- Apply changes safely
-
-### Directory Scoping
-
-The curator automatically scopes to the current directory:
-- Only shows sessions for `~/my-project`
-- Session path: `~/.claude/projects/-Users-dev-my-project/`
-- Each project's sessions are isolated
+**No API key required. Works entirely within Claude Code using native features.**
 
 ---
 
-## User Workflow
+## Core Concepts
 
-### Initial Setup (One-Time)
+### Tasks
 
-```bash
-# 1. Clone the curator
-git clone <repo-url> ~/.claude/context-curator
-cd ~/.claude/context-curator
+A **task** is a complete work environment containing:
+- Custom CLAUDE.md with task-specific instructions
+- Selected skills from the library
+- Selected sub-agents from the library
+- Saved context snapshots
 
-# 2. Install dependencies
-npm install
+**Examples**: integration-tests, api-refactor, bug-fix, documentation
 
-# 3. Create the curator session
-./setup.sh
+### Contexts
 
-# 4. Test it works
-cd ~/any-project
-claude -r context-curator
+A **context** is a named snapshot of a Claude Code session saved within a task.
+
+**Examples**: initial-setup, edge-cases, timeout-work, refactor-v2
+
+### Default Task
+
+Every project has an implicit **default** task that:
+- Contains the original project configuration
+- Stores contexts created without an explicit task
+- Allows context-curator to work without thinking about tasks
+
+### Library
+
+A **library** is a collection of reusable skills and sub-agents that can be included in any task.
+
+---
+
+## Architecture
+
+### Storage Structure
+
+```
+~/.claude/tasks/
+│
+├── library/                               # Reusable components
+│   ├── skills/
+│   │   ├── test-generator/
+│   │   │   ├── skill.json
+│   │   │   └── [skill files...]
+│   │   ├── api-designer/
+│   │   └── coverage-analyzer/
+│   │
+│   └── sub-agents/
+│       ├── code-reviewer/
+│       │   ├── agent.json
+│       │   └── [agent files...]
+│       └── test-reviewer/
+│
+└── <encoded-project-path>/                # e.g., -Users-dev-my-project
+    │
+    ├── default/                           # Base project environment
+    │   ├── CLAUDE.md
+    │   ├── skills/                        # Symlinks to original
+    │   ├── agents/                        # Symlinks to original
+    │   └── contexts/                      # Contexts without task
+    │       ├── quick-fix.jsonl
+    │       └── experiment.jsonl
+    │
+    ├── integration-tests/
+    │   ├── CLAUDE.md                      # Task-specific instructions
+    │   ├── skills/                        # Symlinks to library
+    │   │   ├── test-generator -> ../../../library/skills/test-generator
+    │   │   └── coverage-analyzer -> ...
+    │   ├── agents/                        # Symlinks to library
+    │   │   └── test-reviewer -> ../../../library/sub-agents/test-reviewer
+    │   └── contexts/                      # Saved session snapshots
+    │       ├── initial-setup.jsonl
+    │       ├── edge-cases.jsonl
+    │       └── refactor-v2.jsonl
+    │
+    ├── api-refactor/
+    │   ├── CLAUDE.md
+    │   ├── skills/
+    │   ├── agents/
+    │   └── contexts/
+    │
+    └── bug-fix/
+        └── ...
 ```
 
-### Daily Usage
+### Project Structure
 
-```bash
-# Working on a project
-cd ~/my-project
-claude
-You: implement authentication
-Claude: [working... session getting large]
-
-# Exit your work session
-^D
-
-# Start the context curator
-cd ~/my-project
-claude -r context-curator
-
-Context Curator initialized
-Operating on: /Users/dev/my-project
-
-You: show sessions
-
-Curator: [Runs list script]
-
-Sessions for /Users/dev/my-project:
-
-sess-abc123 [most recent]
-├─ 487 messages, 89k tokens (45%)
-├─ Updated: 5 minutes ago
-└─ Task: Implement JWT token refresh logic
-
-You: analyze sess-abc123
-
-Curator: [Runs analyze script and shows detailed breakdown]
-
-Session: sess-abc123
-Messages: 487 | Tokens: 89,234 (45% capacity)
-
-Task Breakdown:
-─────────────────────────────────────────
-[1-120] Auth Implementation - COMPLETED
-  • 120 messages, 25k tokens
-  • Recommendation: Can be summarized
-
-[121-280] Cookie Debugging - MANY FAILURES
-  • 160 messages, 38k tokens
-  • Contains 89 failed attempts
-  • Recommendation: Remove failures, keep solution
-
-[281-487] JWT Refresh (current)
-  • 207 messages, 26k tokens
-  • Status: In progress
-  • Recommendation: Keep as-is
-
-You: manage sess-abc123
-
-Curator: Let me read that session and see what we can optimize...
-
-[Uses Read tool to load session file]
-
-I've analyzed the session. I can see:
-
-1. Messages 1-120 are the completed auth implementation (25k tokens)
-   → This could be summarized to 3-5 messages
-
-2. Messages 121-280 are cookie debugging (38k tokens)
-   → 89 messages are failed attempts
-   → 71 messages contain the working solution
-   → We could remove the failures
-
-3. Messages 281-487 are your current JWT work (26k tokens)
-   → Should keep this as-is
-
-What would you like me to do?
-
-You: Remove the failed cookie attempts and summarize the auth work
-
-Curator: Good plan! Let me show you what that would look like...
-
-For the auth section, I'll create a summary like:
-  [1] User: "Help me implement JWT authentication"
-  [2] [SUMMARY: Implemented JWT auth with refresh tokens using
-      the jose library. Tokens expire after 15min, refresh tokens
-      after 7 days. Added middleware for protected routes.]
-  [3] User: "Perfect, it works!"
-
-For the cookie section, I'll remove messages 121-209 (the failed
-attempts) and keep 210-280 (the working solution).
-
-Results:
-  Before: 487 messages, 89k tokens
-  After:  282 messages, 31k tokens
-  Savings: 205 messages, 58k tokens (65%)
-
-Should I proceed?
-
-You: yes
-
-Curator: [Working...]
-
-[Writes edited version to temp file using Write tool]
-
-✓ Edited version created
-✓ Running apply script...
-✓ Backup created: sess-abc123.backup-2026-01-08.jsonl
-✓ Session updated successfully
-
-Session optimized:
-  Before: 487 messages, 89k tokens (45%)
-  After:  282 messages, 31k tokens (16%)
-  Saved:  58k tokens (65% reduction)
-
-Resume with: claude --resume sess-abc123
-
-You: exit
-
-# Resume your work with optimized context
-cd ~/my-project
-claude --resume sess-abc123
-[Fresh, clean context!]
+```
+my-project/
+├── .claude/
+│   ├── CLAUDE.md                          # Active task's CLAUDE.md
+│   ├── .current-task                      # Tracks active task
+│   │
+│   ├── skills/                            # Active task's skills
+│   │   └── [symlinks to library]
+│   │
+│   ├── agents/                            # Active task's agents
+│   │   └── [symlinks to library]
+│   │
+│   └── commands/                          # Custom slash commands
+│       ├── task.md
+│       ├── task-create.md
+│       ├── task-save.md
+│       ├── task-list.md
+│       ├── task-manage.md
+│       ├── task-delete.md
+│       ├── context-list.md
+│       ├── context-manage.md
+│       └── context-delete.md
+│
+├── .context-curator/                      # Helper scripts
+│   ├── src/
+│   │   ├── types.ts
+│   │   ├── session-reader.ts
+│   │   ├── session-writer.ts
+│   │   ├── task-manager.ts
+│   │   └── utils.ts
+│   │
+│   ├── scripts/
+│   │   ├── task-activate.ts
+│   │   ├── task-create.ts
+│   │   ├── task-save.ts
+│   │   ├── task-list.ts
+│   │   ├── prepare-context.ts
+│   │   ├── context-list.ts
+│   │   ├── context-manage.ts
+│   │   └── apply-edits.ts
+│   │
+│   └── package.json
+│
+└── [project files...]
 ```
 
 ---
 
 ## Commands Reference
 
-All commands work within the `claude -r context-curator` session.
+### Task Management Commands
 
-### show sessions / list
+#### /task <task-id> [context-name]
 
-List all sessions for the current project.
+Activate a task environment with optional saved context.
 
-**Usage:**
+**Usage**:
 ```
-You: show sessions
-```
-
-**What Claude does:**
-- Runs `npm run list` script
-- Displays all sessions with metadata
-
-**Output:**
-- Session IDs and status
-- Message count and token usage
-- Last updated time
-- First task preview
-
----
-
-### analyze <session-id>
-
-Analyze a specific session in detail.
-
-**Usage:**
-```
-You: analyze sess-abc123
+/task integration-tests              # Fresh session
+/task integration-tests edge-cases   # Load saved context
 ```
 
-**What Claude does:**
-- Runs `npm run analyze <session-id>` script
-- Displays detailed breakdown
+**What happens**:
+1. Checks current session for unsaved work
+2. Offers to save if work exists
+3. Executes `/clear` to reset session
+4. Replaces project's CLAUDE.md, skills, and agents
+5. If context specified: copies it to active session
+6. Tells user to `/resume <session-id>`
 
-**Output:**
-- Task boundaries and status
-- Token distribution
-- Optimization recommendations
-- Potential savings
-
----
-
-### manage <session-id>
-
-**Interactive session editing using Claude's intelligence.**
-
-**Usage:**
+**Example**:
 ```
-You: manage sess-abc123
-```
+You: /task integration-tests edge-cases
 
-**What happens:**
-
-1. **Claude analyzes** - Runs analyze script first
-
-2. **Claude reads** - Uses Read tool to load the session JSONL file
-
-3. **Claude suggests** - Identifies optimization opportunities:
-   - Completed work that can be summarized
-   - Failed attempts that can be removed
-   - Redundant information
-
-4. **You discuss** - Tell Claude what you want:
-   - "Remove the failed attempts"
-   - "Summarize the auth work"
-   - "Keep only the last 100 messages"
-   - Any natural language instruction
-
-5. **Claude previews** - Shows before/after examples
-
-6. **You approve** - Confirm the changes
-
-7. **Claude applies** - Writes edited version and applies it:
-   - Creates temporary edited file
-   - Runs apply-edits script
-   - Creates backup
-   - Updates session
-
-**Interactive Commands:**
-- Describe changes in natural language
-- "show me a preview" - See before/after
-- "yes" / "apply" - Apply changes
-- "no" / "cancel" - Abort changes
-
-**Example interactions:**
-```
-You: Remove all the debugging messages
-You: Summarize the first 50 messages
-You: Keep only messages from the last hour
-You: Remove messages about X but keep messages about Y
-```
-
----
-
-### checkpoint <session-id> <name>
-
-Create a backup of a session.
-
-**Usage:**
-```
-You: checkpoint sess-abc123 before-refactor
-```
-
-**What Claude does:**
-- Runs `npm run checkpoint <session-id> <name>` script
-- Creates timestamped backup
-
----
-
-### delete <session-id>
-
-Remove a session (with backup and confirmation).
-
-**Usage:**
-```
-You: delete sess-abc123
-```
-
-**What Claude does:**
-- Runs `npm run delete <session-id>` script
-- Creates automatic backup
-- Asks for confirmation
-- Deletes if confirmed
-
----
-
-### dump <session-id> [type]
-
-Display raw session data.
-
-**Usage:**
-```
-You: dump sess-abc123
-You: dump sess-abc123 user
-```
-
-**What Claude does:**
-- Runs `npm run dump <session-id> [type]` script
-- Shows raw JSONL messages
-
----
-
-### help
-
-Show detailed help and command reference.
-
-**Usage:**
-```
-You: help
-```
-
----
-
-## Session File Format
-
-### Storage Location
-
-Sessions are stored as JSONL files:
-```
-~/.claude/projects/<encoded-project-path>/<session-uuid>.jsonl
-```
-
-### Path Encoding Formula
-
-Project paths are encoded by replacing `/` with `-`:
-```
-/Users/dev/my-project  →  -Users-dev-my-project
-/home/user/work/app    →  -home-user-work-app
-```
-
-### JSONL Format
-
-One message per line:
-```json
-{"role":"user","content":"Help me implement auth","timestamp":"2026-01-08T10:00:00Z"}
-{"role":"assistant","content":"I'll help you...","timestamp":"2026-01-08T10:00:05Z"}
-```
-
-### Message Types
-
-- `role: "user"` - User messages
-- `role: "assistant"` - Claude responses
-- `role: "file-history-snapshot"` - File state tracking
-- `role: "summary"` - Compaction summaries
-
----
-
-## Implementation Architecture
-
-### File Structure
-
-```
-~/.claude/
-├── sessions/
-│   └── context-curator/           # The curator's own session
-│       ├── conversation.jsonl
-│       └── metadata.json
-│
-└── context-curator/                # Curator code
-    ├── CLAUDE.md                   # Instructions for curator
-    ├── src/
-    │   ├── types.ts
-    │   ├── session-reader.ts
-    │   ├── session-writer.ts
-    │   ├── session-analyzer.ts
-    │   └── utils.ts
-    ├── scripts/
-    │   ├── init.ts                 # Initialization
-    │   ├── list.ts                 # List sessions
-    │   ├── analyze.ts              # Analyze session
-    │   ├── checkpoint.ts           # Backup session
-    │   ├── delete.ts               # Delete session
-    │   ├── dump.ts                 # Show raw data
-    │   └── apply-edits.ts          # Apply edited session
-    ├── setup.sh                    # One-time setup
-    ├── package.json
-    └── README.md
-```
-
-### The Curator Session
-
-Created by `setup.sh`:
-```bash
-~/.claude/sessions/context-curator/
-├── conversation.jsonl              # Initial conversation
-└── metadata.json
-```
-
-When you run `claude -r context-curator`, Claude Code:
-1. Resumes this session
-2. Reads `~/.claude/context-curator/CLAUDE.md`
-3. Becomes the context curator assistant
-4. Operates on the current directory's sessions
-
-### CLAUDE.md (Curator Instructions)
-
-```markdown
-# Context Curator
-
-You help developers manage their Claude Code sessions for the current project.
-
-## Initialization
-
-When the user resumes this session, immediately run:
-```bash
-npm --prefix ~/.claude/context-curator run init
-```
-
-This displays:
-- Current working directory
-- Available sessions
-- Available commands
-
-## Your Role
-
-You are a context management assistant with helper scripts at:
-`~/.claude/context-curator/scripts/`
-
-Run scripts using:
-```bash
-npm --prefix ~/.claude/context-curator run <command> <args>
-```
-
-## Available Commands
-
-### show sessions / list
-Run: `npm run list`
-Shows all sessions for the current project.
-
-### analyze <session-id>
-Run: `npm run analyze <session-id>`
-Shows detailed breakdown of a session.
-
-### manage <session-id>
-**This is SPECIAL - you handle this interactively.**
-
-Workflow:
-1. Run analyze script to understand the session
-2. Use Read tool to load the session JSONL file:
-   - Path: `~/.claude/projects/<encoded-path>/<session-id>.jsonl`
-   - Format: One message per line (JSONL)
-3. Analyze and suggest optimizations
-4. Discuss with user what to optimize
-5. Show preview of changes
-6. When approved, create edited version:
-   - Build array of edited messages
-   - Write to: `/tmp/edited-<session-id>.jsonl`
-   - Format: One message per line
-7. Apply changes: `npm run apply-edits <session-id> /tmp/edited-<session-id>.jsonl`
-8. Confirm success
-
-**Important for manage:**
-- Always read the actual session file first
-- Be conservative - don't remove important context
-- Show clear before/after previews
-- Get explicit approval before applying
-- Maintain valid JSONL format (one message per line)
-- Explain your reasoning
-
-**Example manage interaction:**
-
-User: "manage sess-abc123"
-
-You:
-1. Run analyze script
-2. Read session file with Read tool
-3. Explain what you found
-4. Suggest optimizations
-5. Discuss with user
-6. Preview changes
-7. Get approval ("yes" or "apply")
-8. Write edited version to temp file
-9. Run apply-edits script
-10. Confirm success with stats
-
-### checkpoint <session-id> <name>
-Run: `npm run checkpoint <session-id> <name>`
-Creates a backup of the session.
-
-### delete <session-id>
-Run: `npm run delete <session-id>`
-Deletes a session (with backup and confirmation).
-
-### dump <session-id> [type]
-Run: `npm run dump <session-id> [type]`
-Shows raw JSONL contents.
-
-## Command Interpretation
-
-Users may phrase requests differently. Understand intent:
-
-- "show sessions", "list sessions", "what sessions do I have" → list
-- "analyze X", "tell me about X", "what's in X" → analyze X
-- "manage X", "optimize X", "clean up X", "edit X" → manage X
-- "backup X", "checkpoint X", "save X as Y" → checkpoint X Y
-- "delete X", "remove X" → delete X
-
-## Session File Format
-
-JSONL format - one message per line:
-```json
-{"role":"user","content":"...","timestamp":"2026-01-08T10:00:00Z"}
-{"role":"assistant","content":"...","timestamp":"2026-01-08T10:00:05Z"}
-```
-
-## Project Path Encoding
-
-Claude Code encodes paths by replacing `/` with `-`:
-- `/Users/dev/project` → `-Users-dev-project`
-
-Sessions: `~/.claude/projects/<encoded-path>/<uuid>.jsonl`
-
-## Your Personality
-
-- Helpful and conversational
-- Clear about what you're doing
-- Ask for confirmation on destructive operations
-- Show token savings prominently
-- Explain your reasoning
-- Guide users through optimization
-```
-
-### Helper Script: apply-edits.ts
-
-```typescript
-#!/usr/bin/env tsx
-// scripts/apply-edits.ts
-
-import * as fs from 'fs/promises';
-import { getProjectSessionsDir } from '../src/session-reader.js';
-import { backupSession } from '../src/session-writer.js';
-import * as path from 'path';
-
-async function main() {
-  const [sessionId, editedPath] = process.argv.slice(2);
-  
-  if (!sessionId || !editedPath) {
-    console.error('Usage: apply-edits <session-id> <edited-file-path>');
-    process.exit(1);
-  }
-  
-  console.log('Applying edits...');
-  
-  // Read edited version
-  const editedContent = await fs.readFile(editedPath, 'utf-8');
-  const editedMessages = editedContent
-    .split('\n')
-    .filter(line => line.trim())
-    .map(line => {
-      try {
-        return JSON.parse(line);
-      } catch (e) {
-        throw new Error(`Invalid JSON on line: ${line}`);
-      }
-    });
-  
-  // Validate
-  if (editedMessages.length === 0) {
-    throw new Error('Edited session is empty');
-  }
-  
-  // Backup original
-  const timestamp = new Date().toISOString().split('T')[0];
-  const backupFilename = `${sessionId}.backup-${timestamp}.jsonl`;
-  const sessionsDir = getProjectSessionsDir();
-  const originalPath = path.join(sessionsDir, `${sessionId}.jsonl`);
-  const backupPath = path.join(sessionsDir, backupFilename);
-  
-  console.log('Creating backup...');
-  await fs.copyFile(originalPath, backupPath);
-  console.log(`✓ Backup: ${backupFilename}`);
-  
-  // Write edited version
-  console.log('Writing edited version...');
-  const editedJSONL = editedMessages.map(m => JSON.stringify(m)).join('\n');
-  await fs.writeFile(originalPath, editedJSONL, 'utf-8');
-  console.log('✓ Session updated');
-  
-  // Cleanup temp file
-  await fs.unlink(editedPath);
-  
-  console.log('\nDone!');
-}
-
-main().catch(err => {
-  console.error('Error applying edits:', err.message);
-  process.exit(1);
-});
-```
-
----
-
-## Usage Examples
-
-### Example 1: Quick Session Check
-
-```bash
-cd ~/my-app
-claude -r context-curator
-
-You: show sessions
-
-Curator: [Shows 2 sessions]
-
-You: analyze sess-abc123
-
-Curator: [Shows breakdown with optimization opportunities]
-
-You: exit
-```
-
-### Example 2: Interactive Session Optimization
-
-```bash
-claude -r context-curator
-
-You: manage sess-abc123
-
-Curator: [Analyzes and reads the session]
-
-I can see this session has:
-- Completed auth work that can be summarized
-- Many failed cookie debugging attempts
-- Current JWT work in progress
-
-What would you like to optimize?
-
-You: Remove the failed attempts and summarize the completed work
-
-Curator: [Shows preview of changes]
-
-This will reduce from 487 to 282 messages (58k tokens saved).
-Apply?
+Claude: Current session: 34 messages (unsaved)
+        Save? (yes/no)
 
 You: yes
 
-Curator: [Applies changes]
-✓ Done! Session optimized.
+Claude: Context name? (lowercase, numbers, hyphens only)
 
-You: exit
+You: debug-work
+
+Claude: ✓ Saved to 'default' task as 'debug-work'
+        
+        Activating task 'integration-tests' with context 'edge-cases'...
+        /clear
+        ✓ Session cleared
+        ✓ Project environment replaced:
+          - CLAUDE.md: API integration testing focus
+          - Skills: test-generator, coverage-analyzer, api-mocker
+          - Agents: test-reviewer
+        ✓ Context 'edge-cases' ready: sess-a1b2c3d4
+        
+        Type: /resume sess-a1b2c3d4
+
+You: /resume sess-a1b2c3d4
+
+Claude: [Loads 156 messages from edge-cases context]
+        [Task environment active]
 ```
 
-### Example 3: Creating Safety Checkpoint
+---
+
+#### /task-create <task-id>
+
+Create a new task with interactive configuration.
+
+**Usage**:
+```
+/task-create integration-tests
+```
+
+**What happens**:
+1. On first task: offers to migrate current config to 'default' task
+2. Asks for task description/focus
+3. Shows library skills and agents for selection
+4. Writes task CLAUDE.md
+5. Creates task directory with symlinks
+
+**Example**:
+```
+You: /task-create integration-tests
+
+Claude: ⚠️ First time using tasks in this project!
+        
+        Your current .claude/ configuration will be moved to 'default' task.
+        This preserves your setup and lets you switch back anytime.
+        
+        Current project has:
+        - CLAUDE.md (127 lines)
+        - 2 skills: api-helpers, testing-utils
+        - 1 agent: code-reviewer
+        
+        Move to 'default' task? (yes/no)
+
+You: yes
+
+Claude: ✓ Created 'default' task with current config
+        
+        Now creating 'integration-tests' task...
+        
+        What should this task focus on?
+
+You: API integration testing with Jest. Focus on edge cases and error handling.
+
+Claude: [Launches editor mode to write CLAUDE.md]
+
+I'll create a CLAUDE.md focused on integration testing. Here's what I'll include:
+- Jest configuration and best practices
+- API testing patterns
+- Edge case and error handling guidelines
+- Mocking and test data strategies
+
+[Writes CLAUDE.md]
+
+✓ CLAUDE.md created (147 lines)
+
+Which skills from the library?
+
+Available skills:
+1. test-generator
+2. coverage-analyzer
+3. api-mocker
+4. [add new skill]
+5. [skip - no skills]
+
+You: 1 2 3
+
+Claude: ✓ Selected: test-generator, coverage-analyzer, api-mocker
+
+Which agents?
+
+Available agents:
+1. code-reviewer
+2. test-reviewer
+3. [add new agent]
+4. [skip - no agents]
+
+You: 2
+
+Claude: ✓ Selected: test-reviewer
+
+✓ Task 'integration-tests' created!
+  Location: ~/.claude/tasks/-Users-dev-my-project/integration-tests/
+  • CLAUDE.md: 147 lines
+  • Skills: test-generator, coverage-analyzer, api-mocker
+  • Agents: test-reviewer
+
+Activate with: /task integration-tests
+```
+
+---
+
+#### /task-save <context-name>
+
+Save current session as a named context in the active task.
+
+**Usage**:
+```
+/task-save initial-setup
+```
+
+**Validation**: Context name must match `/^[a-z0-9-]+$/`
+
+**What happens**:
+1. Validates context name format
+2. Parses `~/.claude/history.jsonl` to get current session ID
+3. Copies session to task's contexts directory
+4. Handles overwrite with backup
+
+**Example**:
+```
+You: /task-save edge-cases
+
+Claude: ✓ Saved as 'edge-cases' (156 msgs, 34k tokens)
+        Location: ~/.claude/tasks/-Users-dev-my-project/integration-tests/contexts/edge-cases.jsonl
+
+# Later, overwriting
+You: /task-save edge-cases
+
+Claude: ⚠️ Context 'edge-cases' already exists (156 msgs, 34k tokens)
+        
+        Options:
+        1. Overwrite (creates backup)
+        2. Cancel
+        
+        Choose: 1
+
+Claude: ✓ Backup: edge-cases-backup-20260108.jsonl
+        ✓ Saved as 'edge-cases' (203 msgs, 45k tokens)
+
+# Invalid name
+You: /task-save "My Checkpoint"
+
+Claude: ❌ Invalid context name: "My Checkpoint"
+        
+        Names must contain only:
+        - Lowercase letters (a-z)
+        - Numbers (0-9)
+        - Hyphens (-)
+        
+        Examples: initial-setup, edge-cases, checkpoint-1
+```
+
+---
+
+#### /task-list
+
+List all tasks and show contexts for current task.
+
+**Usage**:
+```
+/task-list
+```
+
+**Example**:
+```
+You: /task-list
+
+Claude: Available tasks:
+        
+        • default (base project config)
+        • integration-tests ← ACTIVE
+        • api-refactor
+        • bug-fix
+        
+        Contexts for 'integration-tests':
+        - initial-setup (45 msgs, 12k tokens)
+        - edge-cases (156 msgs, 34k tokens)
+        - refactor-v2 (89 msgs, 21k tokens)
+```
+
+---
+
+#### /task-manage <task-id>
+
+Edit a task's configuration (CLAUDE.md, skills, agents).
+
+**Usage**:
+```
+/task-manage integration-tests
+```
+
+**What happens**:
+1. Shows current task configuration
+2. Allows editing CLAUDE.md
+3. Allows adding/removing skills
+4. Allows adding/removing agents
+
+**Example**:
+```
+You: /task-manage integration-tests
+
+Claude: Task: integration-tests
+        CLAUDE.md: 147 lines
+        Skills: test-generator, coverage-analyzer, api-mocker
+        Agents: test-reviewer
+        
+        What would you like to change?
+        1. Edit CLAUDE.md
+        2. Manage skills
+        3. Manage agents
+        4. Done
+
+You: 2
+
+Claude: Current skills:
+        ✓ test-generator
+        ✓ coverage-analyzer
+        ✓ api-mocker
+        
+        Available in library:
+        - api-designer
+        - performance-profiler
+        
+        Add/remove? (add/remove/done)
+
+You: add api-designer
+
+Claude: ✓ Added api-designer
+        
+        Updated skills:
+        ✓ test-generator
+        ✓ coverage-analyzer
+        ✓ api-mocker
+        ✓ api-designer
+```
+
+---
+
+#### /task-delete <task-id>
+
+Delete a task (with safety checks).
+
+**Usage**:
+```
+/task-delete integration-tests
+```
+
+**What happens**:
+1. Checks if task has saved contexts
+2. Offers to move contexts to 'default' task
+3. Requires confirmation
+4. Deletes task
+
+**Example**:
+```
+You: /task-delete integration-tests
+
+Claude: ⚠️ Task 'integration-tests' has 3 saved contexts:
+        - initial-setup (45 msgs)
+        - edge-cases (156 msgs)
+        - refactor-v2 (89 msgs)
+        
+        Options:
+        1. Delete task and all contexts
+        2. Move contexts to 'default' task
+        3. Cancel deletion
+        
+        Choose: 2
+
+Claude: ✓ Moved contexts to 'default' task
+        ✓ Deleted task 'integration-tests'
+```
+
+---
+
+### Context Management Commands
+
+#### /context-list
+
+List contexts for the current task.
+
+**Usage**:
+```
+/context-list
+```
+
+**Same as `/task-list` but focused on contexts only.**
+
+**Example**:
+```
+You: /context-list
+
+Claude: Contexts for task 'integration-tests':
+        
+        - initial-setup (45 msgs, 12k tokens)
+          Saved: 2 days ago
+        
+        - edge-cases (156 msgs, 34k tokens)
+          Saved: 1 day ago
+        
+        - refactor-v2 (89 msgs, 21k tokens)
+          Saved: 3 hours ago
+        
+        Current session: 23 msgs, 5k tokens (unsaved)
+```
+
+---
+
+#### /context-manage <context-name>
+
+Interactively edit and optimize a saved context.
+
+**Usage**:
+```
+/context-manage edge-cases
+```
+
+**What happens**:
+1. Loads context from task's contexts directory
+2. Claude analyzes the session
+3. Interactive conversation to optimize
+4. Writes optimized version back
+
+**Example**:
+```
+You: /context-manage edge-cases
+
+Claude: Loading context 'edge-cases' from task 'integration-tests'...
+        
+        Session: 156 messages, 34k tokens (17% capacity)
+        
+        Task Breakdown:
+        ─────────────────────────────────────────
+        [1-45] Initial test setup - COMPLETED
+          • 45 messages, 12k tokens
+          • Status: Working framework
+          • Recommendation: Can be summarized
+        
+        [46-120] Failed cookie attempts
+          • 75 messages, 18k tokens
+          • Many failed debugging attempts
+          • Recommendation: Remove failures
+        
+        [121-156] Working solution
+          • 36 messages, 4k tokens
+          • Status: Clean implementation
+          • Recommendation: Keep as-is
+        
+        What would you like to optimize?
+
+You: Remove the failed attempts and summarize the setup
+
+Claude: Good plan! I'll:
+        - Summarize messages 1-45 into 3 messages (~10k tokens saved)
+        - Remove messages 46-120 (failed attempts, ~18k saved)
+        - Keep messages 121-156 (working solution)
+        
+        Results:
+          Before: 156 msgs, 34k tokens
+          After:  39 msgs, 6k tokens
+          Savings: 117 msgs, 28k tokens (82%)
+        
+        Should I proceed?
+
+You: yes
+
+Claude: [Working...]
+        
+        ✓ Context optimized
+        ✓ Saved back to: edge-cases.jsonl
+        
+        New stats:
+          Messages: 39 (was 156)
+          Tokens: 6k (was 34k)
+          Saved: 28k tokens (82% reduction)
+```
+
+---
+
+#### /context-delete <context-name>
+
+Delete a saved context from the current task.
+
+**Usage**:
+```
+/context-delete refactor-v2
+```
+
+**Example**:
+```
+You: /context-delete refactor-v2
+
+Claude: Delete 'refactor-v2'? (89 msgs, 21k tokens)
+        
+        This cannot be undone. (yes/no)
+
+You: yes
+
+Claude: ✓ Deleted context 'refactor-v2'
+```
+
+---
+
+### Library Management Commands
+
+#### /library-add-skill <skill-name>
+
+Add current project skill to the global library.
+
+**Usage**:
+```
+/library-add-skill my-custom-skill
+```
+
+**Example**:
+```
+You: /library-add-skill api-helpers
+
+Claude: Adding 'api-helpers' to global library...
+        
+        Source: .claude/skills/api-helpers/
+        
+        ✓ Copied to: ~/.claude/tasks/library/skills/api-helpers/
+        
+        This skill is now available for all tasks.
+```
+
+---
+
+#### /library-add-agent <agent-name>
+
+Add current project agent to the global library.
+
+**Usage**:
+```
+/library-add-agent my-reviewer
+```
+
+---
+
+#### /library-list
+
+List all available skills and agents in the library.
+
+**Usage**:
+```
+/library-list
+```
+
+**Example**:
+```
+You: /library-list
+
+Claude: Skills Library:
+        - test-generator
+        - coverage-analyzer
+        - api-mocker
+        - api-designer
+        - performance-profiler
+        
+        Agents Library:
+        - code-reviewer
+        - test-reviewer
+        - security-auditor
+```
+
+---
+
+## Complete Workflows
+
+### Workflow 1: First-Time Setup
 
 ```bash
-claude -r context-curator
+cd ~/my-project
+claude
 
-You: I'm about to try a risky refactor, can you backup my session first?
+# User discovers tasks
+You: I want to organize my work into tasks
 
-Curator: Sure! What's the session ID?
+Claude: Great! You can create tasks for different types of work.
+        Each task has its own environment (CLAUDE.md, skills, agents)
+        and saved contexts (session snapshots).
+        
+        Start by creating a task:
+          /task-create <task-name>
 
-You: sess-abc123
+You: /task-create integration-tests
 
-Curator: [Runs checkpoint script]
-✓ Checkpoint created: sess-abc123.backup-2026-01-08.jsonl
+Claude: ⚠️ First time using tasks!
+        
+        Move current config to 'default' task? (yes/no)
 
-Your session is backed up. Good luck with the refactor!
+You: yes
 
-You: exit
+Claude: [Creates default task, then integration-tests task]
+        ✓ Task created
+
+You: /task integration-tests
+
+Claude: [Activates task with fresh session]
+
+You: Help me set up Jest for integration tests
+
+Claude: [Works with integration-tests environment]
+        [Conversation continues... 45 messages]
+
+You: /task-save initial-setup
+
+Claude: ✓ Saved as 'initial-setup'
+```
+
+---
+
+### Workflow 2: Daily Work Routine
+
+```bash
+# Start of day
+$ claude
+
+You: /task integration-tests edge-cases
+
+Claude: [Activates task, prepares context]
+        Type: /resume sess-a1b2c3d4
+
+You: /resume sess-a1b2c3d4
+
+Claude: [Loads 156 messages]
+        Looks like we were testing error conditions.
+        Ready to continue?
+
+You: Add timeout tests
+
+Claude: [Works... session grows to 203 messages]
+
+You: /task-save timeout-tests
+
+Claude: ✓ Saved as 'timeout-tests'
+
+# Bug report comes in
+You: /task bug-fix
+
+Claude: Save current work? (yes/no)
+
+You: no
+
+Claude: [Switches to bug-fix task with fresh session]
+
+You: Fix null pointer in auth flow
+
+Claude: [Works on bug fix... 34 messages]
+
+# Bug fixed, back to testing
+You: /task integration-tests timeout-tests
+
+Claude: [Switches back, loads context]
+        Type: /resume sess-xyz
+
+You: /resume sess-xyz
+
+Claude: [Right back to timeout testing with 203 messages]
+```
+
+---
+
+### Workflow 3: Context Management
+
+```bash
+You: /task integration-tests
+You: /context-list
+
+Claude: Contexts for 'integration-tests':
+        - initial-setup (45 msgs, 12k tokens)
+        - edge-cases (156 msgs, 34k tokens) ⚠️ HIGH
+        - timeout-tests (203 msgs, 45k tokens) ⚠️ HIGH
+
+You: /context-manage edge-cases
+
+Claude: [Shows analysis]
+        This context has bloat from failed debugging.
+        Can reduce from 156 to 39 messages.
+
+You: Do it
+
+Claude: [Optimizes]
+        ✓ Reduced to 39 messages (82% savings)
+
+You: /context-manage timeout-tests
+
+Claude: [Optimizes this one too]
+        ✓ Reduced to 87 messages (57% savings)
+```
+
+---
+
+## Implementation Details
+
+### Path Encoding
+
+```typescript
+function encodeProjectPath(projectPath: string): string {
+  return projectPath.replace(/\//g, '-');
+}
+
+// Examples:
+// /Users/dev/my-project → -Users-dev-my-project
+// /home/alice/work/api → -home-alice-work-api
+```
+
+### Current Task Detection
+
+```typescript
+async function getCurrentTask(): Promise<string> {
+  const taskFile = '.claude/.current-task';
+  try {
+    const task = await fs.readFile(taskFile, 'utf-8');
+    return task.trim();
+  } catch {
+    return 'default';
+  }
+}
+
+async function setCurrentTask(taskId: string): Promise<void> {
+  await fs.mkdir('.claude', { recursive: true });
+  await fs.writeFile('.claude/.current-task', taskId, 'utf-8');
+}
+```
+
+### Current Session ID Detection
+
+```typescript
+async function getCurrentSessionId(): Promise<string> {
+  // Parse ~/.claude/history.jsonl to find current session
+  const historyPath = path.join(os.homedir(), '.claude', 'history.jsonl');
+  const content = await fs.readFile(historyPath, 'utf-8');
+  
+  const lines = content.split('\n').filter(line => line.trim());
+  if (lines.length === 0) {
+    throw new Error('No session history found');
+  }
+  
+  // Last line is most recent session
+  const lastEntry = JSON.parse(lines[lines.length - 1]);
+  return lastEntry.id;
+}
+```
+
+### Task Activation Script
+
+```typescript
+// scripts/task-activate.ts
+async function taskActivate(taskId: string) {
+  const projectRoot = process.cwd();
+  const encodedPath = encodeProjectPath(projectRoot);
+  const taskDir = path.join(os.homedir(), '.claude/tasks', encodedPath, taskId);
+  const claudeDir = path.join(projectRoot, '.claude');
+  
+  // Verify task exists
+  if (!await exists(taskDir)) {
+    throw new Error(`Task '${taskId}' not found`);
+  }
+  
+  // Ensure default task exists
+  await ensureDefaultTask(encodedPath, claudeDir);
+  
+  // Replace CLAUDE.md
+  await fs.copyFile(
+    path.join(taskDir, 'CLAUDE.md'),
+    path.join(claudeDir, 'CLAUDE.md')
+  );
+  
+  // Replace skills
+  await fs.rm(path.join(claudeDir, 'skills'), { recursive: true, force: true });
+  await fs.mkdir(path.join(claudeDir, 'skills'));
+  
+  const skillsDir = path.join(taskDir, 'skills');
+  if (await exists(skillsDir)) {
+    for (const skill of await fs.readdir(skillsDir)) {
+      const target = await fs.readlink(path.join(skillsDir, skill));
+      await fs.symlink(target, path.join(claudeDir, 'skills', skill));
+    }
+  }
+  
+  // Replace agents
+  await fs.rm(path.join(claudeDir, 'agents'), { recursive: true, force: true });
+  await fs.mkdir(path.join(claudeDir, 'agents'));
+  
+  const agentsDir = path.join(taskDir, 'agents');
+  if (await exists(agentsDir)) {
+    for (const agent of await fs.readdir(agentsDir)) {
+      const target = await fs.readlink(path.join(agentsDir, agent));
+      await fs.symlink(target, path.join(claudeDir, 'agents', agent));
+    }
+  }
+  
+  // Write .current-task
+  await fs.writeFile(path.join(claudeDir, '.current-task'), taskId);
+  
+  console.log(`✓ Task '${taskId}' activated`);
+  console.log(`  CLAUDE.md: Loaded from task`);
+  console.log(`  Skills: ${(await fs.readdir(path.join(claudeDir, 'skills'))).length} skills`);
+  console.log(`  Agents: ${(await fs.readdir(path.join(claudeDir, 'agents'))).length} agents`);
+}
+```
+
+### Context Preparation Script
+
+```typescript
+// scripts/prepare-context.ts
+async function prepareContext(taskId: string, contextName?: string): Promise<string> {
+  const encodedPath = encodeProjectPath(process.cwd());
+  const taskDir = path.join(os.homedir(), '.claude/tasks', encodedPath, taskId);
+  const projectSessionsDir = path.join(os.homedir(), '.claude/projects', encodedPath);
+  
+  // Ensure sessions directory exists
+  await fs.mkdir(projectSessionsDir, { recursive: true });
+  
+  // Generate new session ID
+  const sessionId = `sess-${crypto.randomUUID().slice(0, 8)}`;
+  const destPath = path.join(projectSessionsDir, `${sessionId}.jsonl`);
+  
+  if (contextName) {
+    // Copy saved context
+    const contextPath = path.join(taskDir, 'contexts', `${contextName}.jsonl`);
+    
+    if (!await exists(contextPath)) {
+      throw new Error(`Context '${contextName}' not found in task '${taskId}'`);
+    }
+    
+    await fs.copyFile(contextPath, destPath);
+    
+    console.log(`✓ Context '${contextName}' ready: ${sessionId}`);
+  } else {
+    // Create minimal fresh session
+    const freshSession = [
+      {
+        role: 'system',
+        content: `Task: ${taskId}`,
+        timestamp: new Date().toISOString()
+      }
+    ];
+    
+    await fs.writeFile(
+      destPath,
+      freshSession.map(m => JSON.stringify(m)).join('\n')
+    );
+    
+    console.log(`✓ Fresh session ready: ${sessionId}`);
+  }
+  
+  return sessionId;
+}
+```
+
+### Context Save Script
+
+```typescript
+// scripts/task-save.ts
+async function taskSave(contextName: string) {
+  // Validate name
+  if (!/^[a-z0-9-]+$/.test(contextName)) {
+    throw new Error(
+      `Invalid context name: "${contextName}"\n\n` +
+      `Names must contain only:\n` +
+      `- Lowercase letters (a-z)\n` +
+      `- Numbers (0-9)\n` +
+      `- Hyphens (-)\n\n` +
+      `Examples: initial-setup, edge-cases, checkpoint-1`
+    );
+  }
+  
+  const currentTask = await getCurrentTask();
+  const encodedPath = encodeProjectPath(process.cwd());
+  const taskDir = path.join(os.homedir(), '.claude/tasks', encodedPath, currentTask);
+  
+  // Get current session ID from history
+  const currentSessionId = await getCurrentSessionId();
+  const sessionPath = path.join(
+    os.homedir(),
+    '.claude/projects',
+    encodedPath,
+    `${currentSessionId}.jsonl`
+  );
+  
+  if (!await exists(sessionPath)) {
+    throw new Error(`Current session not found: ${currentSessionId}`);
+  }
+  
+  // Prepare contexts directory
+  const contextsDir = path.join(taskDir, 'contexts');
+  await fs.mkdir(contextsDir, { recursive: true });
+  
+  const destPath = path.join(contextsDir, `${contextName}.jsonl`);
+  
+  // Handle overwrite
+  if (await exists(destPath)) {
+    const timestamp = new Date().toISOString().split('T')[0].replace(/-/g, '');
+    const backup = `${contextName}-backup-${timestamp}.jsonl`;
+    await fs.copyFile(destPath, path.join(contextsDir, backup));
+    console.log(`✓ Backup created: ${backup}`);
+  }
+  
+  // Copy session to context
+  await fs.copyFile(sessionPath, destPath);
+  
+  // Get stats
+  const stats = await getSessionStats(destPath);
+  console.log(`✓ Saved as '${contextName}' (${stats.messages} msgs, ${stats.tokens} tokens)`);
+  console.log(`  Location: ${destPath}`);
+}
+
+async function getSessionStats(sessionPath: string) {
+  const content = await fs.readFile(sessionPath, 'utf-8');
+  const messages = content.split('\n').filter(line => line.trim());
+  
+  // Estimate tokens (rough: 4 chars per token)
+  const totalChars = messages.reduce((sum, line) => {
+    try {
+      const msg = JSON.parse(line);
+      return sum + (msg.content?.length || 0);
+    } catch {
+      return sum;
+    }
+  }, 0);
+  
+  return {
+    messages: messages.length,
+    tokens: Math.ceil(totalChars / 4)
+  };
+}
+```
+
+---
+
+## Command Implementation Examples
+
+### /task Command
+
+```markdown
+---
+description: Activate a task environment with optional context
+allowed-tools: Bash, Read, Write
+---
+
+# Task Activation
+
+Usage: /task <task-id> [context-name]
+
+## Step 1: Check for unsaved work
+
+Check if current session has messages:
+```bash
+npm --prefix .context-curator run check-session
+```
+
+If there are unsaved messages, ask user:
+"Current session: N messages (unsaved). Save? (yes/no)"
+
+If yes:
+- Ask for context name (validate: lowercase, numbers, hyphens only)
+- Run: `npm --prefix .context-curator run task-save <context-name>`
+
+## Step 2: Clear session
+
+Execute `/clear` to reset the conversation.
+
+## Step 3: Activate task environment
+
+Run:
+```bash
+npm --prefix .context-curator run task-activate $1
+```
+
+This replaces .claude/CLAUDE.md, skills/, and agents/ with the task's configuration.
+
+## Step 4: Prepare context
+
+If second argument (context-name) provided:
+```bash
+SESSION_ID=$(npm --prefix .context-curator run prepare-context $1 $2)
+```
+
+If no context-name:
+```bash
+SESSION_ID=$(npm --prefix .context-curator run prepare-context $1)
+```
+
+This copies the context (or creates fresh session) to the project sessions directory.
+
+## Step 5: Tell user to resume
+
+Display:
+```
+✓ Task '$1' activated
+✓ Context ready: $SESSION_ID
+
+Type: /resume $SESSION_ID
+```
+
+## Example
+
+User: /task integration-tests edge-cases
+
+You:
+1. Check current session (23 messages)
+2. Ask: "Save? (yes/no)"
+3. User: "yes"
+4. Ask: "Context name?"
+5. User: "my-work"
+6. Run task-save script
+7. Execute /clear
+8. Run task-activate script
+9. Run prepare-context script with "edge-cases"
+10. Tell user to /resume <session-id>
+```
+
+### /task-save Command
+
+```markdown
+---
+description: Save current session as a named context in active task
+allowed-tools: Bash
+---
+
+# Task Save
+
+Usage: /task-save <context-name>
+
+Run the save script:
+```bash
+npm --prefix .context-curator run task-save $ARGUMENTS
+```
+
+The script will:
+1. Validate the context name format
+2. Get current session ID from history
+3. Copy session to task's contexts directory
+4. Handle overwrites with backups
+
+Display the result.
+```
+
+---
+
+## Installation
+
+### Per-Project Installation
+
+```bash
+cd ~/my-project
+
+# 1. Clone the curator
+git clone <repo-url> .context-curator
+cd .context-curator
+npm install
+
+# 2. Link commands to .claude/commands
+cd ..
+mkdir -p .claude/commands
+ln -s ../context-curator/commands/* .claude/commands/
+
+# 3. (Optional) Add to .gitignore
+echo ".context-curator/" >> .gitignore
+echo ".claude/.current-task" >> .gitignore
+
+# 4. Test it
+claude
+You: /task-list
 ```
 
 ---
 
 ## Key Features
 
-### No API Key Required
+### ✅ Task-Based Organization
 
-The `manage` command uses Claude Code's own intelligence - no Anthropic API key needed. Claude uses its built-in capabilities (Read, Write, Bash tools) to edit sessions.
+Separate environments for different work types:
+- integration-tests task
+- api-refactor task
+- bug-fix task
+- documentation task
 
-### Conversational Interface
+### ✅ Reusable Components
 
-Natural language commands - talk to the curator like you would any Claude session:
-- "Show me my sessions"
-- "What's in sess-abc123?"
-- "Clean up the old one"
-- "Remove the failures but keep the solution"
+Skills and agents in global library, used across all tasks via symlinks.
 
-### Safe and Reversible
+### ✅ Context Snapshots
 
-All modifications:
-- Create automatic backups
-- Require user confirmation
-- Show clear previews
-- Provide recovery paths
+Named checkpoints within each task:
+- initial-setup
+- edge-cases
+- refactor-v2
 
-### Project-Scoped
+### ✅ Atomic Task Switching
 
-Automatically operates only on the current project's sessions - no risk of modifying other projects.
+One command (`/task <id> <context>`) does everything:
+- Saves current work
+- Clears session
+- Swaps environment
+- Loads context
+- Ready to resume
+
+### ✅ Clean Isolation
+
+Each task completely isolated:
+- No cross-contamination
+- Predictable behavior
+- Clear mental model
+
+### ✅ Backward Compatible
+
+Default task preserves existing workflow:
+- Works without thinking about tasks
+- Smooth migration path
+- Tasks are opt-in
+
+### ✅ No API Key Required
+
+Uses Claude Code's built-in features:
+- Native `/clear` and `/resume`
+- Custom slash commands
+- File system operations
 
 ---
 
@@ -725,39 +1230,88 @@ Automatically operates only on the current project's sessions - no risk of modif
 - TypeScript 5+
 - tsx for running scripts
 
-### No API Key Needed
-The curator uses Claude Code itself for the `manage` command - no separate Anthropic API account required.
+### No Additional Accounts
+- No Anthropic API key required
+- Works entirely within Claude Code
 
 ---
 
 ## Success Criteria
 
 ### MVP Complete When
-- [ ] `claude -r context-curator` starts the curator session
-- [ ] All commands work (list, analyze, manage, checkpoint, delete, dump)
-- [ ] `manage` command edits sessions interactively using Claude
-- [ ] No API key required for any functionality
-- [ ] Project-scoped sessions work correctly
-- [ ] Backups created automatically
+- [ ] All task commands work (`/task`, `/task-create`, `/task-save`, etc.)
+- [ ] All context commands work (`/context-list`, `/context-manage`, etc.)
+- [ ] Default task created automatically on first use
+- [ ] Task switching is atomic (one command)
+- [ ] Context saving via history.jsonl parsing
+- [ ] Context name validation enforced
+- [ ] Library management for skills/agents
 - [ ] Zero data loss in testing
 - [ ] Documentation complete
 
 ### User Success
-- Users can optimize sessions without API keys
-- Natural conversational interface feels intuitive
-- Context optimization extends productive work time
-- No confusion about which project's sessions are managed
-- Community shares optimization strategies
+- Developers organize work into meaningful tasks
+- Context stays clean and focused per task
+- Easy switching between different work types
+- Natural workflow integration
+- Community shares task templates
+
+---
+
+## Future Enhancements
+
+### v1.1
+- Task templates shipped with curator
+- Auto-suggest task when starting new work
+- Context analytics and recommendations
+
+### v1.2
+- Task collaboration (share task definitions)
+- Context diff viewer
+- Automated context optimization
+
+### v2.0 (If Officially Adopted)
+- Built into Claude Code
+- Native task picker UI
+- Integrated with session management
+- Cloud sync for task templates
 
 ---
 
 ## Version History
 
-- **v7.0** (2026-01-08): Conversational `manage` using Claude Code, no API key
-- **v6.1** (2026-01-07): Project-only scoping, removed named sessions
-- **v6.0** (2026-01-07): Unified `context` command interface
-- **v5.0** (2026-01-06): Dual session support - DEPRECATED
-- **v4.0**: Interactive editor mode
-- **v3.0**: Session analysis and optimization
-- **v2.0**: Basic session management
-- **v1.0**: Initial prototype
+- **v9.0** (2026-01-08): Task-based architecture with atomic switching
+- **v8.0** (2026-01-08): Custom slash commands - DEPRECATED
+- **v7.0** (2026-01-08): Conversational manage - DEPRECATED
+- **v1.0-v6.1**: Earlier prototypes - DEPRECATED
+
+---
+
+## Appendix: Design Philosophy
+
+### Why Task-Based?
+
+**Research shows optimal context is task-specific** - exactly what's needed for the current work, no more, no less.
+
+### Why Hard Reset?
+
+**Atomic operations are predictable** - no partial state, no confusion about what's loaded.
+
+### Why Custom Slash Commands?
+
+**Official extension mechanism** - aligns with Anthropic's vision for Claude Code extensibility.
+
+### Why Library + Symlinks?
+
+**DRY principle** - one copy of each skill/agent, used everywhere, easy updates.
+
+### Path to Official Adoption
+
+This design:
+- Uses only official features (no hacks)
+- Solves real user pain (context management)
+- Aligns with Claude Code's architecture
+- Could be integrated with minimal changes
+- Demonstrates value through community adoption
+
+**Goal**: Build something so useful that Anthropic wants to make it official.
