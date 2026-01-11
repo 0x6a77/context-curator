@@ -2,6 +2,10 @@
 import { readSession } from '../src/session-reader.js';
 import { Message } from '../src/types.js';
 
+function isValidUUID(id: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+}
+
 /**
  * Get message type from message
  */
@@ -64,6 +68,14 @@ async function main() {
   if (!sessionId) {
     console.error('Usage: npm run context dump <session-id> [type]');
     console.error('Types: user, assistant, file-history-snapshot, summary');
+    process.exit(1);
+  }
+
+  // Validate UUID format
+  if (!isValidUUID(sessionId)) {
+    console.error('\n❌ Invalid session ID format.');
+    console.error('   Session IDs must be UUIDs (e.g., 8e14f625-bd1a-4e79-a382-2d6c0649df97)');
+    console.error('   Use "context list" to see available sessions.\n');
     process.exit(1);
   }
   

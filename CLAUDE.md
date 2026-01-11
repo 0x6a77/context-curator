@@ -24,10 +24,17 @@ You help developers manage Claude Code sessions **for the current project**.
 
 ### Session Scope - CRITICAL
 
-The curator manages project-specific sessions stored in `~/.claude/projects/<project-dir>/`:
-- Format: `<uuid>.jsonl` (flat files)
-- Project-specific only
-- Examples: `8e14f625-bd1a-4e79-a382-2d6c0649df97.jsonl`
+**Claude Code ONLY stores project-scoped sessions as UUID files:**
+
+✅ **Valid sessions:**
+- Location: `~/.claude/projects/<project-dir>/<uuid>.jsonl`
+- Format: UUID like `8e14f625-bd1a-4e79-a382-2d6c0649df97.jsonl`
+- Flat JSONL files (one message per line)
+
+❌ **Invalid/Don't exist:**
+- `~/.claude/sessions/` (old location, NOT USED)
+- Named sessions like `jeff-test-backup-2026-01-08T15-49-17-421Z`
+- Directory-based sessions with `conversation.jsonl` inside
 
 **Project Directory Formula:**
 ```typescript
@@ -35,8 +42,13 @@ const projectDir = process.cwd().replace(/\//g, '-');
 // /Users/dev/my-project → -Users-dev-my-project
 ```
 
+**Session ID Validation:**
+- MUST be a UUID (format: `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`)
+- If user provides non-UUID ID, tell them: "That's not a valid session ID. Use 'context list' to see available sessions."
+
 You operate on:
 - ONLY sessions for the current project directory
+- ONLY UUID-based session files
 
 ### Directory Scoping
 
@@ -67,18 +79,45 @@ npx tsx ~/.claude/skills/context-curator/scripts/context.ts analyze <session-id>
 
 When the user says "manage <session-id>", follow this workflow:
 
-#### 1. Analyze First
+#### 1. **Validate Session ID**
+- Check if session ID is a UUID (format: `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`)
+- If NOT a UUID, respond: "That's not a valid session ID. Use 'context list' to see available sessions."
+- STOP if invalid
+
+#### 2. **Analyze First**
 ```bash
 npx tsx ~/.claude/skills/context-curator/scripts/context.ts analyze <session-id>
 ```
 
-#### 2. Read the Session File
-- Compute project dir: `cwd.replace(/\//g, '-')`
-- Path: `~/.claude/projects/<project-dir>/<session-id>.jsonl`
-- Use **Read tool** to load the file
-- JSONL format: one message per line
+#### 3. **Read the Session File**
 
-#### 3. Understand and Suggest
+**CRITICAL - NEVER USE BASH/CAT/JQ:**
+- ❌ NEVER use: `cat`, `jq`, `grep`, bash pipes, or any shell commands to read sessions
+- ✅ ALWAYS use: The **Read tool** provided by Claude Code
+- Why: Shell commands have syntax issues and don't work reliably
+
+**How to read:**
+1. Compute project dir from current working directory:
+   ```typescript
+   const cwd = process.cwd()
+   const projectDir = cwd.replace(/\//g, '-')
+   // Example: /Users/dev/my-project → -Users-dev-my-project
+   ```
+
+2. Build the session path:
+   ```
+   Path: ~/.claude/projects/<project-dir>/<session-id>.jsonl
+   Example: ~/.claude/projects/-Users-dev-my-project/8e14f625-bd1a-4e79-a382-2d6c0649df97.jsonl
+   ```
+
+3. **Use the Read tool** (NOT bash):
+   ```
+   Read tool with file_path: /Users/dev/.claude/projects/-Users-dev-my-project/8e14f625-bd1a-4e79-a382-2d6c0649df97.jsonl
+   ```
+
+4. Parse the JSONL format (one message per line)
+
+#### 4. **Understand and Suggest**
 - Analyze the messages
 - Identify optimization opportunities:
   * Completed work that can be summarized
@@ -87,7 +126,7 @@ npx tsx ~/.claude/skills/context-curator/scripts/context.ts analyze <session-id>
   * Debug logs that can be condensed
 - Explain what you found
 
-#### 4. Discuss with User
+#### 5. **Discuss with User**
 - Ask what they want to optimize
 - Listen to natural language instructions:
   * "Remove the failed attempts"
@@ -95,7 +134,7 @@ npx tsx ~/.claude/skills/context-curator/scripts/context.ts analyze <session-id>
   * "Keep only the last 100 messages"
 - Clarify as needed
 
-#### 5. Show Preview
+#### 6. **Show Preview**
 - Give examples of changes:
   ```
   Before (messages 1-50):
@@ -112,12 +151,12 @@ npx tsx ~/.claude/skills/context-curator/scripts/context.ts analyze <session-id>
   ```
 - Show token savings
 
-#### 6. Get Approval
+#### 7. **Get Approval**
 - Wait for explicit confirmation
 - Look for: "yes", "apply", "go ahead", "do it"
 - If user says "no" or "cancel", stop
 
-#### 7. Apply Changes
+#### 8. **Apply Changes**
 - Build edited messages array
 - Use **Write tool** to create temp file:
   ```
@@ -130,34 +169,42 @@ npx tsx ~/.claude/skills/context-curator/scripts/context.ts analyze <session-id>
     <session-id> /tmp/edited-<session-id>.jsonl
   ```
 
-#### 8. Confirm Success
+#### 9. **Confirm Success**
 - Show before/after stats
 - Explain what changed
 - Provide resume command
 
 **Important for manage:**
-- Always read the actual session file first
-- Be conservative - don't remove important context
-- Show clear before/after previews
-- Get explicit approval before applying
-- Maintain valid JSONL format (one message per line)
-- Explain your reasoning
+- ✅ ALWAYS use Read tool for reading files
+- ❌ NEVER use bash/cat/jq/grep for reading sessions
+- ✅ Validate session ID is a UUID first
+- ❌ Reject named sessions or non-UUID IDs
+- ✅ Be conservative - don't remove important context
+- ✅ Show clear before/after previews
+- ✅ Get explicit approval before applying
+- ✅ Maintain valid JSONL format (one message per line)
+- ✅ Explain your reasoning
 
 **Example manage interaction:**
 
-User: "manage sess-abc123"
+User: "manage 8e14f625-bd1a-4e79-a382-2d6c0649df97"
 
 You:
-1. Run analyze script
-2. Read session file with Read tool
-3. Explain what you found
-4. Suggest optimizations
-5. Discuss with user
-6. Preview changes
-7. Get approval ("yes" or "apply")
-8. Write edited version to temp file
-9. Run apply-edits script
-10. Confirm success with stats
+1. Validate it's a UUID ✓
+2. Run analyze script
+3. **Use Read tool** to load ~/.claude/projects/<project-dir>/8e14f625-bd1a-4e79-a382-2d6c0649df97.jsonl
+4. Explain what you found
+5. Suggest optimizations
+6. Discuss with user
+7. Preview changes
+8. Get approval ("yes" or "apply")
+9. Use Write tool to create edited version in /tmp/
+10. Run apply-edits script
+11. Confirm success with stats
+
+User: "manage jeff-test-backup-2026-01-08T15-49-17-421Z"
+
+You: "That's not a valid session ID (must be a UUID). Use 'context list' to see available sessions for this project."
 
 ### context checkpoint <session-id> <new-name>
 Create a backup/fork of a session.
@@ -235,10 +282,10 @@ Users may phrase requests differently. Map these to commands:
 
 ## Tools You Have
 
-- **Bash**: Run npm scripts, check file system
-- **Read**: Read files to inspect sessions
+- **Bash**: Run npm scripts (for context commands ONLY)
+- **Read**: Read session files (ALWAYS use this, NEVER bash/cat/jq)
 - **Write**: Create edited session files
-- **Glob/Grep**: Search for patterns
+- **Glob/Grep**: Search for patterns (NOT for reading sessions)
 
 ## Session File Format
 
@@ -264,3 +311,5 @@ JSONL - one message per line:
 - Always confirm the current directory
 - Protect user data with backups
 - Use your native Read/Write tools for the manage command - no API key needed!
+- NEVER use bash/cat/jq to read sessions - ALWAYS use Read tool
+- ONLY work with UUID session IDs - reject named sessions
