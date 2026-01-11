@@ -36,3 +36,31 @@ export interface SessionChange {
   modified: Message[];
   tokenDelta: number;
 }
+
+// Task-based context management types (PRD v10.0)
+
+export interface TaskDefinition {
+  id: string;
+  claudeMdPath: string;
+  contextsDir: string;
+  contexts: ContextSnapshot[];
+  createdAt: string;
+  lastUsed: string;
+}
+
+export interface ContextSnapshot {
+  name: string;
+  filePath: string;
+  messageCount: number;
+  tokenCount: number;
+  createdAt: string;
+  lastModified: string;
+}
+
+export interface SessionTaskMap {
+  [sessionId: string]: {
+    task_id: string;
+    context_name?: string;
+    created_at: string;
+  };
+}
