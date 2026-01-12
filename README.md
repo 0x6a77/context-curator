@@ -29,7 +29,7 @@ cd .context-curator
 ./install.sh
 ```
 
-This sets up `.claude/CLAUDE.md` with @-import structure, creates the default task, and links slash commands to `~/.claude/commands` (available globally across all projects).
+This sets up `.claude/CLAUDE.md` with @-import structure, creates the default task, and links slash commands.
 
 ### Basic Usage
 
@@ -256,7 +256,8 @@ my-project/
 ├── .claude/
 │   ├── CLAUDE.md                 # Universal + @-import line
 │   ├── skills/                   # Shared by ALL tasks
-│   └── agents/                   # Shared by ALL tasks
+│   ├── agents/                   # Shared by ALL tasks
+│   └── commands/                 # Slash commands (symlinked)
 │
 ├── .context-curator/
 │   ├── tasks/
@@ -279,18 +280,14 @@ my-project/
 │   │   ├── prepare-context.ts
 │   │   └── task-save.ts
 │   └── commands/
-│       └── task/
-│           ├── task.md
-│           ├── task-create.md
-│           └── task-save.md
+│       ├── task.md
+│       ├── task-create.md
+│       └── task-save.md
 │
 └── [your project files...]
 ```
 
-**Storage**:
-- Tasks: `.context-curator/tasks/<task-id>/`
-- Contexts: `.context-curator/tasks/<task-id>/contexts/<context-name>.jsonl`
-- Commands: `~/.claude/commands/` (symlinked from `.context-curator/commands/`, available globally)
+**Storage**: Tasks in `.context-curator/tasks/<task-id>/`, contexts in `.context-curator/tasks/<task-id>/contexts/<context-name>.jsonl`
 
 ## Example Task CLAUDE.md
 
@@ -353,7 +350,7 @@ describe('Auth API Integration', () => {
 ## Troubleshooting
 
 **@-import line not updating**
-1. Check PreToolUse hook in `commands/task/task.md`
+1. Check PreToolUse hook in `commands/task.md`
 2. Run manually: `npx tsx .context-curator/scripts/update-import.ts <task-id>`
 3. Verify task exists: `ls .context-curator/tasks/<task-id>/CLAUDE.md`
 
@@ -369,7 +366,7 @@ This shouldn't happen. If it does:
 3. Restart affected instances (run `/task` command first, then resume)
 
 **Commands not found**
-1. Check symlinks: `ls -la ~/.claude/commands/`
+1. Check symlinks: `ls -la .claude/commands/`
 2. Re-run: `cd .context-curator && ./install.sh`
 
 ## Best Practices
