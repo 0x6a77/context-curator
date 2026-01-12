@@ -31,17 +31,17 @@ if [ "$IN_PROJECT" = true ]; then
   # Go to project root (parent directory)
   cd ..
 
-  # 3. Link commands to .claude/commands
-  echo "🔗 Linking slash commands..."
-  mkdir -p .claude/commands
+  # 3. Link commands to ~/.claude/commands (global)
+  echo "🔗 Linking slash commands to ~/.claude/commands..."
+  mkdir -p ~/.claude/commands
 
   for cmd in .context-curator/commands/*.md; do
     if [ -f "$cmd" ]; then
       cmd_name=$(basename "$cmd")
       # Remove existing symlink if it exists
-      rm -f ".claude/commands/$cmd_name"
-      # Create new symlink
-      ln -s "../../.context-curator/commands/$cmd_name" ".claude/commands/$cmd_name"
+      rm -f ~/.claude/commands/"$cmd_name"
+      # Create new symlink (use absolute path)
+      ln -s "$PWD/.context-curator/commands/$cmd_name" ~/.claude/commands/"$cmd_name"
       echo "   ✓ Linked $cmd_name"
     fi
   done

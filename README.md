@@ -29,7 +29,7 @@ cd .context-curator
 ./install.sh
 ```
 
-This sets up `.claude/CLAUDE.md` with @-import structure, creates the default task, and links slash commands.
+This sets up `.claude/CLAUDE.md` with @-import structure, creates the default task, and links slash commands to `~/.claude/commands` (available globally across all projects).
 
 ### Basic Usage
 
@@ -256,8 +256,7 @@ my-project/
 ├── .claude/
 │   ├── CLAUDE.md                 # Universal + @-import line
 │   ├── skills/                   # Shared by ALL tasks
-│   ├── agents/                   # Shared by ALL tasks
-│   └── commands/                 # Slash commands (symlinked)
+│   └── agents/                   # Shared by ALL tasks
 │
 ├── .context-curator/
 │   ├── tasks/
@@ -287,7 +286,10 @@ my-project/
 └── [your project files...]
 ```
 
-**Storage**: Tasks in `.context-curator/tasks/<task-id>/`, contexts in `.context-curator/tasks/<task-id>/contexts/<context-name>.jsonl`
+**Storage**:
+- Tasks: `.context-curator/tasks/<task-id>/`
+- Contexts: `.context-curator/tasks/<task-id>/contexts/<context-name>.jsonl`
+- Commands: `~/.claude/commands/` (symlinked from `.context-curator/commands/`, available globally)
 
 ## Example Task CLAUDE.md
 
@@ -366,7 +368,7 @@ This shouldn't happen. If it does:
 3. Restart affected instances (run `/task` command first, then resume)
 
 **Commands not found**
-1. Check symlinks: `ls -la .claude/commands/`
+1. Check symlinks: `ls -la ~/.claude/commands/`
 2. Re-run: `cd .context-curator && ./install.sh`
 
 ## Best Practices
