@@ -1,15 +1,10 @@
 {
   "name": "claude-context-curator",
-  "version": "10.0.0",
-  "description": "Task-based context management for Claude Code with @-import mechanism",
+  "version": "0.3.0",
+  "description": "Claude Code session manager with conversational editing",
   "type": "module",
   "scripts": {
-    "init-project": "tsx scripts/init-project.ts",
-    "update-import": "tsx scripts/update-import.ts",
-    "prepare-context": "tsx scripts/prepare-context.ts",
-    "task-save": "tsx scripts/task-save.ts",
-    "task-list": "tsx scripts/task-list.ts",
-    "context-list": "tsx scripts/context-list.ts",
+    "init": "tsx scripts/init.ts",
     "context": "tsx scripts/context.ts",
     "list": "tsx scripts/list.ts",
     "analyze": "tsx scripts/analyze.ts",
@@ -19,7 +14,7 @@
     "dump": "tsx scripts/dump.ts",
     "help": "tsx scripts/help.ts"
   },
-  "keywords": ["claude", "context", "task-management", "claude-code"],
+  "keywords": ["claude", "context", "session-manager"],
   "author": "",
   "license": "MIT",
   "dependencies": {},
