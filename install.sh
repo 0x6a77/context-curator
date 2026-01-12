@@ -35,13 +35,13 @@ if [ "$IN_PROJECT" = true ]; then
   echo "🔗 Linking slash commands to ~/.claude/commands..."
   mkdir -p ~/.claude/commands
 
-  for cmd in .context-curator/commands/*.md; do
+  for cmd in .context-curator/commands/task/*.md; do
     if [ -f "$cmd" ]; then
       cmd_name=$(basename "$cmd")
       # Remove existing symlink if it exists
       rm -f ~/.claude/commands/"$cmd_name"
       # Create new symlink (use absolute path)
-      ln -s "$PWD/.context-curator/commands/$cmd_name" ~/.claude/commands/"$cmd_name"
+      ln -s "$PWD/.context-curator/commands/task/$cmd_name" ~/.claude/commands/"$cmd_name"
       echo "   ✓ Linked $cmd_name"
     fi
   done

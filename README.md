@@ -279,9 +279,10 @@ my-project/
 │   │   ├── prepare-context.ts
 │   │   └── task-save.ts
 │   └── commands/
-│       ├── task.md
-│       ├── task-create.md
-│       └── task-save.md
+│       └── task/
+│           ├── task.md
+│           ├── task-create.md
+│           └── task-save.md
 │
 └── [your project files...]
 ```
@@ -352,7 +353,7 @@ describe('Auth API Integration', () => {
 ## Troubleshooting
 
 **@-import line not updating**
-1. Check PreToolUse hook in `commands/task.md`
+1. Check PreToolUse hook in `commands/task/task.md`
 2. Run manually: `npx tsx .context-curator/scripts/update-import.ts <task-id>`
 3. Verify task exists: `ls .context-curator/tasks/<task-id>/CLAUDE.md`
 
