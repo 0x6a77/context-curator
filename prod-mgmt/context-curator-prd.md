@@ -661,21 +661,21 @@ Currently running sessions keep their original task context.
 ### Best Practices for Multi-Instance
 
 1. **Always run `/task <id>` before starting work**
-    - Updates @-import for your session
-    - Ensures you get the right task context
+   - Updates @-import for your session
+   - Ensures you get the right task context
 
 2. **Start session immediately after `/task`**
-    - Captures the task context you just set
-    - Avoids race conditions with other instances
+   - Captures the task context you just set
+   - Avoids race conditions with other instances
 
 3. **Don't manually edit the @-import line**
-    - Let commands manage it automatically
-    - Manual edits can cause confusion
+   - Let commands manage it automatically
+   - Manual edits can cause confusion
 
 4. **Use task-specific contexts**
-    - Save work with `/task-save <name>`
-    - Resume with `/task <id> <context-name>`
-    - Keeps work organized by task
+   - Save work with `/task-save <name>`
+   - Resume with `/task <id> <context-name>`
+   - Keeps work organized by task
 
 ---
 
@@ -694,37 +694,37 @@ import fs from 'fs/promises';
 import path from 'path';
 
 async function initProject() {
-  console.log('Initializing context-curator...\n');
-  
-  // 1. Create task directory structure
-  const tasksDir = path.join(process.cwd(), '.context-curator/tasks');
-  await fs.mkdir(tasksDir, { recursive: true });
-  
-  // 2. Move existing CLAUDE.md to default task
-  const currentClaudeMd = path.join(process.cwd(), '.claude/CLAUDE.md');
-  const defaultTaskDir = path.join(tasksDir, 'default');
-  
-  await fs.mkdir(defaultTaskDir, { recursive: true });
-  await fs.mkdir(path.join(defaultTaskDir, 'contexts'), { recursive: true });
-  
-  try {
-    const content = await fs.readFile(currentClaudeMd, 'utf-8');
-    await fs.writeFile(
-      path.join(defaultTaskDir, 'CLAUDE.md'),
-      content
-    );
-    console.log('✓ Backed up current CLAUDE.md to "default" task');
-  } catch {
-    await fs.writeFile(
-      path.join(defaultTaskDir, 'CLAUDE.md'),
-      '# Default Task\n\nGeneral development work.\n'
-    );
-    console.log('✓ Created default task CLAUDE.md');
-  }
-  
-  // 3. Create new CLAUDE.md with @-import
-  const projectName = path.basename(process.cwd());
-  const newClaudeMd = `# Project: ${projectName}
+   console.log('Initializing context-curator...\n');
+
+   // 1. Create task directory structure
+   const tasksDir = path.join(process.cwd(), '.context-curator/tasks');
+   await fs.mkdir(tasksDir, { recursive: true });
+
+   // 2. Move existing CLAUDE.md to default task
+   const currentClaudeMd = path.join(process.cwd(), '.claude/CLAUDE.md');
+   const defaultTaskDir = path.join(tasksDir, 'default');
+
+   await fs.mkdir(defaultTaskDir, { recursive: true });
+   await fs.mkdir(path.join(defaultTaskDir, 'contexts'), { recursive: true });
+
+   try {
+      const content = await fs.readFile(currentClaudeMd, 'utf-8');
+      await fs.writeFile(
+              path.join(defaultTaskDir, 'CLAUDE.md'),
+              content
+      );
+      console.log('✓ Backed up current CLAUDE.md to "default" task');
+   } catch {
+      await fs.writeFile(
+              path.join(defaultTaskDir, 'CLAUDE.md'),
+              '# Default Task\n\nGeneral development work.\n'
+      );
+      console.log('✓ Created default task CLAUDE.md');
+   }
+
+   // 3. Create new CLAUDE.md with @-import
+   const projectName = path.basename(process.cwd());
+   const newClaudeMd = `# Project: ${projectName}
 
 ## Universal Instructions
 
@@ -739,22 +739,22 @@ Add your project-wide guidelines here:
 
 <!-- This line is managed by context-curator. Do not edit manually. -->
 `;
-  
-  await fs.writeFile(currentClaudeMd, newClaudeMd);
-  console.log('✓ Created new CLAUDE.md with @-import structure');
-  
-  // 4. Create session-task-map.json
-  await fs.writeFile(
-    path.join(tasksDir, 'session-task-map.json'),
-    '{}\n'
-  );
-  console.log('✓ Created session tracking file');
-  
-  console.log('\n✓ Initialization complete!\n');
-  console.log('Next steps:');
-  console.log('1. Edit .claude/CLAUDE.md to add universal guidelines');
-  console.log('2. Create your first task: /task-create <task-id>');
-  console.log('3. Start working: /task <task-id>');
+
+   await fs.writeFile(currentClaudeMd, newClaudeMd);
+   console.log('✓ Created new CLAUDE.md with @-import structure');
+
+   // 4. Create session-task-map.json
+   await fs.writeFile(
+           path.join(tasksDir, 'session-task-map.json'),
+           '{}\n'
+   );
+   console.log('✓ Created session tracking file');
+
+   console.log('\n✓ Initialization complete!\n');
+   console.log('Next steps:');
+   console.log('1. Edit .claude/CLAUDE.md to add universal guidelines');
+   console.log('2. Create your first task: /task-create <task-id>');
+   console.log('3. Start working: /task <task-id>');
 }
 
 initProject().catch(console.error);
@@ -771,66 +771,66 @@ import fs from 'fs/promises';
 import path from 'path';
 
 async function updateImport(taskId: string) {
-  const claudeMdPath = path.join(process.cwd(), '.claude/CLAUDE.md');
-  
-  // Verify task exists
-  const taskClaudeMd = path.join(
-    process.cwd(),
-    '.context-curator/tasks',
-    taskId,
-    'CLAUDE.md'
-  );
-  
-  try {
-    await fs.access(taskClaudeMd);
-  } catch (error) {
-    console.error(`❌ Task '${taskId}' not found`);
-    console.error(`   Missing: ${taskClaudeMd}`);
-    
-    // List available tasks
-    const tasksDir = path.join(process.cwd(), '.context-curator/tasks');
-    const tasks = await fs.readdir(tasksDir);
-    const validTasks = [];
-    
-    for (const task of tasks) {
-      const taskPath = path.join(tasksDir, task);
-      const stats = await fs.stat(taskPath);
-      if (stats.isDirectory()) {
-        validTasks.push(task);
+   const claudeMdPath = path.join(process.cwd(), '.claude/CLAUDE.md');
+
+   // Verify task exists
+   const taskClaudeMd = path.join(
+           process.cwd(),
+           '.context-curator/tasks',
+           taskId,
+           'CLAUDE.md'
+   );
+
+   try {
+      await fs.access(taskClaudeMd);
+   } catch (error) {
+      console.error(`❌ Task '${taskId}' not found`);
+      console.error(`   Missing: ${taskClaudeMd}`);
+
+      // List available tasks
+      const tasksDir = path.join(process.cwd(), '.context-curator/tasks');
+      const tasks = await fs.readdir(tasksDir);
+      const validTasks = [];
+
+      for (const task of tasks) {
+         const taskPath = path.join(tasksDir, task);
+         const stats = await fs.stat(taskPath);
+         if (stats.isDirectory()) {
+            validTasks.push(task);
+         }
       }
-    }
-    
-    console.error('\nAvailable tasks:');
-    validTasks.forEach(t => console.error(`   - ${t}`));
-    
-    process.exit(1);
-  }
-  
-  // Read current CLAUDE.md
-  let content = await fs.readFile(claudeMdPath, 'utf-8');
-  
-  // Update @-import line
-  const importLine = `@import .context-curator/tasks/${taskId}/CLAUDE.md`;
-  const importRegex = /@import \.context-curator\/tasks\/[^\/]+\/CLAUDE\.md/;
-  
-  if (importRegex.test(content)) {
-    // Replace existing import
-    content = content.replace(importRegex, importLine);
-  } else {
-    // Add import if not present (shouldn't happen after init)
-    console.warn('⚠️  No @import line found, adding one...');
-    content = content.trim() + '\n\n' + importLine + '\n';
-  }
-  
-  await fs.writeFile(claudeMdPath, content);
-  
-  console.log(`✓ Task context: ${taskId}`);
+
+      console.error('\nAvailable tasks:');
+      validTasks.forEach(t => console.error(`   - ${t}`));
+
+      process.exit(1);
+   }
+
+   // Read current CLAUDE.md
+   let content = await fs.readFile(claudeMdPath, 'utf-8');
+
+   // Update @-import line
+   const importLine = `@import .context-curator/tasks/${taskId}/CLAUDE.md`;
+   const importRegex = /@import \.context-curator\/tasks\/[^\/]+\/CLAUDE\.md/;
+
+   if (importRegex.test(content)) {
+      // Replace existing import
+      content = content.replace(importRegex, importLine);
+   } else {
+      // Add import if not present (shouldn't happen after init)
+      console.warn('⚠️  No @import line found, adding one...');
+      content = content.trim() + '\n\n' + importLine + '\n';
+   }
+
+   await fs.writeFile(claudeMdPath, content);
+
+   console.log(`✓ Task context: ${taskId}`);
 }
 
 const taskId = process.argv[2];
 if (!taskId) {
-  console.error('Usage: update-import <task-id>');
-  process.exit(1);
+   console.error('Usage: update-import <task-id>');
+   process.exit(1);
 }
 
 updateImport(taskId).catch(console.error);
@@ -848,117 +848,117 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 
 async function prepareContext(taskId: string, contextName?: string) {
-  const taskDir = path.join(
-    process.cwd(),
-    '.context-curator/tasks',
-    taskId
-  );
-  
-  // Generate session ID
-  const sessionId = `sess-${randomUUID().slice(0, 8)}`;
-  
-  // Create session file in project's sessions directory
-  const sessionDir = path.join(process.cwd(), '.claude/sessions');
-  await fs.mkdir(sessionDir, { recursive: true });
-  
-  const sessionFile = path.join(sessionDir, `${sessionId}.jsonl`);
-  
-  if (contextName) {
-    // Copy context messages to new session
-    const contextPath = path.join(taskDir, 'contexts', `${contextName}.jsonl`);
-    
-    try {
-      await fs.copyFile(contextPath, sessionFile);
-      const stats = await getSessionStats(sessionFile);
-      console.log(`✓ Loaded context: ${contextName} (${stats.messages} messages)`);
-    } catch (error) {
-      console.error(`❌ Context '${contextName}' not found in task '${taskId}'`);
-      
-      // List available contexts
-      const contextsDir = path.join(taskDir, 'contexts');
+   const taskDir = path.join(
+           process.cwd(),
+           '.context-curator/tasks',
+           taskId
+   );
+
+   // Generate session ID
+   const sessionId = `sess-${randomUUID().slice(0, 8)}`;
+
+   // Create session file in project's sessions directory
+   const sessionDir = path.join(process.cwd(), '.claude/sessions');
+   await fs.mkdir(sessionDir, { recursive: true });
+
+   const sessionFile = path.join(sessionDir, `${sessionId}.jsonl`);
+
+   if (contextName) {
+      // Copy context messages to new session
+      const contextPath = path.join(taskDir, 'contexts', `${contextName}.jsonl`);
+
       try {
-        const contexts = await fs.readdir(contextsDir);
-        const jsonlContexts = contexts
-          .filter(f => f.endsWith('.jsonl'))
-          .map(f => f.replace('.jsonl', ''));
-        
-        console.error('\nAvailable contexts:');
-        jsonlContexts.forEach(c => console.error(`   - ${c}`));
-      } catch {
-        console.error('   (No contexts saved yet)');
+         await fs.copyFile(contextPath, sessionFile);
+         const stats = await getSessionStats(sessionFile);
+         console.log(`✓ Loaded context: ${contextName} (${stats.messages} messages)`);
+      } catch (error) {
+         console.error(`❌ Context '${contextName}' not found in task '${taskId}'`);
+
+         // List available contexts
+         const contextsDir = path.join(taskDir, 'contexts');
+         try {
+            const contexts = await fs.readdir(contextsDir);
+            const jsonlContexts = contexts
+                    .filter(f => f.endsWith('.jsonl'))
+                    .map(f => f.replace('.jsonl', ''));
+
+            console.error('\nAvailable contexts:');
+            jsonlContexts.forEach(c => console.error(`   - ${c}`));
+         } catch {
+            console.error('   (No contexts saved yet)');
+         }
+
+         process.exit(1);
       }
-      
-      process.exit(1);
-    }
-  } else {
-    // Create empty session
-    await fs.writeFile(sessionFile, '');
-    console.log(`✓ Created fresh session`);
-  }
-  
-  // Record session→task mapping
-  await recordSessionTask(sessionId, taskId, contextName);
-  
-  // Return session ID for /resume
-  console.log(sessionId);
-  return sessionId;
+   } else {
+      // Create empty session
+      await fs.writeFile(sessionFile, '');
+      console.log(`✓ Created fresh session`);
+   }
+
+   // Record session→task mapping
+   await recordSessionTask(sessionId, taskId, contextName);
+
+   // Return session ID for /resume
+   console.log(sessionId);
+   return sessionId;
 }
 
 async function recordSessionTask(
-  sessionId: string,
-  taskId: string,
-  contextName?: string
+        sessionId: string,
+        taskId: string,
+        contextName?: string
 ) {
-  const mapPath = path.join(
-    process.cwd(),
-    '.context-curator/tasks/session-task-map.json'
-  );
-  
-  let map: Record<string, any> = {};
-  
-  try {
-    const content = await fs.readFile(mapPath, 'utf-8');
-    map = JSON.parse(content);
-  } catch {
-    // File doesn't exist yet
-  }
-  
-  map[sessionId] = {
-    task_id: taskId,
-    context_name: contextName || null,
-    created_at: new Date().toISOString()
-  };
-  
-  await fs.writeFile(mapPath, JSON.stringify(map, null, 2));
+   const mapPath = path.join(
+           process.cwd(),
+           '.context-curator/tasks/session-task-map.json'
+   );
+
+   let map: Record<string, any> = {};
+
+   try {
+      const content = await fs.readFile(mapPath, 'utf-8');
+      map = JSON.parse(content);
+   } catch {
+      // File doesn't exist yet
+   }
+
+   map[sessionId] = {
+      task_id: taskId,
+      context_name: contextName || null,
+      created_at: new Date().toISOString()
+   };
+
+   await fs.writeFile(mapPath, JSON.stringify(map, null, 2));
 }
 
 async function getSessionStats(sessionPath: string) {
-  const content = await fs.readFile(sessionPath, 'utf-8');
-  const lines = content.split('\n').filter(l => l.trim());
-  
-  // Estimate tokens (rough: 4 chars per token)
-  const totalChars = lines.reduce((sum, line) => {
-    try {
-      const msg = JSON.parse(line);
-      const contentStr = typeof msg.content === 'string' 
-        ? msg.content 
-        : JSON.stringify(msg.content);
-      return sum + contentStr.length;
-    } catch {
-      return sum;
-    }
-  }, 0);
-  
-  return {
-    messages: lines.length,
-    tokens: Math.ceil(totalChars / 4)
-  };
+   const content = await fs.readFile(sessionPath, 'utf-8');
+   const lines = content.split('\n').filter(l => l.trim());
+
+   // Estimate tokens (rough: 4 chars per token)
+   const totalChars = lines.reduce((sum, line) => {
+      try {
+         const msg = JSON.parse(line);
+         const contentStr = typeof msg.content === 'string'
+                 ? msg.content
+                 : JSON.stringify(msg.content);
+         return sum + contentStr.length;
+      } catch {
+         return sum;
+      }
+   }, 0);
+
+   return {
+      messages: lines.length,
+      tokens: Math.ceil(totalChars / 4)
+   };
 }
 
 const [taskId, contextName] = process.argv.slice(2);
 if (!taskId) {
-  console.error('Usage: prepare-context <task-id> [context-name]');
-  process.exit(1);
+   console.error('Usage: prepare-context <task-id> [context-name]');
+   process.exit(1);
 }
 
 prepareContext(taskId, contextName).catch(console.error);
@@ -975,169 +975,169 @@ import fs from 'fs/promises';
 import path from 'path';
 
 async function taskSave(contextName: string) {
-  // Validate context name
-  if (!/^[a-z0-9-]+$/.test(contextName)) {
-    console.error('❌ Invalid context name');
-    console.error('   Must contain only: lowercase letters, numbers, hyphens');
-    console.error('   Example: edge-cases, initial-setup, bug-fix-v2');
-    process.exit(1);
-  }
-  
-  // Get current task from @-import or session map
-  const currentTask = await getCurrentTask();
-  
-  // Get current session ID from history
-  const sessionId = await getCurrentSessionId();
-  if (!sessionId) {
-    console.error('❌ No active session found');
-    process.exit(1);
-  }
-  
-  const historyPath = path.join(process.env.HOME!, '.claude/history.jsonl');
-  const sessionPath = await findSessionFile(historyPath, sessionId);
-  
-  if (!sessionPath) {
-    console.error(`❌ Session ${sessionId} not found in history`);
-    process.exit(1);
-  }
-  
-  // Prepare task contexts directory
-  const taskDir = path.join(
-    process.cwd(),
-    '.context-curator/tasks',
-    currentTask
-  );
-  const contextsDir = path.join(taskDir, 'contexts');
-  await fs.mkdir(contextsDir, { recursive: true });
-  
-  const destPath = path.join(contextsDir, `${contextName}.jsonl`);
-  
-  // Handle overwrite
-  try {
-    await fs.access(destPath);
-    
-    // Context exists, create backup
-    const timestamp = new Date().toISOString().split('T')[0].replace(/-/g, '');
-    const backup = `${contextName}-backup-${timestamp}.jsonl`;
-    await fs.copyFile(destPath, path.join(contextsDir, backup));
-    console.log(`✓ Backup created: ${backup}`);
-  } catch {
-    // Context doesn't exist, no backup needed
-  }
-  
-  // Copy session to context
-  await fs.copyFile(sessionPath, destPath);
-  
-  // Get stats
-  const stats = await getSessionStats(destPath);
-  const tokensFormatted = (stats.tokens / 1000).toFixed(1);
-  
-  console.log(`✓ Saved as '${contextName}' (${stats.messages} msgs, ${tokensFormatted}k tokens)`);
-  console.log(`  Task: ${currentTask}`);
-  console.log(`  Location: ${destPath}`);
+   // Validate context name
+   if (!/^[a-z0-9-]+$/.test(contextName)) {
+      console.error('❌ Invalid context name');
+      console.error('   Must contain only: lowercase letters, numbers, hyphens');
+      console.error('   Example: edge-cases, initial-setup, bug-fix-v2');
+      process.exit(1);
+   }
+
+   // Get current task from @-import or session map
+   const currentTask = await getCurrentTask();
+
+   // Get current session ID from history
+   const sessionId = await getCurrentSessionId();
+   if (!sessionId) {
+      console.error('❌ No active session found');
+      process.exit(1);
+   }
+
+   const historyPath = path.join(process.env.HOME!, '.claude/history.jsonl');
+   const sessionPath = await findSessionFile(historyPath, sessionId);
+
+   if (!sessionPath) {
+      console.error(`❌ Session ${sessionId} not found in history`);
+      process.exit(1);
+   }
+
+   // Prepare task contexts directory
+   const taskDir = path.join(
+           process.cwd(),
+           '.context-curator/tasks',
+           currentTask
+   );
+   const contextsDir = path.join(taskDir, 'contexts');
+   await fs.mkdir(contextsDir, { recursive: true });
+
+   const destPath = path.join(contextsDir, `${contextName}.jsonl`);
+
+   // Handle overwrite
+   try {
+      await fs.access(destPath);
+
+      // Context exists, create backup
+      const timestamp = new Date().toISOString().split('T')[0].replace(/-/g, '');
+      const backup = `${contextName}-backup-${timestamp}.jsonl`;
+      await fs.copyFile(destPath, path.join(contextsDir, backup));
+      console.log(`✓ Backup created: ${backup}`);
+   } catch {
+      // Context doesn't exist, no backup needed
+   }
+
+   // Copy session to context
+   await fs.copyFile(sessionPath, destPath);
+
+   // Get stats
+   const stats = await getSessionStats(destPath);
+   const tokensFormatted = (stats.tokens / 1000).toFixed(1);
+
+   console.log(`✓ Saved as '${contextName}' (${stats.messages} msgs, ${tokensFormatted}k tokens)`);
+   console.log(`  Task: ${currentTask}`);
+   console.log(`  Location: ${destPath}`);
 }
 
 async function getCurrentTask(): Promise<string> {
-  // Try to get from .claude/CLAUDE.md @-import line
-  const claudeMdPath = path.join(process.cwd(), '.claude/CLAUDE.md');
-  
-  try {
-    const content = await fs.readFile(claudeMdPath, 'utf-8');
-    const match = content.match(/@import \.context-curator\/tasks\/([^\/]+)\/CLAUDE\.md/);
-    
-    if (match) {
-      return match[1];
-    }
-  } catch {
-    // Fall through
-  }
-  
-  // Default to 'default' task
-  return 'default';
+   // Try to get from .claude/CLAUDE.md @-import line
+   const claudeMdPath = path.join(process.cwd(), '.claude/CLAUDE.md');
+
+   try {
+      const content = await fs.readFile(claudeMdPath, 'utf-8');
+      const match = content.match(/@import \.context-curator\/tasks\/([^\/]+)\/CLAUDE\.md/);
+
+      if (match) {
+         return match[1];
+      }
+   } catch {
+      // Fall through
+   }
+
+   // Default to 'default' task
+   return 'default';
 }
 
 async function getCurrentSessionId(): Promise<string | null> {
-  const historyPath = path.join(process.env.HOME!, '.claude/history.jsonl');
-  
-  try {
-    const content = await fs.readFile(historyPath, 'utf-8');
-    const lines = content.trim().split('\n');
-    
-    // Find most recent session marker
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const line = lines[i];
-      try {
-        const entry = JSON.parse(line);
-        if (entry.session_id) {
-          return entry.session_id;
-        }
-      } catch {
-        continue;
+   const historyPath = path.join(process.env.HOME!, '.claude/history.jsonl');
+
+   try {
+      const content = await fs.readFile(historyPath, 'utf-8');
+      const lines = content.trim().split('\n');
+
+      // Find most recent session marker
+      for (let i = lines.length - 1; i >= 0; i--) {
+         const line = lines[i];
+         try {
+            const entry = JSON.parse(line);
+            if (entry.session_id) {
+               return entry.session_id;
+            }
+         } catch {
+            continue;
+         }
       }
-    }
-  } catch {
-    return null;
-  }
-  
-  return null;
+   } catch {
+      return null;
+   }
+
+   return null;
 }
 
 async function findSessionFile(
-  historyPath: string,
-  sessionId: string
+        historyPath: string,
+        sessionId: string
 ): Promise<string | null> {
-  // Check if session exists in history
-  const content = await fs.readFile(historyPath, 'utf-8');
-  if (!content.includes(sessionId)) {
-    return null;
-  }
-  
-  // In Claude Code, sessions might be in various locations
-  // Try common paths
-  const possiblePaths = [
-    path.join(process.cwd(), '.claude/sessions', `${sessionId}.jsonl`),
-    path.join(process.env.HOME!, '.claude/sessions', `${sessionId}.jsonl`),
-    historyPath // Sometimes the session is inline in history
-  ];
-  
-  for (const p of possiblePaths) {
-    try {
-      await fs.access(p);
-      return p;
-    } catch {
-      continue;
-    }
-  }
-  
-  return null;
+   // Check if session exists in history
+   const content = await fs.readFile(historyPath, 'utf-8');
+   if (!content.includes(sessionId)) {
+      return null;
+   }
+
+   // In Claude Code, sessions might be in various locations
+   // Try common paths
+   const possiblePaths = [
+      path.join(process.cwd(), '.claude/sessions', `${sessionId}.jsonl`),
+      path.join(process.env.HOME!, '.claude/sessions', `${sessionId}.jsonl`),
+      historyPath // Sometimes the session is inline in history
+   ];
+
+   for (const p of possiblePaths) {
+      try {
+         await fs.access(p);
+         return p;
+      } catch {
+         continue;
+      }
+   }
+
+   return null;
 }
 
 async function getSessionStats(sessionPath: string) {
-  const content = await fs.readFile(sessionPath, 'utf-8');
-  const lines = content.split('\n').filter(l => l.trim());
-  
-  const totalChars = lines.reduce((sum, line) => {
-    try {
-      const msg = JSON.parse(line);
-      const contentStr = typeof msg.content === 'string'
-        ? msg.content
-        : JSON.stringify(msg.content);
-      return sum + contentStr.length;
-    } catch {
-      return sum;
-    }
-  }, 0);
-  
-  return {
-    messages: lines.length,
-    tokens: Math.ceil(totalChars / 4)
-  };
+   const content = await fs.readFile(sessionPath, 'utf-8');
+   const lines = content.split('\n').filter(l => l.trim());
+
+   const totalChars = lines.reduce((sum, line) => {
+      try {
+         const msg = JSON.parse(line);
+         const contentStr = typeof msg.content === 'string'
+                 ? msg.content
+                 : JSON.stringify(msg.content);
+         return sum + contentStr.length;
+      } catch {
+         return sum;
+      }
+   }, 0);
+
+   return {
+      messages: lines.length,
+      tokens: Math.ceil(totalChars / 4)
+   };
 }
 
 const contextName = process.argv[2];
 if (!contextName) {
-  console.error('Usage: task-save <context-name>');
-  process.exit(1);
+   console.error('Usage: task-save <context-name>');
+   process.exit(1);
 }
 
 taskSave(contextName).catch(console.error);
@@ -1589,19 +1589,19 @@ API integration testing with Jest. Prioritize edge cases and error handling.
 
 ### Preferred Skills for This Task
 - **test-generator**: Use the "integration" template
-  - Focus on API endpoints and data flow
-  - Include setup/teardown for test databases
+   - Focus on API endpoints and data flow
+   - Include setup/teardown for test databases
 - **coverage-analyzer**: Run after each test suite
-  - Flag any critical paths below 90% coverage
+   - Flag any critical paths below 90% coverage
 - **api-mocker**: For external service simulation
-  - Mock payment gateways, third-party APIs
-  - Use realistic response times and error scenarios
+   - Mock payment gateways, third-party APIs
+   - Use realistic response times and error scenarios
 
 ### Preferred Agents
 - **test-reviewer**: Review for:
-  - Edge case coverage
-  - Error handling completeness
-  - Test isolation and cleanup
+   - Edge case coverage
+   - Error handling completeness
+   - Test isolation and cleanup
 
 ## Patterns
 
@@ -1694,9 +1694,9 @@ app.delete('/v2/users/:id', deleteUserHandler);
  * @see https://api.example.com/docs/migration/v1-to-v2
  */
 app.get('/getUserData/:id', (req, res) => {
-  res.set('Deprecation', 'true');
-  res.set('Sunset', 'Wed, 01 Apr 2026 00:00:00 GMT');
-  // ... existing handler
+   res.set('Deprecation', 'true');
+   res.set('Sunset', 'Wed, 01 Apr 2026 00:00:00 GMT');
+   // ... existing handler
 });
 ```
 
