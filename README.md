@@ -23,13 +23,39 @@ Context Curator lets you organize work into **tasks** - each with its own focuse
 ### Installation
 
 ```bash
+# Clone the repository
 cd ~/my-project
-git clone <repo-url> .context-curator
-cd .context-curator
+git clone https://github.com/yourusername/context-curator.git context-curator
+
+# Run the installer
+cd context-curator
 ./install.sh
 ```
 
-This sets up `.claude/CLAUDE.md` with @-import structure, creates the default task, and links slash commands.
+This will:
+1. Install npm dependencies
+2. Copy slash commands to `~/.claude/commands/task/`
+
+The commands are now available in Claude Code. On first use (when you run `/task-create`), the system will automatically:
+- Back up your current `.claude/CLAUDE.md` to a `default` task
+- Create the @-import structure in `.claude/CLAUDE.md`
+- Set up task storage in `.context-curator/tasks/`
+
+### Global Installation (Optional)
+
+For using across multiple projects:
+
+```bash
+# Install once globally
+git clone https://github.com/yourusername/context-curator.git ~/.context-curator
+cd ~/.context-curator
+npm install
+./install.sh
+
+# Then symlink into each project
+cd ~/my-project
+ln -s ~/.context-curator .context-curator
+```
 
 ### Basic Usage
 
@@ -251,43 +277,58 @@ git pull
 
 ## Architecture
 
+### Project Structure
+
 ```
 my-project/
 ├── .claude/
 │   ├── CLAUDE.md                 # Universal + @-import line
 │   ├── skills/                   # Shared by ALL tasks
-│   ├── agents/                   # Shared by ALL tasks
-│   └── commands/                 # Slash commands (symlinked)
+│   └── agents/                   # Shared by ALL tasks
 │
-├── .context-curator/
-│   ├── tasks/
-│   │   ├── default/
-│   │   │   ├── CLAUDE.md
-│   │   │   └── contexts/
-│   │   ├── integration-tests/
-│   │   │   ├── CLAUDE.md
-│   │   │   └── contexts/
-│   │   │       ├── edge-cases.jsonl
-│   │   │       └── initial-setup.jsonl
-│   │   └── session-task-map.json
-│   ├── src/
-│   │   ├── task-manager.ts
-│   │   ├── session-reader.ts
-│   │   └── utils.ts
+├── context-curator/              # (or symlink to ~/.context-curator)
+│   ├── commands/
+│   │   └── task/                 # Command definitions (source)
+│   │       ├── task.md
+│   │       ├── task-create.md
+│   │       └── task-save.md
 │   ├── scripts/
 │   │   ├── init-project.ts
 │   │   ├── update-import.ts
 │   │   ├── prepare-context.ts
 │   │   └── task-save.ts
-│   └── commands/
-│       ├── task.md
-│       ├── task-create.md
-│       └── task-save.md
+│   ├── src/
+│   │   ├── task-manager.ts
+│   │   ├── session-reader.ts
+│   │   └── utils.ts
+│   └── install.sh
 │
 └── [your project files...]
+
+~/.claude/
+└── commands/
+    └── task/                     # Commands installed here
+        ├── task.md
+        ├── task-create.md
+        └── task-save.md
+
+.context-curator/
+└── tasks/                        # Task data (per-project)
+    ├── default/
+    │   ├── CLAUDE.md
+    │   └── contexts/
+    ├── integration-tests/
+    │   ├── CLAUDE.md
+    │   └── contexts/
+    │       ├── edge-cases.jsonl
+    │       └── initial-setup.jsonl
+    └── session-task-map.json
 ```
 
-**Storage**: Tasks in `.context-curator/tasks/<task-id>/`, contexts in `.context-curator/tasks/<task-id>/contexts/<context-name>.jsonl`
+**Storage**: 
+- Commands installed to `~/.claude/commands/task/` (global, shared across projects)
+- Task data in `.context-curator/tasks/<task-id>/` (per-project)
+- Contexts in `.context-curator/tasks/<task-id>/contexts/<context-name>.jsonl` (per-project)
 
 ## Example Task CLAUDE.md
 
@@ -366,8 +407,9 @@ This shouldn't happen. If it does:
 3. Restart affected instances (run `/task` command first, then resume)
 
 **Commands not found**
-1. Check symlinks: `ls -la .claude/commands/`
-2. Re-run: `cd .context-curator && ./install.sh`
+1. Check installed commands: `ls -la ~/.claude/commands/task/`
+2. Re-run installer: `cd context-curator && ./install.sh`
+3. Verify Claude Code can see custom commands
 
 ## Best Practices
 
@@ -402,15 +444,23 @@ tasks/
 └── project-alpha/    # By project
 ```
 
-**Git integration**: Add to `.gitignore`:
+**Git integration**: Task definitions can be committed and shared with team. Add to `.gitignore`:
 
 ```gitignore
-# Ignore user-specific contexts
+# Option 1: Share task definitions with team (recommended)
+# Ignore user-specific contexts but commit task CLAUDE.md files
 .context-curator/tasks/*/contexts/
 .context-curator/tasks/session-task-map.json
 
-# Commit task templates
-!.context-curator/tasks/*/CLAUDE.md
+# Option 2: Keep tasks completely private
+.context-curator/tasks/
+```
+
+To share task templates with your team:
+```bash
+git add .context-curator/tasks/integration-tests/CLAUDE.md
+git commit -m "Add integration testing task template"
+git push
 ```
 
 ## Version History
