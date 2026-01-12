@@ -13,69 +13,34 @@ if [ ! -f "package.json" ]; then
   exit 1
 fi
 
-# Check if we're inside .context-curator (meaning we're in a project)
-if [[ "$PWD" == *"/.context-curator" ]]; then
-  echo "Installing in project mode..."
-  IN_PROJECT=true
-else
-  echo "Installing as standalone repository..."
-  IN_PROJECT=false
-fi
-
 # 1. Install npm dependencies
 echo "📦 Installing dependencies..."
 npm install
 
-# 2. If in a project, set up commands and initialize
-if [ "$IN_PROJECT" = true ]; then
-  # Go to project root (parent directory)
-  cd ..
+# 2. Copy commands to ~/.claude/commands
+echo "📋 Copying slash commands to ~/.claude/commands..."
+mkdir -p ~/.claude/commands
 
-  # 3. Link commands to ~/.claude/task (global)
-  echo "🔗 Linking slash commands to ~/.claude/task..."
-  mkdir -p ~/.claude/task
-
-  for cmd in .context-curator/commands/task/*.md; do
-    if [ -f "$cmd" ]; then
-      cmd_name=$(basename "$cmd")
-      # Remove existing symlink if it exists
-      rm -f ~/.claude/task/"$cmd_name"
-      # Create new symlink (use absolute path)
-      ln -s "$PWD/.context-curator/commands/task/$cmd_name" ~/.claude/task/"$cmd_name"
-      echo "   ✓ Linked $cmd_name"
-    fi
-  done
-
-  # 4. Initialize project structure
-  echo
-  echo "🚀 Initializing project structure..."
-  npx tsx .context-curator/scripts/init-project.ts
-
-else
-  echo "✓ Dependencies installed"
-  echo
-  echo "To use in a project:"
-  echo "1. Clone or copy this directory to <your-project>/.context-curator"
-  echo "2. cd <your-project>/.context-curator"
-  echo "3. Run ./install.sh again"
-fi
+for cmd in commands/task/*.md; do
+  if [ -f "$cmd" ]; then
+    cmd_name=$(basename "$cmd")
+    cp "$cmd" ~/.claude/commands/"$cmd_name"
+    echo "   ✓ Copied $cmd_name"
+  fi
+done
 
 echo
 echo "╔════════════════════════════════════════╗"
 echo "║  Installation Complete!                ║"
 echo "╚════════════════════════════════════════╝"
 echo
-
-if [ "$IN_PROJECT" = true ]; then
-  echo "Next steps:"
-  echo "1. Edit .claude/CLAUDE.md to add universal guidelines"
-  echo "2. Create your first task: /task-create <task-id>"
-  echo "3. Start working: /task <task-id>"
-  echo
-  echo "Available commands:"
-  echo "  /task <task-id> [context]  - Switch to a task"
-  echo "  /task-create <task-id>     - Create a new task"
-  echo "  /task-save <context-name>  - Save current session"
-  echo "  /task-list                 - List all tasks"
-  echo "  /context-list              - List contexts in current task"
-fi
+echo "Available commands:"
+echo "  /task <task-id> [context]  - Switch to a task"
+echo "  /task-create <task-id>     - Create a new task"
+echo "  /task-save <context-name>  - Save current session"
+echo "  /task-list                 - List all tasks"
+echo "  /task-manage <task-id>     - Manage a task"
+echo "  /task-delete <task-id>     - Delete a task"
+echo "  /context-list              - List contexts in current task"
+echo "  /context-manage <name>     - Manage a context"
+echo "  /context-delete <name>     - Delete a context"
