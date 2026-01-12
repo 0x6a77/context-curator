@@ -2,6 +2,8 @@
 
 import fs from 'fs/promises';
 import path from 'path';
+import { getCurrentTask, taskExists } from '../src/task-manager.js';
+import { formatDate, getSessionStats } from '../src/utils.js';
 
 async function contextList(taskId?: string) {
   const cwd = process.cwd();
@@ -31,23 +33,12 @@ async function contextList(taskId?: string) {
     for (const file of jsonlFiles) {
       const filePath = path.join(contextsDir, file);
       const stats = await fs.stat(filePath);
-      const content = await fs.readFile(filePath, 'utf-8');
-      const lines = content.split('\n').filter(l => l.trim());
-      const messages = lines.length;
-      const tokens = Math.ceil(lines.reduce((sum, line) => {
-        try {
-          const msg = JSON.parse(line);
-          const contentStr = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
-          return sum + contentStr.length;
-        } catch {
-          return sum;
-        }
-      }, 0) / 4);
+      const sessionStats = await getSessionStats(filePath);
 
       contexts.push({
         name: file.replace('.jsonl', ''),
-        messages,
-        tokens,
+        messages: sessionStats.messages,
+        tokens: sessionStats.tokens,
         created: stats.birthtime,
         modified: stats.mtime
       });
@@ -70,39 +61,12 @@ async function contextList(taskId?: string) {
   contexts.forEach((ctx, i) => {
     console.log(`${i + 1}. ${ctx.name}`);
     console.log(`   • ${ctx.messages} messages, ${(ctx.tokens / 1000).toFixed(1)}k tokens`);
-    console.log(`   • Created: ${formatTimeAgo(ctx.created)}`);
-    console.log(`   • Last modified: ${formatTimeAgo(ctx.modified)}\n`);
+    console.log(`   • Created: ${formatDate(ctx.created)}`);
+    console.log(`   • Last modified: ${formatDate(ctx.modified)}\n`);
   });
 
   console.log(`Total: ${contexts.length} context${contexts.length !== 1 ? 's' : ''}\n`);
   console.log(`Load: /task ${targetTask} <context-name>`);
-}
-
-async function getCurrentTask(): Promise<string> {
-  try {
-    const claudeMdPath = path.join(process.cwd(), '.claude/CLAUDE.md');
-    const content = await fs.readFile(claudeMdPath, 'utf-8');
-    const match = content.match(/@import \.context-curator\/tasks\/([^\/\s]+)\/CLAUDE\.md/);
-    if (match) {
-      return match[1];
-    }
-  } catch {
-    // Fall through
-  }
-  return 'default';
-}
-
-function formatTimeAgo(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return 'just now';
-  if (diffMins < 60) return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
-  if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
-  return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
 }
 
 const taskId = process.argv[2];
