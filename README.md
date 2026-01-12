@@ -22,26 +22,29 @@ Context Curator lets you organize work into **tasks** - each with its own focuse
 
 ### Installation
 
+**Per-Project Installation** (Recommended):
+
 ```bash
-# Clone the repository
+# Clone into your project as .context-curator
 cd ~/my-project
-git clone https://github.com/yourusername/context-curator.git context-curator
+git clone https://github.com/yourusername/context-curator.git .context-curator
 
 # Run the installer
-cd context-curator
+cd .context-curator
 ./install.sh
 ```
 
 This will:
 1. Install npm dependencies
-2. Copy slash commands to `~/.claude/commands/task/`
+2. Copy slash commands to `~/.claude/commands/task/` (globally available)
+3. Verify the installation path is correct (must be at `.context-curator/`)
 
 The commands are now available in Claude Code. On first use (when you run `/task-create`), the system will automatically:
 - Back up your current `.claude/CLAUDE.md` to a `default` task
 - Create the @-import structure in `.claude/CLAUDE.md`
 - Set up task storage in `.context-curator/tasks/`
 
-### Global Installation (Optional)
+**Global Installation** (Advanced):
 
 For using across multiple projects:
 
@@ -57,7 +60,11 @@ cd ~/my-project
 ln -s ~/.context-curator .context-curator
 ```
 
+**Important**: The directory **must** be named `.context-curator` in your project (note the leading dot), as commands reference scripts at `.context-curator/scripts/`.
+
 ### Basic Usage
+
+First, make sure you've installed context-curator as `.context-curator/` in your project (see Installation above).
 
 ```bash
 # Create a task for testing
@@ -286,7 +293,7 @@ my-project/
 │   ├── skills/                   # Shared by ALL tasks
 │   └── agents/                   # Shared by ALL tasks
 │
-├── context-curator/              # (or symlink to ~/.context-curator)
+├── .context-curator/             # Must be this name! (or symlink)
 │   ├── commands/
 │   │   └── task/                 # Command definitions (source)
 │   │       ├── task.md
@@ -325,10 +332,13 @@ my-project/
     └── session-task-map.json
 ```
 
-**Storage**: 
-- Commands installed to `~/.claude/commands/task/` (global, shared across projects)
-- Task data in `.context-curator/tasks/<task-id>/` (per-project)
-- Contexts in `.context-curator/tasks/<task-id>/contexts/<context-name>.jsonl` (per-project)
+**Key Paths**: 
+- **Commands**: Installed to `~/.claude/commands/task/` (global, shared across all projects)
+- **Scripts**: Located at `.context-curator/scripts/` (per-project, referenced by commands)
+- **Task data**: Stored in `.context-curator/tasks/<task-id>/` (per-project)
+- **Contexts**: Saved as `.context-curator/tasks/<task-id>/contexts/<context-name>.jsonl` (per-project)
+
+**Why `.context-curator/`?** Commands execute from your project root and reference scripts at `.context-curator/scripts/`. This path is hardcoded in the command definitions, so the directory name must match exactly.
 
 ## Example Task CLAUDE.md
 
@@ -494,11 +504,17 @@ Contributions welcome. Fork the repo, create a feature branch, add tests, update
 
 Development:
 ```bash
-git clone <repo-url>
+git clone <repo-url> context-curator
 cd context-curator
 npm install
 npm test
 npx tsc
+
+# To test in a project
+cd ~/test-project
+ln -s ~/path/to/context-curator .context-curator
+cd .context-curator
+./install.sh
 ```
 
 ## License
