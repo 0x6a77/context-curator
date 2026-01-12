@@ -52,18 +52,17 @@ This plan implements the task-based context management system described in PRD v
 ### Directory Structure
 
 ```
-~/.claude/tasks/
-└── <encoded-project-path>/              # e.g., -Users-dev-my-project
-    ├── default/
-    │   ├── CLAUDE.md
-    │   └── contexts/
-    ├── integration-tests/
-    │   ├── CLAUDE.md
-    │   └── contexts/
-    │       ├── initial-setup.jsonl
-    │       ├── edge-cases.jsonl
-    │       └── refactor-v2.jsonl
-    └── session-task-map.json
+.context-curator/tasks/                   # Task storage (within project)
+├── default/
+│   ├── CLAUDE.md
+│   └── contexts/
+├── integration-tests/
+│   ├── CLAUDE.md
+│   └── contexts/
+│       ├── initial-setup.jsonl
+│       ├── edge-cases.jsonl
+│       └── refactor-v2.jsonl
+└── session-task-map.json
 ```
 
 ### Project Structure
@@ -113,6 +112,104 @@ my-project/
     │
     └── package.json
 ```
+
+---
+
+## Installation Architecture
+
+### Command and Script Organization
+
+The context-curator repository is organized to support flexible installation:
+
+```
+context-curator/                          # Repository root
+├── commands/
+│   └── task/                             # Slash command definitions
+│       ├── task.md
+│       ├── task-create.md
+│       ├── task-save.md
+│       ├── task-list.md
+│       ├── task-manage.md
+│       ├── task-delete.md
+│       ├── context-list.md
+│       ├── context-manage.md
+│       └── context-delete.md
+│
+├── scripts/                              # TypeScript scripts
+│   ├── init-project.ts
+│   ├── update-import.ts
+│   ├── check-session.ts
+│   ├── prepare-context.ts
+│   ├── task-save.ts
+│   ├── task-list.ts
+│   ├── context-list.ts
+│   ├── get-current-task.ts
+│   └── apply-edits.ts
+│
+├── src/                                  # Source modules
+│   ├── types.ts
+│   ├── session-reader.ts
+│   ├── session-writer.ts
+│   ├── task-manager.ts
+│   └── utils.ts
+│
+├── install.sh                            # Installation script
+├── package.json
+└── README.md
+```
+
+### Installation Modes
+
+**Per-Project Installation** (Recommended):
+```bash
+cd ~/my-project
+git clone <repo-url> .context-curator
+cd .context-curator
+./install.sh
+
+# This will:
+# 1. Run npm install
+# 2. Copy commands/task/*.md to ~/.claude/commands/task/
+```
+
+**Global Installation** (Advanced):
+```bash
+# Install once globally
+git clone <repo-url> ~/.context-curator
+cd ~/.context-curator
+npm install
+
+# Then symlink into projects
+cd ~/my-project
+ln -s ~/.context-curator .context-curator
+mkdir -p .claude/commands
+ln -s ../.context-curator/commands/task/* .claude/commands/
+```
+
+### Script Access from Commands
+
+Commands reference scripts using relative paths from the project root:
+
+```bash
+# In command definitions (commands/task/*.md):
+npx tsx .context-curator/scripts/update-import.ts $1
+npx tsx .context-curator/scripts/task-save.ts <context-name>
+npx tsx .context-curator/scripts/prepare-context.ts $1 $2
+```
+
+This works because:
+1. Commands execute from the project root directory
+2. `.context-curator/` is either a real directory or symlink in the project
+3. `npx tsx` can execute TypeScript files directly
+4. Scripts can import from `.context-curator/src/` modules
+
+### Key Design Points
+
+1. **Commands are portable**: Stored in `commands/task/*.md`, copied to `~/.claude/commands/task/` for global access
+2. **Scripts stay in place**: Always referenced via `.context-curator/scripts/...`
+3. **Source modules shared**: Scripts import from `.context-curator/src/...`
+4. **Works both ways**: Per-project OR global installation
+5. **No path hardcoding**: All paths relative to project root
 
 ---
 
@@ -1056,25 +1153,36 @@ Load: /task <task-id> <context-name>
 
 ## Testing Strategy
 
+### Installation Tests
+- [ ] install.sh copies commands correctly to ~/.claude/commands/task/
+- [ ] Commands are accessible from Claude Code
+- [ ] Scripts are accessible via .context-curator/scripts/
+- [ ] Global installation works (symlink method)
+- [ ] Per-project installation works (clone method)
+- [ ] npm install completes without errors
+
 ### Unit Tests
 - [ ] Task manager utilities
 - [ ] Session reader/writer
 - [ ] @-import parsing
 - [ ] Context name validation
+- [ ] Script path resolution
 
 ### Integration Tests
 - [ ] Full task creation workflow
 - [ ] Task switching with context
 - [ ] Context save/load
 - [ ] Multi-instance isolation
+- [ ] Commands can execute scripts via npx tsx
 
 ### End-to-End Tests
-- [ ] Create project
+- [ ] Run install.sh in new project
 - [ ] Initialize curator
 - [ ] Create multiple tasks
 - [ ] Switch between tasks
 - [ ] Save/load contexts
 - [ ] Verify multi-instance safety
+- [ ] Verify scripts execute from commands
 
 ---
 
@@ -1217,40 +1325,44 @@ This is a **complete rewrite** from previous versions. The old conversational se
 
 ## Appendix: File Checklist
 
-### Scripts to Create
+### Scripts to Create (in scripts/)
 - [x] scripts/init-project.ts
 - [ ] scripts/update-import.ts
 - [ ] scripts/check-session.ts
 - [ ] scripts/prepare-context.ts
-- [ ] scripts/task-save.ts (already in PRD)
+- [ ] scripts/task-save.ts (implementation in PRD)
 - [ ] scripts/task-list.ts
 - [ ] scripts/context-list.ts
 - [ ] scripts/get-current-task.ts
 - [ ] scripts/apply-edits.ts (for manage command)
 
-### Commands to Create
-- [ ] commands/task.md
-- [ ] commands/task-create.md
-- [ ] commands/task-save.md
-- [ ] commands/task-list.md
-- [ ] commands/context-list.md
-- [ ] commands/task-manage.md (optional)
-- [ ] commands/task-delete.md (optional)
-- [ ] commands/context-manage.md (optional)
-- [ ] commands/context-delete.md (optional)
+### Commands to Create (in commands/task/)
+- [ ] commands/task/task.md
+- [ ] commands/task/task-create.md
+- [ ] commands/task/task-save.md
+- [ ] commands/task/task-list.md
+- [ ] commands/task/context-list.md
+- [ ] commands/task/task-manage.md (optional)
+- [ ] commands/task/task-delete.md (optional)
+- [ ] commands/task/context-manage.md (optional)
+- [ ] commands/task/context-delete.md (optional)
 
-### Source Files to Create
+### Source Files to Create (in src/)
 - [ ] src/types.ts
 - [ ] src/task-manager.ts
 - [ ] src/session-reader.ts (may exist, verify compatibility)
 - [ ] src/session-writer.ts (may exist, verify compatibility)
 - [ ] src/utils.ts
 
+### Installation Files
+- [x] install.sh (copies commands to ~/.claude/commands/task/)
+- [ ] package.json (verify scripts and dependencies)
+
 ### Documentation to Update
-- [ ] README.md
-- [ ] INSTALL.md
-- [ ] ARCHITECTURE.md
-- [ ] TROUBLESHOOTING.md
+- [ ] README.md (installation instructions)
+- [ ] INSTALL.md (per-project and global installation)
+- [ ] ARCHITECTURE.md (command/script organization)
+- [ ] TROUBLESHOOTING.md (installation issues)
 
 ---
 
