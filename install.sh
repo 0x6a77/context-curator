@@ -17,14 +17,14 @@ fi
 echo "📦 Installing dependencies..."
 npm install
 
-# 2. Copy commands to ~/.claude/commands
-echo "📋 Copying slash commands to ~/.claude/commands..."
-mkdir -p ~/.claude/commands
+# 2. Copy commands to ~/.claude/commands/task
+echo "📋 Copying slash commands to ~/.claude/commands/task..."
+mkdir -p ~/.claude/commands/task
 
 for cmd in commands/task/*.md; do
   if [ -f "$cmd" ]; then
     cmd_name=$(basename "$cmd")
-    cp "$cmd" ~/.claude/commands/"$cmd_name"
+    cp "$cmd" ~/.claude/commands/task/"$cmd_name"
     echo "   ✓ Copied $cmd_name"
   fi
 done
