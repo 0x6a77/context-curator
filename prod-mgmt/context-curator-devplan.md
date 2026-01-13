@@ -49,46 +49,81 @@ This plan implements the task-based context management system described in PRD v
 
 ## Storage Architecture
 
-### Directory Structure
+### Global Storage Structure
+
+**All task data is stored globally in `~/.claude/projects/<project-id>/`:**
 
 ```
-.context-curator/tasks/                   # Task storage (within project)
-├── default/
-│   ├── CLAUDE.md
-│   └── contexts/
-├── integration-tests/
-│   ├── CLAUDE.md
-│   └── contexts/
-│       ├── initial-setup.jsonl
-│       ├── edge-cases.jsonl
-│       └── refactor-v2.jsonl
-└── session-task-map.json
+~/.claude/
+├── context-curator/                      # Installed scripts and source
+│   ├── scripts/
+│   ├── src/
+│   ├── node_modules/
+│   └── package.json
+│
+├── commands/
+│   └── task/                             # Installed commands
+│
+└── projects/                             # ← All task data
+    ├── -Users-dev-my-project/            # Encoded project path
+    │   ├── tasks/
+    │   │   ├── default/
+    │   │   │   ├── CLAUDE.md
+    │   │   │   └── contexts/
+    │   │   │       └── default-default.jsonl
+    │   │   │
+    │   │   ├── integration-tests/
+    │   │   │   ├── CLAUDE.md
+    │   │   │   └── contexts/
+    │   │   │       ├── initial-setup.jsonl
+    │   │   │       ├── edge-cases.jsonl
+    │   │   │       └── refactor-v2.jsonl
+    │   │   │
+    │   │   └── api-refactor/
+    │   │       ├── CLAUDE.md
+    │   │       └── contexts/
+    │   │
+    │   ├── session-task-map.json
+    │   └── config.json
+    │
+    └── -Users-dev-other-project/
+        └── tasks/
 ```
 
-### Project Structure
+### Project Structure (Minimal Modification)
+
+**We ONLY modify `.claude/CLAUDE.md` in the project:**
 
 ```
 my-project/
 ├── .claude/
-│   ├── CLAUDE.md                         # Universal + @-import line
-│   ├── skills/                           # Project skills (shared by tasks)
-│   └── agents/                           # Project agents (shared by tasks)
+│   ├── CLAUDE.md                         # ← ONLY file we modify (@-import line)
+│   ├── skills/                           # ← User's skills (UNTOUCHED)
+│   └── agents/                           # ← User's agents (UNTOUCHED)
 │
-└── .context-curator/                     # Per-project task data
-    └── tasks/                            # Task definitions
-        ├── default/
-        │   ├── CLAUDE.md
-        │   └── contexts/
-        ├── integration-tests/
-        │   ├── CLAUDE.md
-        │   └── contexts/
-        │       ├── initial-setup.jsonl
-        │       ├── edge-cases.jsonl
-        │       └── refactor-v2.jsonl
-        └── session-task-map.json
+├── src/
+├── tests/
+└── package.json
 ```
 
-**Note:** Commands and scripts are installed globally in `~/.claude/` (not shown above)
+**Key principle**: We ONLY touch `.claude/CLAUDE.md` to update the @-import line. All task state lives in `~/.claude/projects/<project-id>/`.
+
+### Project ID Encoding
+
+The project ID is the project path with slashes replaced by hyphens:
+
+```
+/Users/dev/my-project → -Users-dev-my-project
+/home/user/code/app   → -home-user-code-app
+```
+
+### Why Global Storage?
+
+1. **Minimal project modification**: Only `.claude/CLAUDE.md` is touched
+2. **No .gitignore needed**: Task data isn't in the project directory
+3. **Centralized management**: All task data in one location (`~/.claude/projects/`)
+4. **Easier backups**: Backup `~/.claude/projects/` to backup all task data
+5. **Cleaner projects**: No `.context-curator/` directory cluttering projects
 
 ---
 
@@ -301,25 +336,35 @@ import path from 'path';
 
 async function initProject() {
   console.log('Initializing context-curator...\n');
-
-  // 1. Create task directory structure
-  const tasksDir = path.join(process.cwd(), '.context-curator/tasks');
-  await fs.mkdir(tasksDir, { recursive: true });
-
-  // 2. Move existing CLAUDE.md to default task
-  const currentClaudeMd = path.join(process.cwd(), '.claude/CLAUDE.md');
+  
+  const cwd = process.cwd();
+  const projectPath = cwd;
+  
+  // 1. Encode project path to create project ID
+  // /Users/dev/my-project → -Users-dev-my-project
+  const projectId = projectPath.replace(/\//g, '-');
+  console.log(`Project: ${projectPath}`);
+  console.log(`Project ID: ${projectId}\n`);
+  
+  // 2. Create project directory structure in ~/.claude/projects/
+  const projectDir = path.join(process.env.HOME!, '.claude/projects', projectId);
+  const tasksDir = path.join(projectDir, 'tasks');
   const defaultTaskDir = path.join(tasksDir, 'default');
-
+  
   await fs.mkdir(defaultTaskDir, { recursive: true });
   await fs.mkdir(path.join(defaultTaskDir, 'contexts'), { recursive: true });
-
+  console.log(`✓ Created project directory: ${projectDir}`);
+  
+  // 3. Backup existing CLAUDE.md to default task
+  const currentClaudeMd = path.join(cwd, '.claude/CLAUDE.md');
+  
   try {
     const content = await fs.readFile(currentClaudeMd, 'utf-8');
     await fs.writeFile(
       path.join(defaultTaskDir, 'CLAUDE.md'),
       content
     );
-    console.log('✓ Backed up current CLAUDE.md to "default" task');
+    console.log('✓ Backed up current CLAUDE.md to default task');
   } catch {
     await fs.writeFile(
       path.join(defaultTaskDir, 'CLAUDE.md'),
@@ -327,9 +372,9 @@ async function initProject() {
     );
     console.log('✓ Created default task CLAUDE.md');
   }
-
-  // 3. Create new CLAUDE.md with @-import
-  const projectName = path.basename(process.cwd());
+  
+  // 4. Create new CLAUDE.md with @-import
+  const projectName = path.basename(cwd);
   const newClaudeMd = `# Project: ${projectName}
 
 ## Universal Instructions
@@ -341,21 +386,32 @@ Add your project-wide guidelines here:
 
 ## Task-Specific Context
 
-@import .context-curator/tasks/default/CLAUDE.md
+@import ~/.claude/projects/${projectId}/tasks/default/CLAUDE.md
 
 <!-- This line is managed by context-curator. Do not edit manually. -->
 `;
-
+  
   await fs.writeFile(currentClaudeMd, newClaudeMd);
-  console.log('✓ Created new CLAUDE.md with @-import structure');
-
-  // 4. Create session-task-map.json
+  console.log('✓ Added @-import line to .claude/CLAUDE.md');
+  
+  // 5. Create default-default context (empty)
+  const defaultContext = path.join(defaultTaskDir, 'contexts/default-default.jsonl');
+  await fs.writeFile(defaultContext, '');
+  console.log('✓ Created default-default context');
+  
+  // 6. Create session-task-map.json
   await fs.writeFile(
-    path.join(tasksDir, 'session-task-map.json'),
+    path.join(projectDir, 'session-task-map.json'),
     '{}\n'
   );
-  console.log('✓ Created session tracking file');
-
+  
+  // 7. Create config.json
+  await fs.writeFile(
+    path.join(projectDir, 'config.json'),
+    JSON.stringify({ projectPath, projectId, createdAt: new Date().toISOString() }, null, 2)
+  );
+  console.log('✓ Created session tracking and config files');
+  
   console.log('\n✓ Initialization complete!\n');
   console.log('Next steps:');
   console.log('1. Edit .claude/CLAUDE.md to add universal guidelines');
@@ -367,11 +423,15 @@ initProject().catch(console.error);
 ```
 
 **Testing:**
-- [ ] Creates `.context-curator/tasks/` directory
+- [ ] Encodes project path correctly to project ID
+- [ ] Creates `~/.claude/projects/<project-id>/` directory structure
+- [ ] Creates `~/.claude/projects/<project-id>/tasks/default/` directory
 - [ ] Backs up existing CLAUDE.md to default task
-- [ ] Creates new CLAUDE.md with @-import structure
-- [ ] Creates session-task-map.json
+- [ ] Creates new CLAUDE.md with @-import pointing to global storage
+- [ ] Creates default-default.jsonl context
+- [ ] Creates session-task-map.json and config.json
 - [ ] Handles missing CLAUDE.md gracefully
+- [ ] Only modifies `.claude/CLAUDE.md` in project (no other project files touched)
 - [ ] Idempotent (safe to run multiple times)
 
 ---
@@ -389,59 +449,69 @@ import fs from 'fs/promises';
 import path from 'path';
 
 async function updateImport(taskId: string) {
-  const claudeMdPath = path.join(process.cwd(), '.claude/CLAUDE.md');
-
-  // Verify task exists
+  const cwd = process.cwd();
+  const projectId = cwd.replace(/\//g, '-');
+  const claudeMdPath = path.join(cwd, '.claude/CLAUDE.md');
+  
+  // Verify task exists in ~/.claude/projects/<project-id>/tasks/
   const taskClaudeMd = path.join(
-    process.cwd(),
-    '.context-curator/tasks',
+    process.env.HOME!,
+    '.claude/projects',
+    projectId,
+    'tasks',
     taskId,
     'CLAUDE.md'
   );
-
+  
   try {
     await fs.access(taskClaudeMd);
   } catch (error) {
     console.error(`❌ Task '${taskId}' not found`);
     console.error(`   Missing: ${taskClaudeMd}`);
-
+    
     // List available tasks
-    const tasksDir = path.join(process.cwd(), '.context-curator/tasks');
-    const tasks = await fs.readdir(tasksDir);
-    const validTasks = [];
-
-    for (const task of tasks) {
-      const taskPath = path.join(tasksDir, task);
-      const stats = await fs.stat(taskPath);
-      if (stats.isDirectory()) {
-        validTasks.push(task);
+    const tasksDir = path.join(process.env.HOME!, '.claude/projects', projectId, 'tasks');
+    try {
+      const tasks = await fs.readdir(tasksDir);
+      const validTasks = [];
+      
+      for (const task of tasks) {
+        const taskPath = path.join(tasksDir, task);
+        const stats = await fs.stat(taskPath);
+        if (stats.isDirectory() && task !== 'node_modules') {
+          validTasks.push(task);
+        }
       }
+      
+      if (validTasks.length > 0) {
+        console.error('\nAvailable tasks:');
+        validTasks.forEach(t => console.error(`   - ${t}`));
+      }
+    } catch {
+      console.error('\nNo tasks directory found. Run /task-init first.');
     }
-
-    console.error('\nAvailable tasks:');
-    validTasks.forEach(t => console.error(`   - ${t}`));
-
+    
     process.exit(1);
   }
-
+  
   // Read current CLAUDE.md
   let content = await fs.readFile(claudeMdPath, 'utf-8');
-
-  // Update @-import line
-  const importLine = `@import .context-curator/tasks/${taskId}/CLAUDE.md`;
-  const importRegex = /@import \.context-curator\/tasks\/[^\/]+\/CLAUDE\.md/;
-
+  
+  // Update @-import line to point to global storage
+  const importLine = `@import ~/.claude/projects/${projectId}/tasks/${taskId}/CLAUDE.md`;
+  const importRegex = /@import ~\/\.claude\/projects\/[^\/]+\/tasks\/[^\/]+\/CLAUDE\.md/;
+  
   if (importRegex.test(content)) {
     // Replace existing import
     content = content.replace(importRegex, importLine);
   } else {
     // Add import if not present (shouldn't happen after init)
     console.warn('⚠️  No @import line found, adding one...');
-    content = content.trim() + '\n\n' + importLine + '\n';
+    content = content.trim() + '\n\n' + importLine + '\n\n<!-- This line is managed by context-curator. Do not edit manually. -->\n';
   }
-
+  
   await fs.writeFile(claudeMdPath, content);
-
+  
   console.log(`✓ Task context: ${taskId}`);
 }
 
@@ -482,7 +552,9 @@ export interface Task {
 }
 
 export async function getTasksDir(): Promise<string> {
-  return path.join(process.cwd(), '.context-curator/tasks');
+  const cwd = process.cwd();
+  const projectId = cwd.replace(/\//g, '-');
+  return path.join(process.env.HOME!, '.claude/projects', projectId, 'tasks');
 }
 
 export async function listTasks(): Promise<Task[]> {
@@ -554,7 +626,8 @@ export async function getCurrentTask(): Promise<string> {
 
   try {
     const content = await fs.readFile(claudeMdPath, 'utf-8');
-    const match = content.match(/@import \.context-curator\/tasks\/([^\/]+)\/CLAUDE\.md/);
+    // Match: @import ~/.claude/projects/<project-id>/tasks/<task-id>/CLAUDE.md
+    const match = content.match(/@import ~\/\.claude\/projects\/[^\/]+\/tasks\/([^\/]+)\/CLAUDE\.md/);
 
     if (match) {
       return match[1];
@@ -1375,15 +1448,18 @@ This is a **complete rewrite** from previous versions. The old conversational se
 
 **Solution:**
 - Verify PreToolUse hook in command definition
-- Check task exists: `ls .context-curator/tasks/<task-id>/CLAUDE.md`
+- Check task exists: `ls ~/.claude/projects/<project-id>/tasks/<task-id>/CLAUDE.md`
+  (where <project-id> is your project path with slashes replaced by hyphens)
 - Run manually: `npx tsx ~/.claude/context-curator/scripts/update-import.ts <task-id>`
+- Verify @-import line format: `@import ~/.claude/projects/<project-id>/tasks/<task-id>/CLAUDE.md`
 
 ### Issue: Context not loading
 
 **Solution:**
 - List contexts: `/context-list <task-id>`
-- Verify context exists: `ls .context-curator/tasks/<task-id>/contexts/<context>.jsonl`
+- Verify context exists: `ls ~/.claude/projects/<project-id>/tasks/<task-id>/contexts/<context>.jsonl`
 - Check context name format (lowercase, numbers, hyphens only)
+- Find your project ID: `echo $(pwd | sed 's/\//−/g')` (replace slashes with hyphens)
 
 ### Issue: Multi-instance interference
 
