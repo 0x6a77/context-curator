@@ -30,11 +30,28 @@ cd context-curator
 ```
 
 This will:
-1. Copy context-curator to `~/.claude/context-curator/`
-2. Install npm dependencies
+1. Copy necessary files to `~/.claude/context-curator/`:
+   - Scripts (`scripts/`)
+   - Source code (`src/`)
+   - Configuration (`package.json`, `tsconfig.json`)
+2. Install npm dependencies in `~/.claude/context-curator/`
 3. Install slash commands to `~/.claude/commands/task/`
 
 The commands are now globally available in Claude Code for **all your projects**.
+
+**What gets installed:**
+- `~/.claude/context-curator/scripts/*.ts` - All TypeScript scripts
+- `~/.claude/context-curator/src/*.ts` - All source modules
+- `~/.claude/context-curator/package.json` - Dependencies manifest
+- `~/.claude/context-curator/tsconfig.json` - TypeScript config
+- `~/.claude/context-curator/node_modules/` - Installed npm packages
+- `~/.claude/commands/task/*.md` - Slash command definitions
+
+**What does NOT get installed:**
+- `.git/` - No git history
+- `README.md`, `prod-mgmt/`, docs - No documentation files
+- `install.sh` - Installer itself is not copied
+- `commands/` source directory - Only the final commands are installed
 
 ### ⚠️ Important: Session Management
 
@@ -387,22 +404,21 @@ claude
 
 ```
 ~/.claude/
-├── context-curator/              # Globally installed
-│   ├── commands/
-│   │   └── task/                 # Command definitions (source)
-│   │       ├── task.md
-│   │       ├── task-create.md
-│   │       └── task-save.md
-│   ├── scripts/
+├── context-curator/              # Globally installed (clean install)
+│   ├── scripts/                  # TypeScript scripts
 │   │   ├── init-project.ts
 │   │   ├── update-import.ts
 │   │   ├── prepare-context.ts
-│   │   └── task-save.ts
-│   ├── src/
+│   │   ├── task-save.ts
+│   │   └── [other scripts...]
+│   ├── src/                      # Source modules
 │   │   ├── task-manager.ts
 │   │   ├── session-reader.ts
+│   │   ├── session-writer.ts
 │   │   └── utils.ts
-│   └── node_modules/
+│   ├── node_modules/             # Installed dependencies
+│   ├── package.json
+│   └── tsconfig.json
 │
 └── commands/
     └── task/                     # Commands installed here
@@ -433,6 +449,7 @@ my-project/
 
 **Key Points**: 
 - **Global installation**: Context-curator lives in `~/.claude/context-curator/` (one install, works everywhere)
+- **Clean install**: Only necessary files are copied (scripts, source, configs) - no .git, README, or other repo files
 - **Global commands**: Slash commands in `~/.claude/commands/task/` (available in all projects)
 - **Per-project data**: Task definitions and contexts in each project's `.context-curator/tasks/` directory
 - **Portable**: Commands reference scripts at `~/.claude/context-curator/scripts/` (absolute path, works from any project)
@@ -495,6 +512,24 @@ describe('Auth API Integration', () => {
 
 **Session tracking**: `session-task-map.json` tracks which session belongs to which task, enabling smart context management.
 
+## Uninstalling
+
+To completely remove context-curator:
+
+```bash
+# Remove the global installation
+rm -rf ~/.claude/context-curator
+
+# Remove the commands
+rm -rf ~/.claude/commands/task
+
+# Optional: Remove project-specific data
+# (Do this in each project where you used context-curator)
+rm -rf .context-curator
+```
+
+Note: This will NOT remove tasks or contexts from your projects - only the globally installed scripts and commands.
+
 ## Troubleshooting
 
 **Context-curator tasks appearing in /task-list**
@@ -521,14 +556,19 @@ This shouldn't happen. If it does:
 3. Restart affected instances (run `/task` command first, then resume)
 
 **Commands not found**
-1. Check global installation: `ls -la ~/.claude/context-curator/`
-2. Check commands: `ls -la ~/.claude/commands/task/`
-3. Re-run installer if needed:
+1. Check global installation:
    ```bash
-   cd ~/.claude/context-curator
+   ls -la ~/.claude/context-curator/scripts/
+   ls -la ~/.claude/context-curator/src/
+   ls -la ~/.claude/commands/task/
+   ```
+2. Re-run installer if needed:
+   ```bash
+   cd /path/to/cloned/context-curator
    ./install.sh
    ```
-4. Verify Claude Code can see custom commands
+   Note: Run from your cloned repo, not from `~/.claude/context-curator/`
+3. Verify Claude Code can see custom commands
 
 ## Best Practices
 
@@ -648,18 +688,28 @@ Contributions welcome. Fork the repo, create a feature branch, add tests, update
 
 Development:
 ```bash
+# Clone and set up for development
 git clone <repo-url> context-curator
 cd context-curator
 npm install
+
+# Run tests
 npm test
+
+# Build TypeScript
 npx tsc
 
-# To test locally (install to ~/.claude)
+# Test the installer (installs to ~/.claude)
 ./install.sh
 
-# Then use in any project
+# Then test in any project
 cd ~/test-project
+claude -r context-curator
 /task-create test-task
+
+# To update after making changes
+cd /path/to/context-curator
+./install.sh  # Re-run to update installed files
 ```
 
 ## License

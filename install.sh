@@ -8,29 +8,42 @@ echo "╚═══════════════════════�
 echo
 
 INSTALL_DIR="$HOME/.claude/context-curator"
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-# 1. Copy context-curator to ~/.claude/context-curator
-echo "📦 Installing to $INSTALL_DIR..."
+# 1. Create directory structure
+echo "📦 Creating installation directories..."
+mkdir -p "$INSTALL_DIR/scripts"
+mkdir -p "$INSTALL_DIR/src"
+mkdir -p "$HOME/.claude/commands/task"
 
-# Create directory structure
-mkdir -p "$INSTALL_DIR"
+# 2. Copy necessary files
+echo "📋 Copying scripts and source files..."
 
-# Copy everything
-cp -r . "$INSTALL_DIR/"
+# Copy scripts
+cp -r "$SCRIPT_DIR"/scripts/*.ts "$INSTALL_DIR/scripts/"
+echo "   ✓ Copied scripts"
 
-# 2. Install npm dependencies
+# Copy source files
+cp -r "$SCRIPT_DIR"/src/*.ts "$INSTALL_DIR/src/"
+echo "   ✓ Copied source files"
+
+# Copy package files
+cp "$SCRIPT_DIR/package.json" "$INSTALL_DIR/"
+cp "$SCRIPT_DIR/tsconfig.json" "$INSTALL_DIR/"
+echo "   ✓ Copied package.json and tsconfig.json"
+
+# 3. Install npm dependencies
 echo "📦 Installing dependencies..."
 cd "$INSTALL_DIR"
-npm install
+npm install --silent
 
-# 3. Copy commands to ~/.claude/commands/task
-echo "📋 Installing slash commands to ~/.claude/commands/task..."
-mkdir -p ~/.claude/commands/task
-
-for cmd in "$INSTALL_DIR"/commands/task/*.md; do
+# 4. Install slash commands
+echo "📋 Installing slash commands..."
+cd "$SCRIPT_DIR"
+for cmd in commands/task/*.md; do
   if [ -f "$cmd" ]; then
     cmd_name=$(basename "$cmd")
-    cp "$cmd" ~/.claude/commands/task/"$cmd_name"
+    cp "$cmd" "$HOME/.claude/commands/task/$cmd_name"
     echo "   ✓ Installed $cmd_name"
   fi
 done
@@ -42,6 +55,12 @@ echo "╚═══════════════════════�
 echo
 echo "✅ Context Curator installed to: $INSTALL_DIR"
 echo "✅ Commands installed to: ~/.claude/commands/task/"
+echo
+echo "Installation summary:"
+echo "  • Scripts: ~/.claude/context-curator/scripts/"
+echo "  • Source: ~/.claude/context-curator/src/"
+echo "  • Dependencies: ~/.claude/context-curator/node_modules/"
+echo "  • Commands: ~/.claude/commands/task/"
 echo
 echo "╔════════════════════════════════════════╗"
 echo "║  IMPORTANT: Session Management         ║"
