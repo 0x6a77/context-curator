@@ -1,9 +1,9 @@
 # Developer Implementation Plan: Context Curator v10.0
 
-**Version:** 10.0
-**Last Updated:** January 12, 2026
+**Version:** 10.1
+**Last Updated:** January 13, 2026
 **Status:** Ready for Implementation
-**Based on:** PRD v10.0
+**Based on:** PRD v10.0 + Global Installation Updates
 
 ---
 
@@ -71,60 +71,39 @@ This plan implements the task-based context management system described in PRD v
 my-project/
 ├── .claude/
 │   ├── CLAUDE.md                         # Universal + @-import line
-│   └── commands/                         # Custom slash commands
-│       ├── task.md
-│       ├── task-create.md
-│       ├── task-save.md
-│       ├── task-list.md
-│       ├── task-manage.md
-│       ├── task-delete.md
-│       ├── context-list.md
-│       ├── context-manage.md
-│       └── context-delete.md
+│   ├── skills/                           # Project skills (shared by tasks)
+│   └── agents/                           # Project agents (shared by tasks)
 │
-└── .context-curator/                     # Helper scripts and storage
-    ├── tasks/                            # Task definitions
-    │   ├── default/
-    │   │   ├── CLAUDE.md
-    │   │   └── contexts/
-    │   ├── integration-tests/
-    │   │   ├── CLAUDE.md
-    │   │   └── contexts/
-    │   └── session-task-map.json
-    │
-    ├── src/
-    │   ├── types.ts
-    │   ├── session-reader.ts
-    │   ├── session-writer.ts
-    │   ├── task-manager.ts
-    │   └── utils.ts
-    │
-    ├── scripts/
-    │   ├── init-project.ts
-    │   ├── update-import.ts
-    │   ├── task-create.ts
-    │   ├── task-save.ts
-    │   ├── task-list.ts
-    │   ├── prepare-context.ts
-    │   ├── context-list.ts
-    │   ├── context-manage.ts
-    │   └── apply-edits.ts
-    │
-    └── package.json
+└── .context-curator/                     # Per-project task data
+    └── tasks/                            # Task definitions
+        ├── default/
+        │   ├── CLAUDE.md
+        │   └── contexts/
+        ├── integration-tests/
+        │   ├── CLAUDE.md
+        │   └── contexts/
+        │       ├── initial-setup.jsonl
+        │       ├── edge-cases.jsonl
+        │       └── refactor-v2.jsonl
+        └── session-task-map.json
 ```
+
+**Note:** Commands and scripts are installed globally in `~/.claude/` (not shown above)
 
 ---
 
 ## Installation Architecture
 
-### Command and Script Organization
+### Global Installation Model
 
-The context-curator repository is organized to support flexible installation:
+Context Curator uses a **global installation** approach - install once, use everywhere.
+
+**Repository Structure:**
 
 ```
-context-curator/                          # Repository root
+context-curator/                          # Repository (for development/installation)
 ├── commands/
-│   └── task/                             # Slash command definitions
+│   └── task/                             # Slash command definitions (source)
 │       ├── task.md
 │       ├── task-create.md
 │       ├── task-save.md
@@ -135,7 +114,7 @@ context-curator/                          # Repository root
 │       ├── context-manage.md
 │       └── context-delete.md
 │
-├── scripts/                              # TypeScript scripts
+├── scripts/                              # TypeScript scripts (source)
 │   ├── init-project.ts
 │   ├── update-import.ts
 │   ├── check-session.ts
@@ -155,61 +134,154 @@ context-curator/                          # Repository root
 │
 ├── install.sh                            # Installation script
 ├── package.json
+├── tsconfig.json
 └── README.md
 ```
 
-### Installation Modes
+**Installation:**
 
-**Per-Project Installation** (Recommended):
 ```bash
-cd ~/my-project
-git clone <repo-url> .context-curator
-cd .context-curator
+# Clone and install globally (one time)
+git clone <repo-url> context-curator
+cd context-curator
 ./install.sh
-
-# This will:
-# 1. Run npm install
-# 2. Copy commands/task/*.md to ~/.claude/commands/task/
 ```
 
-**Global Installation** (Advanced):
-```bash
-# Install once globally
-git clone <repo-url> ~/.context-curator
-cd ~/.context-curator
-npm install
+**What install.sh does:**
 
-# Then symlink into projects
-cd ~/my-project
-ln -s ~/.context-curator .context-curator
-mkdir -p .claude/commands
-ln -s ../.context-curator/commands/task/* .claude/commands/
+1. **Copies necessary files** to `~/.claude/context-curator/`:
+   - `scripts/*.ts` → `~/.claude/context-curator/scripts/`
+   - `src/*.ts` → `~/.claude/context-curator/src/`
+   - `package.json` → `~/.claude/context-curator/`
+   - `tsconfig.json` → `~/.claude/context-curator/`
+
+2. **Installs dependencies** in `~/.claude/context-curator/`:
+   ```bash
+   cd ~/.claude/context-curator
+   npm install
+   ```
+
+3. **Installs commands** to `~/.claude/commands/task/`:
+   - Copies `commands/task/*.md` → `~/.claude/commands/task/`
+
+**What does NOT get installed:**
+- `.git/` - No git history
+- `README.md`, `prod-mgmt/`, docs - No documentation
+- `install.sh` - Installer not copied
+- Source `commands/` directory - Only final commands copied
+
+**Installed Structure:**
+
+```
+~/.claude/
+├── context-curator/                      # Globally installed (clean)
+│   ├── scripts/                          # TypeScript scripts
+│   │   ├── init-project.ts
+│   │   ├── update-import.ts
+│   │   ├── prepare-context.ts
+│   │   ├── task-save.ts
+│   │   └── [other scripts...]
+│   ├── src/                              # Source modules
+│   │   ├── task-manager.ts
+│   │   ├── session-reader.ts
+│   │   ├── session-writer.ts
+│   │   └── utils.ts
+│   ├── node_modules/                     # Installed dependencies
+│   ├── package.json
+│   └── tsconfig.json
+│
+└── commands/
+    └── task/                             # Commands (global)
+        ├── task.md
+        ├── task-create.md
+        ├── task-save.md
+        ├── task-list.md
+        └── [other commands...]
 ```
 
 ### Script Access from Commands
 
-Commands reference scripts using relative paths from the project root:
+Commands reference scripts using **absolute paths**:
 
 ```bash
 # In command definitions (commands/task/*.md):
-npx tsx .context-curator/scripts/update-import.ts $1
-npx tsx .context-curator/scripts/task-save.ts <context-name>
-npx tsx .context-curator/scripts/prepare-context.ts $1 $2
+npx tsx ~/.claude/context-curator/scripts/update-import.ts $1
+npx tsx ~/.claude/context-curator/scripts/task-save.ts <context-name>
+npx tsx ~/.claude/context-curator/scripts/prepare-context.ts $1 $2
 ```
 
 This works because:
-1. Commands execute from the project root directory
-2. `.context-curator/` is either a real directory or symlink in the project
-3. `npx tsx` can execute TypeScript files directly
-4. Scripts can import from `.context-curator/src/` modules
+1. Commands execute from the current project directory
+2. Scripts are at a fixed global location (`~/.claude/context-curator/`)
+3. `npx tsx` executes TypeScript files directly
+4. Scripts can import from `~/.claude/context-curator/src/` modules
+5. Works from any project directory
 
 ### Key Design Points
 
-1. **Commands are portable**: Stored in `commands/task/*.md`, copied to `~/.claude/commands/task/` for global access
-2. **Scripts stay in place**: Always referenced via `.context-curator/scripts/...`
-3. **Source modules shared**: Scripts import from `.context-curator/src/...`
-4. **Works both ways**: Per-project OR global installation
-5. **No path hardcoding**: All paths relative to project root
+1. **One installation, works everywhere**: Install once to `~/.claude/`, use in all projects
+2. **Clean installation**: Only necessary files copied (scripts, source, configs)
+3. **Global commands**: Available in all Claude Code sessions
+4. **Absolute paths**: Commands reference `~/.claude/context-curator/scripts/`
+5. **Session management**: Use `claude -r context-curator` for setup/management tasks
+
+---
+
+## Session Management Pattern
+
+**IMPORTANT:** Context Curator uses a **two-session model** to keep management activities separate from real work:
+
+### Curator Session (`claude -r context-curator`)
+
+Use for **managing** your work:
+- Creating tasks (`/task-create`)
+- Saving contexts (`/task-save`)
+- Listing tasks/contexts (`/task-list`, `/context-list`)
+- Managing tasks/contexts (`/task-manage`, `/context-manage`, `/task-delete`, `/context-delete`)
+
+**Purpose:** Meta-work - organizing and curating your development activities
+
+### Normal Work Session (`claude`)
+
+Use for **doing** your work:
+- Switching tasks (`/task <task-id>`)
+- Resuming with contexts (`/task <task-id> <context-name>`)
+- Writing code, fixing bugs, implementing features
+
+**Purpose:** Actual development work
+
+### Why Separate Sessions?
+
+1. **Prevents pollution**: Management activities don't clutter work sessions
+2. **Clean histories**: Work sessions contain only relevant work, not setup overhead
+3. **Clear mental model**: Setup activities are distinct from development
+4. **Better context**: Saved work sessions capture only the work, not meta-discussion
+
+### Workflow Pattern
+
+```bash
+# 1. Setup (curator session)
+claude -r context-curator
+/task-create integration-tests
+# Exit
+
+# 2. Work (normal session)
+claude
+/task integration-tests
+/resume <session-id>
+# ... do work ...
+# Exit
+
+# 3. Save (curator session)
+claude -r context-curator
+/task-save edge-cases
+# Exit
+
+# 4. Resume later (normal session)
+claude
+/task integration-tests edge-cases
+/resume <session-id>
+```
 
 ---
 
@@ -522,7 +594,7 @@ description: Activate a task environment with optional context
 allowed-tools: Bash, Read, Write
 pre-tool-use: |
   # Update task import in CLAUDE.md
-  npx tsx .context-curator/scripts/update-import.ts $1
+  npx tsx ~/.claude/context-curator/scripts/update-import.ts $1
 ---
 
 # Task Activation
@@ -539,7 +611,7 @@ The pre-tool-use hook has already updated .claude/CLAUDE.md:
 Check if current session has messages using the session reader:
 
 ```bash
-npx tsx .context-curator/scripts/check-session.ts
+npx tsx ~/.claude/context-curator/scripts/check-session.ts
 ```
 
 If there are unsaved messages, ask user:
@@ -547,7 +619,7 @@ If there are unsaved messages, ask user:
 
 If yes:
 - Ask for context name (validate: lowercase, numbers, hyphens only)
-- Run: `npx tsx .context-curator/scripts/task-save.ts <context-name>`
+- Run: `npx tsx ~/.claude/context-curator/scripts/task-save.ts <context-name>`
 
 ## Step 2: Clear session
 
@@ -557,7 +629,7 @@ Execute `/clear` to reset the conversation.
 
 Run:
 ```bash
-SESSION_ID=$(npx tsx .context-curator/scripts/prepare-context.ts $1 $2)
+SESSION_ID=$(npx tsx ~/.claude/context-curator/scripts/prepare-context.ts $1 $2)
 ```
 
 This:
@@ -676,7 +748,7 @@ fi
 
 If this is the first task:
 1. Explain the @-import system will be set up
-2. Run: `npx tsx .context-curator/scripts/init-project.ts`
+2. Run: `npx tsx ~/.claude/context-curator/scripts/init-project.ts`
 3. Explain what was created
 
 ## Step 2: Validate task ID
@@ -793,7 +865,7 @@ If invalid, show error and examples.
 
 Get from @-import line:
 ```bash
-npx tsx .context-curator/scripts/get-current-task.ts
+npx tsx ~/.claude/context-curator/scripts/get-current-task.ts
 ```
 
 ## Step 3: Get current session ID
@@ -804,7 +876,7 @@ Parse ~/.claude/history.jsonl to find current session ID.
 
 Find session file in `~/.claude/projects/<project-dir>/`:
 ```bash
-npx tsx .context-curator/scripts/task-save.ts <context-name>
+npx tsx ~/.claude/context-curator/scripts/task-save.ts <context-name>
 ```
 
 This script:
@@ -855,7 +927,7 @@ Usage: /task-list [task-id]
 ## Without task-id: List all tasks
 
 ```bash
-npx tsx .context-curator/scripts/task-list.ts
+npx tsx ~/.claude/context-curator/scripts/task-list.ts
 ```
 
 Display format:
@@ -878,7 +950,7 @@ Current: @import .context-curator/tasks/default/CLAUDE.md
 ## With task-id: Show task details
 
 ```bash
-npx tsx .context-curator/scripts/task-list.ts <task-id>
+npx tsx ~/.claude/context-curator/scripts/task-list.ts <task-id>
 ```
 
 Display format:
@@ -1026,13 +1098,13 @@ Usage: /context-list [task-id]
 ## Without task-id: Active task's contexts
 
 ```bash
-npx tsx .context-curator/scripts/context-list.ts
+npx tsx ~/.claude/context-curator/scripts/context-list.ts
 ```
 
 ## With task-id: Specific task's contexts
 
 ```bash
-npx tsx .context-curator/scripts/context-list.ts <task-id>
+npx tsx ~/.claude/context-curator/scripts/context-list.ts <task-id>
 ```
 
 Display format:
@@ -1154,12 +1226,15 @@ Load: /task <task-id> <context-name>
 ## Testing Strategy
 
 ### Installation Tests
-- [ ] install.sh copies commands correctly to ~/.claude/commands/task/
+- [ ] install.sh copies only necessary files (scripts, src, configs)
+- [ ] Scripts installed to ~/.claude/context-curator/scripts/
+- [ ] Source files installed to ~/.claude/context-curator/src/
+- [ ] Commands installed to ~/.claude/commands/task/
+- [ ] npm dependencies installed in ~/.claude/context-curator/
 - [ ] Commands are accessible from Claude Code
-- [ ] Scripts are accessible via .context-curator/scripts/
-- [ ] Global installation works (symlink method)
-- [ ] Per-project installation works (clone method)
-- [ ] npm install completes without errors
+- [ ] Scripts execute via npx tsx ~/.claude/context-curator/scripts/
+- [ ] No .git, README, or other repo files copied
+- [ ] Installation is clean and minimal
 
 ### Unit Tests
 - [ ] Task manager utilities
@@ -1169,20 +1244,28 @@ Load: /task <task-id> <context-name>
 - [ ] Script path resolution
 
 ### Integration Tests
-- [ ] Full task creation workflow
-- [ ] Task switching with context
-- [ ] Context save/load
+- [ ] Full task creation workflow (in curator session)
+- [ ] Task switching with context (in work session)
+- [ ] Context save/load (save in curator, load in work)
 - [ ] Multi-instance isolation
-- [ ] Commands can execute scripts via npx tsx
+- [ ] Commands execute scripts via npx tsx ~/.claude/context-curator/scripts/
+- [ ] Curator session isolation (management doesn't pollute work sessions)
+- [ ] Work session isolation (work doesn't pollute curator session)
 
 ### End-to-End Tests
-- [ ] Run install.sh in new project
-- [ ] Initialize curator
-- [ ] Create multiple tasks
-- [ ] Switch between tasks
-- [ ] Save/load contexts
+- [ ] Run install.sh from cloned repo
+- [ ] Verify clean installation in ~/.claude/
+- [ ] Start curator session: claude -r context-curator
+- [ ] Initialize curator with /task-create
+- [ ] Create multiple tasks (in curator session)
+- [ ] Start work session: claude
+- [ ] Switch between tasks (in work session)
+- [ ] Do work and exit
+- [ ] Save contexts (in curator session)
+- [ ] Load contexts (in work session)
 - [ ] Verify multi-instance safety
-- [ ] Verify scripts execute from commands
+- [ ] Verify session isolation (curator vs work)
+- [ ] Verify scripts execute from global location
 
 ---
 
@@ -1268,10 +1351,21 @@ This is a **complete rewrite** from previous versions. The old conversational se
 
 ### For New Projects
 
-1. Clone context-curator to `.context-curator/`
-2. Run `npm install` in `.context-curator/`
-3. Link commands: `ln -s ../.context-curator/commands/* .claude/commands/`
-4. On first use, system auto-initializes with default task
+1. Install globally (one time):
+   ```bash
+   git clone <repo-url> context-curator
+   cd context-curator
+   ./install.sh
+   ```
+
+2. In any project, start using:
+   ```bash
+   cd ~/my-project
+   claude -r context-curator
+   /task-create my-first-task
+   ```
+
+3. On first use in a project, system auto-initializes with default task
 
 ---
 
@@ -1282,7 +1376,7 @@ This is a **complete rewrite** from previous versions. The old conversational se
 **Solution:**
 - Verify PreToolUse hook in command definition
 - Check task exists: `ls .context-curator/tasks/<task-id>/CLAUDE.md`
-- Run manually: `npx tsx .context-curator/scripts/update-import.ts <task-id>`
+- Run manually: `npx tsx ~/.claude/context-curator/scripts/update-import.ts <task-id>`
 
 ### Issue: Context not loading
 
@@ -1297,6 +1391,13 @@ This is a **complete rewrite** from previous versions. The old conversational se
 - Verify instances were started AFTER their `/task` commands
 - Confirm CLAUDE.md wasn't manually edited during session
 - Restart affected instances
+
+### Issue: Management tasks appearing in work sessions
+
+**Solution:**
+- Always use `claude -r context-curator` for management activities
+- Use regular `claude` for actual development work
+- This keeps sessions properly isolated
 
 ---
 
@@ -1355,25 +1456,62 @@ This is a **complete rewrite** from previous versions. The old conversational se
 - [ ] src/utils.ts
 
 ### Installation Files
-- [x] install.sh (copies commands to ~/.claude/commands/task/)
-- [ ] package.json (verify scripts and dependencies)
+- [x] install.sh (installs to ~/.claude/ globally)
+  - Copies scripts/*.ts to ~/.claude/context-curator/scripts/
+  - Copies src/*.ts to ~/.claude/context-curator/src/
+  - Copies package.json and tsconfig.json
+  - Runs npm install in ~/.claude/context-curator/
+  - Copies commands/task/*.md to ~/.claude/commands/task/
+- [x] package.json (scripts and dependencies)
+- [x] tsconfig.json (TypeScript configuration)
 
 ### Documentation to Update
-- [ ] README.md (installation instructions)
-- [ ] INSTALL.md (per-project and global installation)
-- [ ] ARCHITECTURE.md (command/script organization)
-- [ ] TROUBLESHOOTING.md (installation issues)
+- [x] README.md (global installation, session management pattern)
+- [x] install.sh (session management guidance in output)
+- [ ] ARCHITECTURE.md (global installation model, session isolation)
+- [ ] TROUBLESHOOTING.md (session management issues)
 
 ---
 
 ## Final Notes
 
-This plan implements PRD v10.0's vision of task-based context management with the @-import mechanism. The architecture enables:
+This plan implements PRD v10.0's vision of task-based context management with the @-import mechanism and global installation model. The architecture enables:
 
+✅ **Global installation** - Install once to ~/.claude/, use everywhere
+✅ **Clean installation** - Only necessary files copied (scripts, source, configs)
+✅ **Session isolation** - Curator session for management, work session for development
 ✅ **Multi-instance safety** - Run 8-9 instances without interference
 ✅ **Atomic task switching** - Clean, predictable transitions
 ✅ **Simple mental model** - Tasks = instruction sets, Contexts = snapshots
 ✅ **No API key needed** - Uses only Claude Code native features
 ✅ **Backward compatible** - Default task preserves existing workflow
+
+**Key Workflows:**
+
+1. **Setup** (one time):
+   ```bash
+   git clone <repo> context-curator
+   cd context-curator
+   ./install.sh
+   ```
+
+2. **Create tasks** (curator session):
+   ```bash
+   claude -r context-curator
+   /task-create <task-id>
+   ```
+
+3. **Do work** (normal session):
+   ```bash
+   claude
+   /task <task-id>
+   /resume <session-id>
+   ```
+
+4. **Save progress** (curator session):
+   ```bash
+   claude -r context-curator
+   /task-save <context-name>
+   ```
 
 **Implementation is ready to begin. Follow the phases in order for best results.**
