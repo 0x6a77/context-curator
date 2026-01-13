@@ -12,7 +12,7 @@ Usage: /task-list [task-id]
 If no task-id is provided, run:
 
 ```bash
-npx tsx .context-curator/scripts/task-list.ts
+npx tsx ~/.claude/context-curator/scripts/task-list.ts
 ```
 
 This will display:
@@ -26,7 +26,7 @@ This will display:
 If a task-id is provided, run:
 
 ```bash
-npx tsx .context-curator/scripts/task-list.ts <task-id>
+npx tsx ~/.claude/context-curator/scripts/task-list.ts <task-id>
 ```
 
 This will show:

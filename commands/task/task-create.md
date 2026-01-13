@@ -17,7 +17,7 @@ test -d .context-curator/tasks && echo "exists" || echo "new"
 
 If directory doesn't exist (output is "new"), this is the first task:
 1. Explain to user: "This is your first task! I'll set up the @-import system in .claude/CLAUDE.md"
-2. Run: `npx tsx .context-curator/scripts/init-project.ts`
+2. Run: `npx tsx ~/.claude/context-curator/scripts/init-project.ts`
 3. Explain what was created:
    - Default task with current CLAUDE.md
    - New .claude/CLAUDE.md with @-import structure

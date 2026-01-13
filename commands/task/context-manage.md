@@ -17,10 +17,10 @@ First, show available contexts:
 
 ```bash
 # For active task
-npx tsx .context-curator/scripts/context-list.ts
+npx tsx ~/.claude/context-curator/scripts/context-list.ts
 
 # For specific task
-npx tsx .context-curator/scripts/context-list.ts <task-id>
+npx tsx ~/.claude/context-curator/scripts/context-list.ts <task-id>
 ```
 
 ## Step 2: Ask What to Do

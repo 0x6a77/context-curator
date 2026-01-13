@@ -3,7 +3,7 @@ description: Activate a task environment with optional context
 allowed-tools: Bash, Read, Write
 pre-tool-use: |
   # Update task import in CLAUDE.md
-  npx tsx .context-curator/scripts/update-import.ts $1
+  npx tsx ~/.claude/context-curator/scripts/update-import.ts $1
 ---
 
 # Task Activation
@@ -24,7 +24,7 @@ If there are unsaved messages, ask user:
 
 If yes:
 - Ask for context name (validate: lowercase, numbers, hyphens only)
-- Run: `npx tsx .context-curator/scripts/task-save.ts <context-name>`
+- Run: `npx tsx ~/.claude/context-curator/scripts/task-save.ts <context-name>`
 
 ## Step 2: Clear session
 
@@ -34,7 +34,7 @@ Execute `/clear` to reset the conversation.
 
 Run:
 ```bash
-SESSION_ID=$(npx tsx .context-curator/scripts/prepare-context.ts $1 $2)
+SESSION_ID=$(npx tsx ~/.claude/context-curator/scripts/prepare-context.ts $1 $2)
 ```
 
 This:

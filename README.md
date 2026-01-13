@@ -22,51 +22,33 @@ Context Curator lets you organize work into **tasks** - each with its own focuse
 
 ### Installation
 
-**Per-Project Installation** (Recommended):
-
 ```bash
-# Clone into your project as .context-curator
-cd ~/my-project
-git clone https://github.com/yourusername/context-curator.git .context-curator
-
-# Run the installer
-cd .context-curator
+# Clone and install globally
+git clone https://github.com/yourusername/context-curator.git
+cd context-curator
 ./install.sh
 ```
 
 This will:
-1. Install npm dependencies
-2. Copy slash commands to `~/.claude/commands/task/` (globally available)
-3. Verify the installation path is correct (must be at `.context-curator/`)
+1. Copy context-curator to `~/.claude/context-curator/`
+2. Install npm dependencies
+3. Install slash commands to `~/.claude/commands/task/`
 
-The commands are now available in Claude Code. On first use (when you run `/task-create`), the system will automatically:
+The commands are now globally available in Claude Code for **all your projects**.
+
+On first use in any project (when you run `/task-create`), the system will automatically:
 - Back up your current `.claude/CLAUDE.md` to a `default` task
 - Create the @-import structure in `.claude/CLAUDE.md`
-- Set up task storage in `.context-curator/tasks/`
-
-**Global Installation** (Advanced):
-
-For using across multiple projects:
-
-```bash
-# Install once globally
-git clone https://github.com/yourusername/context-curator.git ~/.context-curator
-cd ~/.context-curator
-npm install
-./install.sh
-
-# Then symlink into each project
-cd ~/my-project
-ln -s ~/.context-curator .context-curator
-```
-
-**Important**: The directory **must** be named `.context-curator` in your project (note the leading dot), as commands reference scripts at `.context-curator/scripts/`.
+- Set up project-specific task storage in `.context-curator/tasks/`
 
 ### Basic Usage
 
-First, make sure you've installed context-curator as `.context-curator/` in your project (see Installation above).
+After running the installer once, commands are available in all your projects.
 
 ```bash
+# In any project directory
+cd ~/my-project
+
 # Create a task for testing
 /task-create integration-tests
 # Claude asks: "What should this task focus on?"
@@ -284,16 +266,11 @@ git pull
 
 ## Architecture
 
-### Project Structure
+### Architecture
 
 ```
-my-project/
-├── .claude/
-│   ├── CLAUDE.md                 # Universal + @-import line
-│   ├── skills/                   # Shared by ALL tasks
-│   └── agents/                   # Shared by ALL tasks
-│
-├── .context-curator/             # Must be this name! (or symlink)
+~/.claude/
+├── context-curator/              # Globally installed
 │   ├── commands/
 │   │   └── task/                 # Command definitions (source)
 │   │       ├── task.md
@@ -308,37 +285,40 @@ my-project/
 │   │   ├── task-manager.ts
 │   │   ├── session-reader.ts
 │   │   └── utils.ts
-│   └── install.sh
+│   └── node_modules/
 │
-└── [your project files...]
-
-~/.claude/
 └── commands/
     └── task/                     # Commands installed here
         ├── task.md
         ├── task-create.md
         └── task-save.md
 
-.context-curator/
-└── tasks/                        # Task data (per-project)
-    ├── default/
-    │   ├── CLAUDE.md
-    │   └── contexts/
-    ├── integration-tests/
-    │   ├── CLAUDE.md
-    │   └── contexts/
-    │       ├── edge-cases.jsonl
-    │       └── initial-setup.jsonl
-    └── session-task-map.json
+my-project/
+├── .claude/
+│   ├── CLAUDE.md                 # Universal + @-import line
+│   ├── skills/                   # Shared by ALL tasks
+│   └── agents/                   # Shared by ALL tasks
+│
+├── .context-curator/
+│   └── tasks/                    # Task data (per-project)
+│       ├── default/
+│       │   ├── CLAUDE.md
+│       │   └── contexts/
+│       ├── integration-tests/
+│       │   ├── CLAUDE.md
+│       │   └── contexts/
+│       │       ├── edge-cases.jsonl
+│       │       └── initial-setup.jsonl
+│       └── session-task-map.json
+│
+└── [your project files...]
 ```
 
-**Key Paths**: 
-- **Commands**: Installed to `~/.claude/commands/task/` (global, shared across all projects)
-- **Scripts**: Located at `.context-curator/scripts/` (per-project, referenced by commands)
-- **Task data**: Stored in `.context-curator/tasks/<task-id>/` (per-project)
-- **Contexts**: Saved as `.context-curator/tasks/<task-id>/contexts/<context-name>.jsonl` (per-project)
-
-**Why `.context-curator/`?** Commands execute from your project root and reference scripts at `.context-curator/scripts/`. This path is hardcoded in the command definitions, so the directory name must match exactly.
+**Key Points**: 
+- **Global installation**: Context-curator lives in `~/.claude/context-curator/` (one install, works everywhere)
+- **Global commands**: Slash commands in `~/.claude/commands/task/` (available in all projects)
+- **Per-project data**: Task definitions and contexts in each project's `.context-curator/tasks/` directory
+- **Portable**: Commands reference scripts at `~/.claude/context-curator/scripts/` (absolute path, works from any project)
 
 ## Example Task CLAUDE.md
 
@@ -401,8 +381,8 @@ describe('Auth API Integration', () => {
 ## Troubleshooting
 
 **@-import line not updating**
-1. Check PreToolUse hook in `commands/task.md`
-2. Run manually: `npx tsx .context-curator/scripts/update-import.ts <task-id>`
+1. Check PreToolUse hook in command definition
+2. Run manually: `npx tsx ~/.claude/context-curator/scripts/update-import.ts <task-id>`
 3. Verify task exists: `ls .context-curator/tasks/<task-id>/CLAUDE.md`
 
 **Session not finding context**
@@ -417,9 +397,14 @@ This shouldn't happen. If it does:
 3. Restart affected instances (run `/task` command first, then resume)
 
 **Commands not found**
-1. Check installed commands: `ls -la ~/.claude/commands/task/`
-2. Re-run installer: `cd context-curator && ./install.sh`
-3. Verify Claude Code can see custom commands
+1. Check global installation: `ls -la ~/.claude/context-curator/`
+2. Check commands: `ls -la ~/.claude/commands/task/`
+3. Re-run installer if needed:
+   ```bash
+   cd ~/.claude/context-curator
+   ./install.sh
+   ```
+4. Verify Claude Code can see custom commands
 
 ## Best Practices
 
@@ -510,11 +495,12 @@ npm install
 npm test
 npx tsc
 
-# To test in a project
-cd ~/test-project
-ln -s ~/path/to/context-curator .context-curator
-cd .context-curator
+# To test locally (install to ~/.claude)
 ./install.sh
+
+# Then use in any project
+cd ~/test-project
+/task-create test-task
 ```
 
 ## License

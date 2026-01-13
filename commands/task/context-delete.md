@@ -26,7 +26,7 @@ test -f .context-curator/tasks/<task-id>/contexts/<context-name>.jsonl && echo "
 
 If not found, inform user and show available contexts:
 ```bash
-npx tsx .context-curator/scripts/context-list.ts <task-id>
+npx tsx ~/.claude/context-curator/scripts/context-list.ts <task-id>
 ```
 
 ## Step 3: Show Context Details

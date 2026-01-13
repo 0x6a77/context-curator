@@ -13,10 +13,10 @@ Run the context-list script:
 
 ```bash
 # For active task (based on current @-import)
-npx tsx .context-curator/scripts/context-list.ts
+npx tsx ~/.claude/context-curator/scripts/context-list.ts
 
 # For specific task
-npx tsx .context-curator/scripts/context-list.ts <task-id>
+npx tsx ~/.claude/context-curator/scripts/context-list.ts <task-id>
 ```
 
 This displays all saved contexts in the specified task with:
@@ -31,7 +31,7 @@ This displays all saved contexts in the specified task with:
 
 User: /context-list
 
-You run: `npx tsx .context-curator/scripts/context-list.ts`
+You run: `npx tsx ~/.claude/context-curator/scripts/context-list.ts`
 
 Output:
 ```
@@ -59,6 +59,6 @@ Load with: /task integration-tests <context-name>
 
 User: /context-list api-refactor
 
-You run: `npx tsx .context-curator/scripts/context-list.ts api-refactor`
+You run: `npx tsx ~/.claude/context-curator/scripts/context-list.ts api-refactor`
 
 And display the contexts for the api-refactor task.

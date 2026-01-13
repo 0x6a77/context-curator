@@ -12,7 +12,7 @@ Usage: /task-manage
 First, show available tasks:
 
 ```bash
-npx tsx .context-curator/scripts/task-list.ts
+npx tsx ~/.claude/context-curator/scripts/task-list.ts
 ```
 
 ## Step 2: Ask What to Do
@@ -41,7 +41,7 @@ q - Quit
    ```
 5. Update @-import line if this is the current task:
    ```bash
-   npx tsx .context-curator/scripts/update-import.ts <new-id>
+   npx tsx ~/.claude/context-curator/scripts/update-import.ts <new-id>
    ```
 6. Confirm: "✓ Renamed: old-id → new-id"
 
@@ -76,7 +76,7 @@ q - Quit
    ```
 6. If this was the current task, update @-import to default:
    ```bash
-   npx tsx .context-curator/scripts/update-import.ts default
+   npx tsx ~/.claude/context-curator/scripts/update-import.ts default
    ```
 7. Confirm: "✓ Task '<task-id>' deleted"
 

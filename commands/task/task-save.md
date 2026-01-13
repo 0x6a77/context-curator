@@ -21,7 +21,7 @@ Examples: edge-cases, initial-setup, bug-fix-v2"
 
 Run the task-save script:
 ```bash
-npx tsx .context-curator/scripts/task-save.ts <context-name>
+npx tsx ~/.claude/context-curator/scripts/task-save.ts <context-name>
 ```
 
 This script will:
@@ -40,7 +40,7 @@ User: /task-save edge-cases
 
 You:
 1. Validate "edge-cases" matches /^[a-z0-9-]+$/ ✓
-2. Run: `npx tsx .context-curator/scripts/task-save.ts edge-cases`
+2. Run: `npx tsx ~/.claude/context-curator/scripts/task-save.ts edge-cases`
 3. Display the script's output:
    ```
    ✓ Saved as 'edge-cases' (156 msgs, 34k tokens)

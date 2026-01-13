@@ -63,7 +63,7 @@ Check if this was the current active task by reading .claude/CLAUDE.md:
 
 If the @-import line points to this task, switch to default:
 ```bash
-npx tsx .context-curator/scripts/update-import.ts default
+npx tsx ~/.claude/context-curator/scripts/update-import.ts default
 ```
 
 Inform user: "✓ Switched to 'default' task"
