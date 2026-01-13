@@ -43,11 +43,27 @@ echo
 echo "✅ Context Curator installed to: $INSTALL_DIR"
 echo "✅ Commands installed to: ~/.claude/commands/task/"
 echo
-echo "Next steps:"
-echo "1. cd to any project directory"
-echo "2. Create your first task: /task-create <task-id>"
+echo "╔════════════════════════════════════════╗"
+echo "║  IMPORTANT: Session Management         ║"
+echo "╚════════════════════════════════════════╝"
+echo
+echo "When setting up tasks and managing contexts, always use a"
+echo "dedicated context-curator session:"
+echo
+echo "  claude -r context-curator"
+echo
+echo "This keeps your context-curator management work separate"
+echo "from your actual project work and prevents polluting your"
+echo "real sessions with task setup activities."
+echo
+echo "Quick Start:"
+echo "1. cd to your project directory"
+echo "2. Start the curator session: claude -r context-curator"
+echo "3. Create your first task: /task-create <task-id>"
 echo "   (This will initialize the @-import system on first use)"
-echo "3. Start working: /task <task-id>"
+echo "4. Exit the curator session (Ctrl+D)"
+echo "5. Start a real work session: claude"
+echo "6. Switch to your task: /task <task-id>"
 echo
 echo "Available commands:"
 echo "  /task <task-id> [context]  - Switch to a task"

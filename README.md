@@ -36,7 +36,22 @@ This will:
 
 The commands are now globally available in Claude Code for **all your projects**.
 
-On first use in any project (when you run `/task-create`), the system will automatically:
+### ⚠️ Important: Session Management
+
+**Always manage tasks and contexts in a dedicated `context-curator` session:**
+
+```bash
+# When setting up tasks or managing contexts
+claude -r context-curator
+```
+
+This keeps your context-curator management work separate from your actual project work. Think of it as the "meta" session where you organize your real work sessions.
+
+**Pattern:**
+- **Setup/management**: Use `claude -r context-curator` to create tasks, save contexts, view lists
+- **Real work**: Use `claude` (normal session) to switch tasks and do actual coding
+
+On first use in any project (when you run `/task-create` in the curator session), the system will automatically:
 - Back up your current `.claude/CLAUDE.md` to a `default` task
 - Create the @-import structure in `.claude/CLAUDE.md`
 - Set up project-specific task storage in `.context-curator/tasks/`
@@ -49,10 +64,23 @@ After running the installer once, commands are available in all your projects.
 # In any project directory
 cd ~/my-project
 
-# Create a task for testing
+# ==================================================
+# STEP 1: Setup tasks (in curator session)
+# ==================================================
+claude -r context-curator
+
+# Create a task for integration testing
 /task-create integration-tests
 # Claude asks: "What should this task focus on?"
 # You respond: "API integration testing with Jest. Focus on edge cases and error handling."
+
+# Exit curator session
+# (Ctrl+D or type 'exit')
+
+# ==================================================
+# STEP 2: Do real work (in normal session)
+# ==================================================
+claude
 
 # Switch to that task
 /task integration-tests
@@ -65,13 +93,56 @@ cd ~/my-project
 # Work on your task...
 # Claude now has task-specific instructions
 
+# ==================================================
+# STEP 3: Save progress (back to curator session)
+# ==================================================
+# Exit your work session first (Ctrl+D)
+
+claude -r context-curator
+
 # Save your progress
 /task-save edge-cases
 # ✓ Saved as 'edge-cases' (156 msgs, 34k tokens)
 
-# Later, resume where you left off
+# Exit curator session
+
+# ==================================================
+# STEP 4: Resume later (in normal session)
+# ==================================================
+claude
+
 /task integration-tests edge-cases
+# Loads your saved context and continues where you left off
 ```
+
+## Session Management Pattern
+
+Context Curator uses **two types of sessions**:
+
+### 1. Curator Session (`claude -r context-curator`)
+Use this for **managing** your work:
+- Creating tasks (`/task-create`)
+- Saving contexts (`/task-save`)
+- Listing tasks (`/task-list`)
+- Managing tasks (`/task-manage`, `/task-delete`)
+- Managing contexts (`/context-list`, `/context-manage`, `/context-delete`)
+
+Think of this as your "meta" session - where you organize and curate your work.
+
+### 2. Normal Session (`claude`)
+Use this for **doing** your work:
+- Switching tasks (`/task`)
+- Resuming with contexts (`/task <task-id> <context-name>`)
+- Writing code, fixing bugs, implementing features
+
+This is where your actual development happens.
+
+### Why Separate?
+
+1. **Prevents pollution**: Management activities (creating tasks, saving contexts) don't clutter your work sessions
+2. **Clean histories**: Your real work sessions contain only relevant work, not setup/management overhead
+3. **Clear mental model**: Setup activities are distinct from development activities
+4. **Better context**: When you save a work session, it captures only the work, not the meta-discussion about organizing it
 
 ## How It Works
 
@@ -192,21 +263,44 @@ Delete a saved context (with confirmation).
 ### Feature Development with Snapshots
 
 ```bash
-# Day 1
+# Day 1: Setup
+claude -r context-curator
 /task-create user-auth
+# Exit
+
+# Day 1: Work
+claude
 /task user-auth
+/resume <session-id>
 # ... work on JWT implementation ...
+# Exit
+
+# Day 1: Save progress
+claude -r context-curator
 /task-save jwt-initial
+# Exit
 
-# Day 2
+# Day 2: Resume and continue
+claude
 /task user-auth jwt-initial
+/resume <session-id>
 # ... update based on feedback ...
-/task-save jwt-v2
+# Exit
 
-# Day 3
+claude -r context-curator
+/task-save jwt-v2
+# Exit
+
+# Day 3: Continue
+claude
 /task user-auth jwt-v2
+/resume <session-id>
 # ... implement refresh tokens ...
+# Exit
+
+claude -r context-curator
 /task-save jwt-complete
+# Exit
 ```
 
 ### Multi-Instance Parallel Work
@@ -230,29 +324,47 @@ $ claude
 ### Context Switching
 
 ```bash
-# Working on API refactor
+# Working on API refactor (normal session)
+claude
 /task api-refactor
+/resume <session-id>
 # ... 2 hours of work ...
 
-# Urgent bug!
-/task bug-fix
-# Claude: Current session: 89 messages. Save? (yes/no)
-yes
-# Claude: Context name?
-pre-interruption
+# Urgent bug! Need to switch
+# Exit current session (Ctrl+D)
 
-# Fix the bug...
+# Save your progress
+claude -r context-curator
+/task-save pre-interruption
+# Exit
+
+# Switch to bug-fix task
+claude
+/task bug-fix
+/resume <session-id>
+# ... fix the bug ...
+# Exit
+
+# Save bug fix work
+claude -r context-curator
 /task-save hotfix-applied
+# Exit
 
 # Back to API refactor exactly where you left off
+claude
 /task api-refactor pre-interruption
+/resume <session-id>
+# Continue working with all context restored
 ```
 
 ### Team Collaboration
 
 ```bash
 # Developer A creates task template
+claude -r context-curator
 /task-create integration-tests
+# ... Claude creates CLAUDE.md for the task ...
+# Exit
 
 # Commit the task definition
 git add .context-curator/tasks/integration-tests/CLAUDE.md
@@ -261,7 +373,12 @@ git push
 
 # Developer B uses the template
 git pull
+
+# Now B can use the task immediately
+claude
 /task integration-tests
+/resume <session-id>
+# Work begins with A's task template instructions
 ```
 
 ## Architecture
@@ -380,6 +497,13 @@ describe('Auth API Integration', () => {
 
 ## Troubleshooting
 
+**Context-curator tasks appearing in /task-list**
+
+If your management sessions are creating tasks in your project:
+- Always use `claude -r context-curator` for management
+- This keeps curator's own session separate from your project work
+- The curator session will have its own `.context-curator/tasks/` in a separate location
+
 **@-import line not updating**
 1. Check PreToolUse hook in command definition
 2. Run manually: `npx tsx ~/.claude/context-curator/scripts/update-import.ts <task-id>`
@@ -407,6 +531,8 @@ This shouldn't happen. If it does:
 4. Verify Claude Code can see custom commands
 
 ## Best Practices
+
+**Use the curator session for management**: Always use `claude -r context-curator` when creating tasks, saving contexts, or managing your work organization. Keep this separate from your actual development work.
 
 **Keep contexts lean**: Instead of one massive context, use multiple focused ones.
 
@@ -464,6 +590,39 @@ git push
 - **v0.3.0** (2026-01-08): Conversational manage - superseded
 - **v0.2.0** (2026-01-07): Unified context command - superseded
 - **v0.1.0** (2026-01-06): Initial session management - superseded
+
+## Quick Reference
+
+### Session Types
+
+| Session Type | Command | Use For |
+|--------------|---------|---------|
+| **Curator** | `claude -r context-curator` | Setup, management, saving |
+| **Work** | `claude` | Development, coding, real work |
+
+### Common Workflows
+
+```bash
+# Create a task
+claude -r context-curator → /task-create <id> → Exit
+
+# Start working
+claude → /task <id> → /resume <session-id> → Work → Exit
+
+# Save progress
+claude -r context-curator → /task-save <name> → Exit
+
+# Resume work
+claude → /task <id> <context> → /resume <session-id> → Work
+
+# List tasks/contexts
+claude -r context-curator → /task-list or /context-list → Exit
+```
+
+### Rule of Thumb
+
+**If you're organizing, use curator session.**
+**If you're coding, use normal session.**
 
 ## Design Philosophy
 
