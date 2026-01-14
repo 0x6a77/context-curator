@@ -84,6 +84,7 @@ export async function getCurrentTask(): Promise<string> {
 
   try {
     const content = await fs.readFile(claudeMdPath, 'utf-8');
+    // Match: @import ~/.claude/projects/<project-id>/tasks/<task-id>/CLAUDE.md
     const match = content.match(/@import ~\/\.claude\/projects\/[^\/]+\/tasks\/([^\/\s]+)\/CLAUDE\.md/);
 
     if (match) {
