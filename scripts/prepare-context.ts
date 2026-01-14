@@ -17,13 +17,11 @@ async function prepareContext(taskId: string, contextName?: string) {
     process.exit(1);
   }
 
-  // Generate session ID
-  const sessionId = `sess-${randomUUID().slice(0, 8)}`;
+  // Generate proper UUID session ID (Claude Code format)
+  const sessionId = randomUUID();
 
-  // Create session file in project's sessions directory
-  // Note: Claude Code stores sessions in different locations depending on version
-  // We'll create in .claude/sessions as a fallback
-  const sessionDir = path.join(cwd, '.claude/sessions');
+  // Create session file in Claude Code's session directory
+  const sessionDir = path.join(process.env.HOME!, '.claude/projects', projectId);
   await fs.mkdir(sessionDir, { recursive: true });
 
   const sessionFile = path.join(sessionDir, `${sessionId}.jsonl`);
