@@ -6,7 +6,8 @@ import { randomUUID } from 'crypto';
 
 async function prepareContext(taskId: string, contextName?: string) {
   const cwd = process.cwd();
-  const taskDir = path.join(cwd, '.context-curator/tasks', taskId);
+  const projectId = cwd.replace(/\//g, '-');
+  const taskDir = path.join(process.env.HOME!, '.claude/projects', projectId, 'tasks', taskId);
 
   // Verify task exists
   try {
@@ -78,9 +79,14 @@ async function recordSessionTask(
   taskId: string,
   contextName?: string
 ) {
+  const cwd = process.cwd();
+  const projectId = cwd.replace(/\//g, '-');
   const mapPath = path.join(
-    process.cwd(),
-    '.context-curator/tasks/session-task-map.json'
+    process.env.HOME!,
+    '.claude/projects',
+    projectId,
+    'tasks',
+    'session-task-map.json'
   );
 
   let map: Record<string, any> = {};

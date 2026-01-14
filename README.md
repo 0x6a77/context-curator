@@ -71,7 +71,7 @@ This keeps your context-curator management work separate from your actual projec
 On first use in any project (when you run `/task-create` in the curator session), the system will automatically:
 - Back up your current `.claude/CLAUDE.md` to a `default` task
 - Create the @-import structure in `.claude/CLAUDE.md`
-- Set up project-specific task storage in `.context-curator/tasks/`
+- Set up project-specific task storage in `~/.claude/projects/<project-id>/tasks/`
 
 ### Basic Usage
 
@@ -175,7 +175,7 @@ Your `.claude/CLAUDE.md` structure:
 
 ## Task-Specific Context
 
-@import .context-curator/tasks/integration-tests/CLAUDE.md
+@import ~/.claude/projects/-Users-dev-my-project/tasks/integration-tests/CLAUDE.md
 ```
 
 When you run `/task api-refactor`:
@@ -420,29 +420,30 @@ claude
 │   ├── package.json
 │   └── tsconfig.json
 │
-└── commands/
-    └── task/                     # Commands installed here
-        ├── task.md
-        ├── task-create.md
-        └── task-save.md
+├── commands/
+│   └── task/                     # Commands installed here
+│       ├── task.md
+│       ├── task-create.md
+│       └── task-save.md
+│
+└── projects/                     # Per-project task data
+    └── -Users-dev-my-project/    # Project ID (path with / → -)
+        └── tasks/
+            ├── default/
+            │   ├── CLAUDE.md
+            │   └── contexts/
+            ├── integration-tests/
+            │   ├── CLAUDE.md
+            │   └── contexts/
+            │       ├── edge-cases.jsonl
+            │       └── initial-setup.jsonl
+            └── session-task-map.json
 
-my-project/
+my-project/                       # /Users/dev/my-project
 ├── .claude/
-│   ├── CLAUDE.md                 # Universal + @-import line
+│   ├── CLAUDE.md                 # Universal + @-import line ONLY
 │   ├── skills/                   # Shared by ALL tasks
 │   └── agents/                   # Shared by ALL tasks
-│
-├── .context-curator/
-│   └── tasks/                    # Task data (per-project)
-│       ├── default/
-│       │   ├── CLAUDE.md
-│       │   └── contexts/
-│       ├── integration-tests/
-│       │   ├── CLAUDE.md
-│       │   └── contexts/
-│       │       ├── edge-cases.jsonl
-│       │       └── initial-setup.jsonl
-│       └── session-task-map.json
 │
 └── [your project files...]
 ```
@@ -451,7 +452,9 @@ my-project/
 - **Global installation**: Context-curator lives in `~/.claude/context-curator/` (one install, works everywhere)
 - **Clean install**: Only necessary files are copied (scripts, source, configs) - no .git, README, or other repo files
 - **Global commands**: Slash commands in `~/.claude/commands/task/` (available in all projects)
-- **Per-project data**: Task definitions and contexts in each project's `.context-curator/tasks/` directory
+- **Global task storage**: Task definitions and contexts in `~/.claude/projects/<project-id>/tasks/` (NOT in project directories)
+- **Project ID encoding**: Project paths become IDs by replacing `/` with `-` (e.g., `/Users/dev/my-project` → `-Users-dev-my-project`)
+- **Minimal project modification**: Only `.claude/CLAUDE.md` is modified in projects (one @-import line)
 - **Portable**: Commands reference scripts at `~/.claude/context-curator/scripts/` (absolute path, works from any project)
 
 ## Example Task CLAUDE.md
@@ -523,12 +526,15 @@ rm -rf ~/.claude/context-curator
 # Remove the commands
 rm -rf ~/.claude/commands/task
 
-# Optional: Remove project-specific data
-# (Do this in each project where you used context-curator)
-rm -rf .context-curator
+# Optional: Remove all task data for ALL projects
+rm -rf ~/.claude/projects
+
+# Or remove task data for a specific project only
+rm -rf ~/.claude/projects/<project-id>
+# Example: rm -rf ~/.claude/projects/-Users-dev-my-project
 ```
 
-Note: This will NOT remove tasks or contexts from your projects - only the globally installed scripts and commands.
+Note: Your project directories remain untouched (except `.claude/CLAUDE.md` which will still have the @-import line).
 
 ## Troubleshooting
 
@@ -537,16 +543,17 @@ Note: This will NOT remove tasks or contexts from your projects - only the globa
 If your management sessions are creating tasks in your project:
 - Always use `claude -r context-curator` for management
 - This keeps curator's own session separate from your project work
-- The curator session will have its own `.context-curator/tasks/` in a separate location
+- The curator session will have its own task storage in `~/.claude/projects/<curator-project-id>/`
 
 **@-import line not updating**
 1. Check PreToolUse hook in command definition
 2. Run manually: `npx tsx ~/.claude/context-curator/scripts/update-import.ts <task-id>`
-3. Verify task exists: `ls .context-curator/tasks/<task-id>/CLAUDE.md`
+3. Verify task exists: Check `~/.claude/projects/<project-id>/tasks/<task-id>/CLAUDE.md`
+   (where `<project-id>` is your project path with `/` replaced by `-`)
 
 **Session not finding context**
 1. List contexts: `/context-list <task-id>`
-2. Check file exists: `ls .context-curator/tasks/<task-id>/contexts/<context>.jsonl`
+2. Check file exists in global storage: `~/.claude/projects/<project-id>/tasks/<task-id>/contexts/<context>.jsonl`
 3. Verify context name format (lowercase, numbers, hyphens only)
 
 **Multi-instance interference**
@@ -605,24 +612,17 @@ tasks/
 └── project-alpha/    # By project
 ```
 
-**Git integration**: Task definitions can be committed and shared with team. Add to `.gitignore`:
+**Git integration**: Since all task data is stored globally in `~/.claude/projects/<project-id>/`, your project directory stays clean. The only file modified in your project is `.claude/CLAUDE.md`.
 
-```gitignore
-# Option 1: Share task definitions with team (recommended)
-# Ignore user-specific contexts but commit task CLAUDE.md files
-.context-curator/tasks/*/contexts/
-.context-curator/tasks/session-task-map.json
+You can commit the `.claude/CLAUDE.md` file with the @-import line to share the current task configuration:
 
-# Option 2: Keep tasks completely private
-.context-curator/tasks/
-```
-
-To share task templates with your team:
 ```bash
-git add .context-curator/tasks/integration-tests/CLAUDE.md
-git commit -m "Add integration testing task template"
+git add .claude/CLAUDE.md
+git commit -m "Update task context to integration-tests"
 git push
 ```
+
+Note: Task definitions (CLAUDE.md files) and contexts are stored outside the project in `~/.claude/projects/`, so they won't be committed unless you explicitly copy them into your project for sharing. This keeps your git history clean and focused on code, not context management.
 
 ## Version History
 

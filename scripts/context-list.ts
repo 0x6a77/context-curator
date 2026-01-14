@@ -7,11 +7,12 @@ import { formatDate, getSessionStats } from '../src/utils.js';
 
 async function contextList(taskId?: string) {
   const cwd = process.cwd();
+  const projectId = cwd.replace(/\//g, '-');
 
   // Determine which task to list contexts for
   const targetTask = taskId || await getCurrentTask();
 
-  const taskDir = path.join(cwd, '.context-curator/tasks', targetTask);
+  const taskDir = path.join(process.env.HOME!, '.claude/projects', projectId, 'tasks', targetTask);
   const contextsDir = path.join(taskDir, 'contexts');
 
   // Check if task exists

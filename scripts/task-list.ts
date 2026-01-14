@@ -42,7 +42,10 @@ async function listAllTasks(tasks: any[]) {
 
   const totalContexts = tasks.reduce((sum, t) => sum + t.contexts.length, 0);
   console.log(`Total: ${tasks.length} task${tasks.length !== 1 ? 's' : ''}, ${totalContexts} saved context${totalContexts !== 1 ? 's' : ''}`);
-  console.log(`\nCurrent: @import .context-curator/tasks/${currentTask}/CLAUDE.md`);
+  
+  const cwd = process.cwd();
+  const projectId = cwd.replace(/\//g, '-');
+  console.log(`\nCurrent: @import ~/.claude/projects/${projectId}/tasks/${currentTask}/CLAUDE.md`);
 }
 
 async function showTaskDetails(taskId: string, tasks: any[]) {
