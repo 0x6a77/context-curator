@@ -7,9 +7,11 @@ async function initProject() {
   console.log('Initializing context-curator...\n');
 
   const cwd = process.cwd();
+  const projectId = cwd.replace(/\//g, '-');
 
-  // 1. Create task directory structure
-  const tasksDir = path.join(cwd, '.context-curator/tasks');
+  // 1. Create task directory structure in global storage
+  const projectDir = path.join(process.env.HOME!, '.claude/projects', projectId);
+  const tasksDir = path.join(projectDir, 'tasks');
   await fs.mkdir(tasksDir, { recursive: true });
 
   // 2. Move existing CLAUDE.md to default task
@@ -50,7 +52,7 @@ Add your project-wide guidelines here:
 
 ## Task-Specific Context
 
-@import .context-curator/tasks/default/CLAUDE.md
+@import ~/.claude/projects/${projectId}/tasks/default/CLAUDE.md
 
 <!-- This line is managed by context-curator. Do not edit manually. -->
 `;

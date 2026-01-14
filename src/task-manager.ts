@@ -10,7 +10,9 @@ export interface Task {
 }
 
 export async function getTasksDir(): Promise<string> {
-  return path.join(process.cwd(), '.context-curator/tasks');
+  const cwd = process.cwd();
+  const projectId = cwd.replace(/\//g, '-');
+  return path.join(process.env.HOME!, '.claude/projects', projectId, 'tasks');
 }
 
 export async function listTasks(): Promise<Task[]> {
@@ -82,7 +84,7 @@ export async function getCurrentTask(): Promise<string> {
 
   try {
     const content = await fs.readFile(claudeMdPath, 'utf-8');
-    const match = content.match(/@import \.context-curator\/tasks\/([^\/\s]+)\/CLAUDE\.md/);
+    const match = content.match(/@import ~\/\.claude\/projects\/[^\/]+\/tasks\/([^\/\s]+)\/CLAUDE\.md/);
 
     if (match) {
       return match[1];

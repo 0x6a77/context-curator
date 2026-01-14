@@ -8,7 +8,7 @@ async function getCurrentTask(): Promise<string> {
 
   try {
     const content = await fs.readFile(claudeMdPath, 'utf-8');
-    const match = content.match(/@import \.context-curator\/tasks\/([^\/\s]+)\/CLAUDE\.md/);
+    const match = content.match(/@import ~\/\.claude\/projects\/[^\/]+\/tasks\/([^\/\s]+)\/CLAUDE\.md/);
 
     if (match) {
       return match[1];

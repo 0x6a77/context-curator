@@ -5,12 +5,15 @@ import path from 'path';
 
 async function updateImport(taskId: string) {
   const cwd = process.cwd();
+  const projectId = cwd.replace(/\//g, '-');
   const claudeMdPath = path.join(cwd, '.claude/CLAUDE.md');
 
-  // Verify task exists
+  // Verify task exists in global storage
   const taskClaudeMd = path.join(
-    cwd,
-    '.context-curator/tasks',
+    process.env.HOME!,
+    '.claude/projects',
+    projectId,
+    'tasks',
     taskId,
     'CLAUDE.md'
   );
@@ -22,7 +25,7 @@ async function updateImport(taskId: string) {
     console.error(`   Missing: ${taskClaudeMd}`);
 
     // List available tasks
-    const tasksDir = path.join(cwd, '.context-curator/tasks');
+    const tasksDir = path.join(process.env.HOME!, '.claude/projects', projectId, 'tasks');
     try {
       const tasks = await fs.readdir(tasksDir);
       const validTasks = [];
@@ -49,9 +52,9 @@ async function updateImport(taskId: string) {
   // Read current CLAUDE.md
   let content = await fs.readFile(claudeMdPath, 'utf-8');
 
-  // Update @-import line
-  const importLine = `@import .context-curator/tasks/${taskId}/CLAUDE.md`;
-  const importRegex = /@import \.context-curator\/tasks\/[^\/\s]+\/CLAUDE\.md/;
+  // Update @-import line with global path
+  const importLine = `@import ~/.claude/projects/${projectId}/tasks/${taskId}/CLAUDE.md`;
+  const importRegex = /@import ~\/\.claude\/projects\/[^\/]+\/tasks\/[^\/\s]+\/CLAUDE\.md/;
 
   if (importRegex.test(content)) {
     // Replace existing import

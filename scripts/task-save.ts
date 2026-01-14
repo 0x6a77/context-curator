@@ -33,8 +33,9 @@ async function taskSave(contextName: string) {
     process.exit(1);
   }
 
-  // Prepare task contexts directory
-  const taskDir = path.join(cwd, '.context-curator/tasks', currentTask);
+  // Prepare task contexts directory in global storage
+  const projectId = cwd.replace(/\//g, '-');
+  const taskDir = path.join(process.env.HOME!, '.claude/projects', projectId, 'tasks', currentTask);
   const contextsDir = path.join(taskDir, 'contexts');
   await fs.mkdir(contextsDir, { recursive: true });
 
@@ -70,7 +71,7 @@ async function getCurrentTask(): Promise<string> {
 
   try {
     const content = await fs.readFile(claudeMdPath, 'utf-8');
-    const match = content.match(/@import \.context-curator\/tasks\/([^\/\s]+)\/CLAUDE\.md/);
+    const match = content.match(/@import ~\/\.claude\/projects\/[^\/]+\/tasks\/([^\/\s]+)\/CLAUDE\.md/);
 
     if (match) {
       return match[1];
