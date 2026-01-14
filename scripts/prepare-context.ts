@@ -5,9 +5,15 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 
 async function prepareContext(taskId: string, contextName?: string) {
+  // Verify HOME is set first
+  if (!process.env.HOME) {
+    console.error('❌ HOME environment variable not set');
+    process.exit(1);
+  }
+
   const cwd = process.cwd();
   const projectId = cwd.replace(/\//g, '-');
-  const taskDir = path.join(process.env.HOME!, '.claude/projects', projectId, 'tasks', taskId);
+  const taskDir = path.join(process.env.HOME, '.claude/projects', projectId, 'tasks', taskId);
 
   // Verify task exists
   try {
@@ -21,7 +27,7 @@ async function prepareContext(taskId: string, contextName?: string) {
   const sessionId = randomUUID();
 
   // Create session file in Claude Code's session directory
-  const sessionDir = path.join(process.env.HOME!, '.claude/projects', projectId);
+  const sessionDir = path.join(process.env.HOME, '.claude/projects', projectId);
   await fs.mkdir(sessionDir, { recursive: true });
 
   const sessionFile = path.join(sessionDir, `${sessionId}.jsonl`);
@@ -64,8 +70,21 @@ async function prepareContext(taskId: string, contextName?: string) {
     console.log(`✓ Created fresh session`);
   }
 
+  // Verify the file was actually created
+  try {
+    await fs.access(sessionFile);
+    console.log(`✓ Session file created: ${sessionFile}`);
+  } catch (error) {
+    console.error(`❌ Failed to create session file: ${sessionFile}`);
+    console.error(`   Error: ${error}`);
+    process.exit(1);
+  }
+
   // Record session→task mapping
   await recordSessionTask(sessionId, taskId, contextName);
+
+  // Show resume command
+  console.log(`\nResume with: /resume ${sessionId}`);
 
   // Output session ID as the last line (for capture)
   console.log(sessionId);
