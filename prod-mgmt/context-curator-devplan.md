@@ -1,381 +1,195 @@
-# Developer Implementation Plan: Context Curator v10.0
+# Developer Implementation Plan: Context Curator v13.0
 
-**Version:** 10.1
-**Last Updated:** January 13, 2026
-**Status:** Ready for Implementation
-**Based on:** PRD v10.0 + Global Installation Updates
+**Version:** 13.0  
+**Last Updated:** January 17, 2026  
+**Status:** Ready for Implementation  
+**Based on:** PRD v13.0
 
 ---
 
 ## Executive Summary
 
-This plan implements the task-based context management system described in PRD v10.0. The key innovation is the **@-import mechanism** that enables atomic task switching and multi-instance safety by leveraging Claude Code's startup behavior.
+This plan implements the **task-based context management system** described in PRD v13.0. The core innovation solves the **warm-up problem**: preserving hard-won Claude understanding that gets lost to auto-compact.
 
 **Core Architecture:**
-- **Tasks** = Named instruction sets via @-import in .claude/CLAUDE.md
-- **Contexts** = Named session snapshots within tasks
-- **Atomic switching** = Hard reset + @-import update + context load
-- **Multi-instance safe** = Running sessions unaffected by @-import changes
+- **Tasks** = Focused work environments with custom CLAUDE.md
+- **Contexts** = Named snapshots of warmed-up Claude sessions
+- **Personal by default** = Contexts stay private unless explicitly shared
+- **Golden contexts** = Team knowledge base of valuable warmed-up sessions
+- **Two-file CLAUDE.md** = No git conflicts (root committed, .claude/ git-ignored)
+
+**Key Innovation:** Claude Code's `/resume` re-reads CLAUDE.md from disk, enabling task-specific instructions to take effect at resume-time.
 
 **No API key required. Works entirely within Claude Code using native features.**
 
 ---
 
-## Implementation Overview
+## Architecture Overview
 
-### Phase 1: Foundation (Critical Path)
-1. Project initialization system
-2. Task storage structure
-3. @-import mechanism
-4. Default task creation
+### The Two-File System
 
-### Phase 2: Task Commands (Core Functionality)
-1. /task command with PreToolUse hook
-2. /task-create command
-3. /task-save command
-4. /task-list command
+**`./CLAUDE.md` (Root, Committed)**
+- Canonical project knowledge
+- Universal instructions, architecture, commands
+- **Never modified by context-curator**
+- Standard git workflow
 
-### Phase 3: Context Commands (Secondary)
-1. /context-list command
-2. Context management utilities
+**`./.claude/CLAUDE.md` (Auto-generated, Git-ignored)**
+- What Claude Code actually reads
+- Contains `@import` directives
+- Modified by `/task` command to switch contexts
+- Each developer has their own based on current task
 
-### Phase 4: Advanced Features (Optional)
-1. /task-manage command
-2. /task-delete command
-3. /context-manage command
-4. /context-delete command
+### Storage Structure
 
----
-
-## Storage Architecture
-
-### Global Storage Structure
-
-**All task data is stored globally in `~/.claude/projects/<project-id>/`:**
-
-```
-~/.claude/
-├── context-curator/                      # Installed scripts and source
-│   ├── scripts/
-│   ├── src/
-│   ├── node_modules/
-│   └── package.json
-│
-├── commands/
-│   └── task/                             # Installed commands
-│
-└── projects/                             # ← All task data
-    ├── -Users-dev-my-project/            # Encoded project path
-    │   ├── tasks/
-    │   │   ├── default/
-    │   │   │   ├── CLAUDE.md
-    │   │   │   └── contexts/
-    │   │   │       └── default-default.jsonl
-    │   │   │
-    │   │   ├── integration-tests/
-    │   │   │   ├── CLAUDE.md
-    │   │   │   └── contexts/
-    │   │   │       ├── initial-setup.jsonl
-    │   │   │       ├── edge-cases.jsonl
-    │   │   │       └── refactor-v2.jsonl
-    │   │   │
-    │   │   └── api-refactor/
-    │   │       ├── CLAUDE.md
-    │   │       └── contexts/
-    │   │
-    │   ├── session-task-map.json
-    │   └── config.json
-    │
-    └── -Users-dev-other-project/
-        └── tasks/
-```
-
-### Project Structure (Minimal Modification)
-
-**We ONLY modify `.claude/CLAUDE.md` in the project:**
-
+**Project Directory (Committed):**
 ```
 my-project/
-├── .claude/
-│   ├── CLAUDE.md                         # ← ONLY file we modify (@-import line)
-│   ├── skills/                           # ← User's skills (UNTOUCHED)
-│   └── agents/                           # ← User's agents (UNTOUCHED)
-│
-├── src/
-├── tests/
-└── package.json
+├── CLAUDE.md                          # ← Committed, never modified
+└── .claude/
+    ├── CLAUDE.md                      # ← Auto-generated, git-ignored
+    ├── tasks/                         # ← Task definitions (committed)
+    │   ├── oauth-refactor/
+    │   │   ├── CLAUDE.md              # ← Task knowledge
+    │   │   ├── README.md              # ← Task docs
+    │   │   └── contexts/              # ← Golden contexts (committed)
+    │   │       └── oauth-deep-dive.jsonl
+    │   └── default/
+    │       └── CLAUDE.md              # ← Copy of original CLAUDE.md
+    └── .gitignore
 ```
 
-**Key principle**: We ONLY touch `.claude/CLAUDE.md` to update the @-import line. All task state lives in `~/.claude/projects/<project-id>/`.
+**Personal Storage (Never Committed):**
+```
+~/.claude/
+├── commands/                          # Global slash commands
+│   ├── task.md
+│   ├── context-save.md
+│   ├── context-list.md
+│   ├── context-manage.md
+│   └── context-promote.md
+│
+└── projects/                          # Per-project personal state
+    └── -Users-dev-my-project/
+        ├── tasks/
+        │   └── oauth-refactor/
+        │       └── contexts/          # Personal contexts
+        │           ├── my-work.jsonl
+        │           └── edge-cases.jsonl
+        └── .stash/
+            └── original-CLAUDE.md     # Backup of project's CLAUDE.md
+```
 
 ### Project ID Encoding
 
-The project ID is the project path with slashes replaced by hyphens:
-
 ```
 /Users/dev/my-project → -Users-dev-my-project
-/home/user/code/app   → -home-user-code-app
 ```
-
-### Why Global Storage?
-
-1. **Minimal project modification**: Only `.claude/CLAUDE.md` is touched
-2. **No .gitignore needed**: Task data isn't in the project directory
-3. **Centralized management**: All task data in one location (`~/.claude/projects/`)
-4. **Easier backups**: Backup `~/.claude/projects/` to backup all task data
-5. **Cleaner projects**: No `.context-curator/` directory cluttering projects
 
 ---
 
-## Installation Architecture
+## Implementation Phases
 
-### Global Installation Model
+### Phase 1: Foundation (Critical Path)
+1. Installation mechanism (curl-based)
+2. Project initialization (`/task-init`)
+3. Two-file CLAUDE.md system
+4. @-import mechanism
 
-Context Curator uses a **global installation** approach - install once, use everywhere.
+### Phase 2: Core Commands
+1. `/task` - Switch/create tasks
+2. `/context-save` - Save sessions (personal/golden)
+3. `/context-list` - List with AI summaries
 
-**Repository Structure:**
+### Phase 3: Context Management
+1. `/context-manage` - Interactive management
+2. `/context-promote` - Personal → Golden with secret scanning
 
-```
-context-curator/                          # Repository (for development/installation)
-├── commands/
-│   └── task/                             # Slash command definitions (source)
-│       ├── task.md
-│       ├── task-create.md
-│       ├── task-save.md
-│       ├── task-list.md
-│       ├── task-manage.md
-│       ├── task-delete.md
-│       ├── context-list.md
-│       ├── context-manage.md
-│       └── context-delete.md
-│
-├── scripts/                              # TypeScript scripts (source)
-│   ├── init-project.ts
-│   ├── update-import.ts
-│   ├── check-session.ts
-│   ├── prepare-context.ts
-│   ├── task-save.ts
-│   ├── task-list.ts
-│   ├── context-list.ts
-│   ├── get-current-task.ts
-│   └── apply-edits.ts
-│
-├── src/                                  # Source modules
-│   ├── types.ts
-│   ├── session-reader.ts
-│   ├── session-writer.ts
-│   ├── task-manager.ts
-│   └── utils.ts
-│
-├── install.sh                            # Installation script
-├── package.json
-├── tsconfig.json
-└── README.md
-```
-
-**Installation:**
-
-```bash
-# Clone and install globally (one time)
-git clone <repo-url> context-curator
-cd context-curator
-./install.sh
-```
-
-**What install.sh does:**
-
-1. **Copies necessary files** to `~/.claude/context-curator/`:
-   - `scripts/*.ts` → `~/.claude/context-curator/scripts/`
-   - `src/*.ts` → `~/.claude/context-curator/src/`
-   - `package.json` → `~/.claude/context-curator/`
-   - `tsconfig.json` → `~/.claude/context-curator/`
-
-2. **Installs dependencies** in `~/.claude/context-curator/`:
-   ```bash
-   cd ~/.claude/context-curator
-   npm install
-   ```
-
-3. **Installs commands** to `~/.claude/commands/task/`:
-   - Copies `commands/task/*.md` → `~/.claude/commands/task/`
-
-**What does NOT get installed:**
-- `.git/` - No git history
-- `README.md`, `prod-mgmt/`, docs - No documentation
-- `install.sh` - Installer not copied
-- Source `commands/` directory - Only final commands copied
-
-**Installed Structure:**
-
-```
-~/.claude/
-├── context-curator/                      # Globally installed (clean)
-│   ├── scripts/                          # TypeScript scripts
-│   │   ├── init-project.ts
-│   │   ├── update-import.ts
-│   │   ├── prepare-context.ts
-│   │   ├── task-save.ts
-│   │   └── [other scripts...]
-│   ├── src/                              # Source modules
-│   │   ├── task-manager.ts
-│   │   ├── session-reader.ts
-│   │   ├── session-writer.ts
-│   │   └── utils.ts
-│   ├── node_modules/                     # Installed dependencies
-│   ├── package.json
-│   └── tsconfig.json
-│
-└── commands/
-    └── task/                             # Commands (global)
-        ├── task.md
-        ├── task-create.md
-        ├── task-save.md
-        ├── task-list.md
-        └── [other commands...]
-```
-
-### Script Access from Commands
-
-Commands reference scripts using **absolute paths**:
-
-```bash
-# In command definitions (commands/task/*.md):
-npx tsx ~/.claude/context-curator/scripts/update-import.ts $1
-npx tsx ~/.claude/context-curator/scripts/task-save.ts <context-name>
-npx tsx ~/.claude/context-curator/scripts/prepare-context.ts $1 $2
-```
-
-This works because:
-1. Commands execute from the current project directory
-2. Scripts are at a fixed global location (`~/.claude/context-curator/`)
-3. `npx tsx` executes TypeScript files directly
-4. Scripts can import from `~/.claude/context-curator/src/` modules
-5. Works from any project directory
-
-### Key Design Points
-
-1. **One installation, works everywhere**: Install once to `~/.claude/`, use in all projects
-2. **Clean installation**: Only necessary files copied (scripts, source, configs)
-3. **Global commands**: Available in all Claude Code sessions
-4. **Absolute paths**: Commands reference `~/.claude/context-curator/scripts/`
-5. **Session management**: Use `claude -r context-curator` for setup/management tasks
-
----
-
-## Session Management Pattern
-
-**IMPORTANT:** Context Curator uses a **two-session model** to keep management activities separate from real work:
-
-### Curator Session (`claude -r context-curator`)
-
-Use for **managing** your work:
-- Creating tasks (`/task-create`)
-- Saving contexts (`/task-save`)
-- Listing tasks/contexts (`/task-list`, `/context-list`)
-- Managing tasks/contexts (`/task-manage`, `/context-manage`, `/task-delete`, `/context-delete`)
-
-**Purpose:** Meta-work - organizing and curating your development activities
-
-### Normal Work Session (`claude`)
-
-Use for **doing** your work:
-- Switching tasks (`/task <task-id>`)
-- Resuming with contexts (`/task <task-id> <context-name>`)
-- Writing code, fixing bugs, implementing features
-
-**Purpose:** Actual development work
-
-### Why Separate Sessions?
-
-1. **Prevents pollution**: Management activities don't clutter work sessions
-2. **Clean histories**: Work sessions contain only relevant work, not setup overhead
-3. **Clear mental model**: Setup activities are distinct from development
-4. **Better context**: Saved work sessions capture only the work, not meta-discussion
-
-### Workflow Pattern
-
-```bash
-# 1. Setup (curator session)
-claude -r context-curator
-/task-create integration-tests
-# Exit
-
-# 2. Work (normal session)
-claude
-/task integration-tests
-/resume <session-id>
-# ... do work ...
-# Exit
-
-# 3. Save (curator session)
-claude -r context-curator
-/task-save edge-cases
-# Exit
-
-# 4. Resume later (normal session)
-claude
-/task integration-tests edge-cases
-/resume <session-id>
-```
+### Phase 4: Advanced Features
+1. Secret detection and redaction
+2. Context merging
+3. Context analytics
 
 ---
 
 ## Phase 1: Foundation
 
-### 1.1 Project Initialization (init-project.ts)
+### 1.1 Installation
 
-**Purpose:** Set up the @-import structure on first use
+**One-time global setup:**
+
+```bash
+# Create directories
+mkdir -p ~/.claude/commands
+mkdir -p ~/.claude/projects
+
+# Download commands from repository
+cd ~/.claude/commands
+curl -O <repo-url>/commands/task.md
+curl -O <repo-url>/commands/context-save.md
+curl -O <repo-url>/commands/context-list.md
+curl -O <repo-url>/commands/context-manage.md
+curl -O <repo-url>/commands/context-promote.md
+
+# Verify installation
+ls ~/.claude/commands/*.md
+```
+
+**Testing:**
+- [ ] Commands download successfully
+- [ ] Commands are accessible in Claude Code
+- [ ] No dependencies required (uses native Claude Code features)
+
+### 1.2 Project Initialization (/task-init)
+
+**Purpose:** Set up the two-file CLAUDE.md system on first use
+
+**What it creates:**
+1. `.claude/` directory with `.gitignore`
+2. `.claude/tasks/default/CLAUDE.md` (copy of root CLAUDE.md)
+3. `.claude/CLAUDE.md` with @import directives
+4. Backup of original CLAUDE.md in personal storage
 
 **Implementation:**
 
-```typescript
-#!/usr/bin/env tsx
+```markdown
+---
+description: Initialize context-curator in a project
+allowed-tools: Bash, Read, Write
+---
 
-import fs from 'fs/promises';
-import path from 'path';
+# Project Initialization
 
-async function initProject() {
-  console.log('Initializing context-curator...\n');
-  
-  const cwd = process.cwd();
-  const projectPath = cwd;
-  
-  // 1. Encode project path to create project ID
-  // /Users/dev/my-project → -Users-dev-my-project
-  const projectId = projectPath.replace(/\//g, '-');
-  console.log(`Project: ${projectPath}`);
-  console.log(`Project ID: ${projectId}\n`);
-  
-  // 2. Create project directory structure in ~/.claude/projects/
-  const projectDir = path.join(process.env.HOME!, '.claude/projects', projectId);
-  const tasksDir = path.join(projectDir, 'tasks');
-  const defaultTaskDir = path.join(tasksDir, 'default');
-  
-  await fs.mkdir(defaultTaskDir, { recursive: true });
-  await fs.mkdir(path.join(defaultTaskDir, 'contexts'), { recursive: true });
-  console.log(`✓ Created project directory: ${projectDir}`);
-  
-  // 3. Backup existing CLAUDE.md to default task
-  const currentClaudeMd = path.join(cwd, '.claude/CLAUDE.md');
-  
-  try {
-    const content = await fs.readFile(currentClaudeMd, 'utf-8');
-    await fs.writeFile(
-      path.join(defaultTaskDir, 'CLAUDE.md'),
-      content
-    );
-    console.log('✓ Backed up current CLAUDE.md to default task');
-  } catch {
-    await fs.writeFile(
-      path.join(defaultTaskDir, 'CLAUDE.md'),
-      '# Default Task\n\nGeneral development work.\n'
-    );
-    console.log('✓ Created default task CLAUDE.md');
-  }
-  
-  // 4. Create new CLAUDE.md with @-import
-  const projectName = path.basename(cwd);
-  const newClaudeMd = `# Project: ${projectName}
+## Step 1: Check if already initialized
+
+Check if `.claude/tasks/default/CLAUDE.md` exists.
+If yes, inform user and exit.
+
+## Step 2: Create directory structure
+
+```bash
+mkdir -p .claude/tasks/default/contexts
+```
+
+## Step 3: Create .gitignore
+
+```bash
+cat > .claude/.gitignore << 'EOF'
+# Auto-generated file (each dev has their own)
+CLAUDE.md
+EOF
+```
+
+## Step 4: Backup and copy root CLAUDE.md
+
+Read `./CLAUDE.md` (or create minimal default).
+Copy to `.claude/tasks/default/CLAUDE.md`.
+Backup to `~/.claude/projects/<project-id>/.stash/original-CLAUDE.md`.
+
+## Step 5: Generate .claude/CLAUDE.md
+
+```markdown
+# Project: <project-name>
 
 ## Universal Instructions
 
@@ -386,61 +200,43 @@ Add your project-wide guidelines here:
 
 ## Task-Specific Context
 
-@import ~/.claude/projects/${projectId}/tasks/default/CLAUDE.md
+@import ~/.claude/projects/<project-id>/tasks/default/CLAUDE.md
 
 <!-- This line is managed by context-curator. Do not edit manually. -->
-`;
-  
-  await fs.writeFile(currentClaudeMd, newClaudeMd);
-  console.log('✓ Added @-import line to .claude/CLAUDE.md');
-  
-  // 5. Create default-default context (empty)
-  const defaultContext = path.join(defaultTaskDir, 'contexts/default-default.jsonl');
-  await fs.writeFile(defaultContext, '');
-  console.log('✓ Created default-default context');
-  
-  // 6. Create session-task-map.json
-  await fs.writeFile(
-    path.join(projectDir, 'session-task-map.json'),
-    '{}\n'
-  );
-  
-  // 7. Create config.json
-  await fs.writeFile(
-    path.join(projectDir, 'config.json'),
-    JSON.stringify({ projectPath, projectId, createdAt: new Date().toISOString() }, null, 2)
-  );
-  console.log('✓ Created session tracking and config files');
-  
-  console.log('\n✓ Initialization complete!\n');
-  console.log('Next steps:');
-  console.log('1. Edit .claude/CLAUDE.md to add universal guidelines');
-  console.log('2. Create your first task: /task-create <task-id>');
-  console.log('3. Start working: /task <task-id>');
-}
+```
 
-initProject().catch(console.error);
+## Step 6: Confirm
+
+Display:
+```
+✓ Initialized context-curator
+✓ Created .claude/tasks/default/
+✓ Root CLAUDE.md unchanged (never modified)
+✓ .claude/CLAUDE.md created with @import
+
+Next steps:
+• Edit ./CLAUDE.md for universal instructions
+• /task oauth-refactor - Create a new task
+• /context-save my-progress - Save your work
+```
 ```
 
 **Testing:**
-- [ ] Encodes project path correctly to project ID
-- [ ] Creates `~/.claude/projects/<project-id>/` directory structure
-- [ ] Creates `~/.claude/projects/<project-id>/tasks/default/` directory
-- [ ] Backs up existing CLAUDE.md to default task
-- [ ] Creates new CLAUDE.md with @-import pointing to global storage
-- [ ] Creates default-default.jsonl context
-- [ ] Creates session-task-map.json and config.json
-- [ ] Handles missing CLAUDE.md gracefully
-- [ ] Only modifies `.claude/CLAUDE.md` in project (no other project files touched)
+- [ ] Creates `.claude/` directory structure
+- [ ] Creates `.gitignore` with correct contents
+- [ ] Backs up root CLAUDE.md to default task
+- [ ] Creates `.claude/CLAUDE.md` with @import
+- [ ] Preserves original root CLAUDE.md
 - [ ] Idempotent (safe to run multiple times)
+- [ ] Creates backup in personal storage
 
----
+### 1.3 @-import Update Mechanism
 
-### 1.2 @-import Update Script (update-import.ts)
+**Purpose:** Update the @import line in `.claude/CLAUDE.md` when switching tasks
 
-**Purpose:** Update the @-import line in .claude/CLAUDE.md
+**Key Principle:** Claude Code re-reads CLAUDE.md on `/resume`, so we can modify `.claude/CLAUDE.md` and have new instructions take effect.
 
-**Implementation:**
+**Implementation (update-import.ts):**
 
 ```typescript
 #!/usr/bin/env tsx
@@ -453,8 +249,8 @@ async function updateImport(taskId: string) {
   const projectId = cwd.replace(/\//g, '-');
   const claudeMdPath = path.join(cwd, '.claude/CLAUDE.md');
   
-  // Verify task exists in ~/.claude/projects/<project-id>/tasks/
-  const taskClaudeMd = path.join(
+  // Check personal storage first
+  const personalTaskPath = path.join(
     process.env.HOME!,
     '.claude/projects',
     projectId,
@@ -463,55 +259,38 @@ async function updateImport(taskId: string) {
     'CLAUDE.md'
   );
   
+  // Check project storage (for golden tasks)
+  const projectTaskPath = path.join(cwd, '.claude/tasks', taskId, 'CLAUDE.md');
+  
+  let importPath: string;
+  
+  // Prefer personal, fall back to project
   try {
-    await fs.access(taskClaudeMd);
-  } catch (error) {
-    console.error(`❌ Task '${taskId}' not found`);
-    console.error(`   Missing: ${taskClaudeMd}`);
-    
-    // List available tasks
-    const tasksDir = path.join(process.env.HOME!, '.claude/projects', projectId, 'tasks');
+    await fs.access(personalTaskPath);
+    importPath = `~/.claude/projects/${projectId}/tasks/${taskId}/CLAUDE.md`;
+  } catch {
     try {
-      const tasks = await fs.readdir(tasksDir);
-      const validTasks = [];
-      
-      for (const task of tasks) {
-        const taskPath = path.join(tasksDir, task);
-        const stats = await fs.stat(taskPath);
-        if (stats.isDirectory() && task !== 'node_modules') {
-          validTasks.push(task);
-        }
-      }
-      
-      if (validTasks.length > 0) {
-        console.error('\nAvailable tasks:');
-        validTasks.forEach(t => console.error(`   - ${t}`));
-      }
+      await fs.access(projectTaskPath);
+      importPath = `tasks/${taskId}/CLAUDE.md`;
     } catch {
-      console.error('\nNo tasks directory found. Run /task-init first.');
+      console.error(`❌ Task '${taskId}' not found`);
+      process.exit(1);
     }
-    
-    process.exit(1);
   }
   
-  // Read current CLAUDE.md
+  // Read and update CLAUDE.md
   let content = await fs.readFile(claudeMdPath, 'utf-8');
   
-  // Update @-import line to point to global storage
-  const importLine = `@import ~/.claude/projects/${projectId}/tasks/${taskId}/CLAUDE.md`;
-  const importRegex = /@import ~\/\.claude\/projects\/[^\/]+\/tasks\/[^\/]+\/CLAUDE\.md/;
+  const importRegex = /@import [^\n]+CLAUDE\.md/;
+  const newImportLine = `@import ${importPath}`;
   
   if (importRegex.test(content)) {
-    // Replace existing import
-    content = content.replace(importRegex, importLine);
+    content = content.replace(importRegex, newImportLine);
   } else {
-    // Add import if not present (shouldn't happen after init)
-    console.warn('⚠️  No @import line found, adding one...');
-    content = content.trim() + '\n\n' + importLine + '\n\n<!-- This line is managed by context-curator. Do not edit manually. -->\n';
+    content = content.trim() + '\n\n' + newImportLine + '\n';
   }
   
   await fs.writeFile(claudeMdPath, content);
-  
   console.log(`✓ Task context: ${taskId}`);
 }
 
@@ -525,1069 +304,730 @@ updateImport(taskId).catch(console.error);
 ```
 
 **Testing:**
-- [ ] Updates @-import line correctly
-- [ ] Validates task exists before updating
+- [ ] Updates @import line correctly
+- [ ] Checks personal storage first, then project
 - [ ] Lists available tasks on error
-- [ ] Handles missing @-import line
 - [ ] Preserves other CLAUDE.md content
 
 ---
 
-### 1.3 Task Manager Utilities (task-manager.ts)
+## Phase 2: Core Commands
 
-**Purpose:** Core utilities for task operations
+### 2.1 /task Command
 
-**Implementation:**
-
-```typescript
-import fs from 'fs/promises';
-import path from 'path';
-
-export interface Task {
-  id: string;
-  claudeMdPath: string;
-  contextsDir: string;
-  contexts: string[];
-  lastUsed?: Date;
-}
-
-export async function getTasksDir(): Promise<string> {
-  const cwd = process.cwd();
-  const projectId = cwd.replace(/\//g, '-');
-  return path.join(process.env.HOME!, '.claude/projects', projectId, 'tasks');
-}
-
-export async function listTasks(): Promise<Task[]> {
-  const tasksDir = await getTasksDir();
-
-  try {
-    const entries = await fs.readdir(tasksDir);
-    const tasks: Task[] = [];
-
-    for (const entry of entries) {
-      const taskPath = path.join(tasksDir, entry);
-      const stats = await fs.stat(taskPath);
-
-      if (stats.isDirectory()) {
-        const claudeMdPath = path.join(taskPath, 'CLAUDE.md');
-        const contextsDir = path.join(taskPath, 'contexts');
-
-        try {
-          await fs.access(claudeMdPath);
-
-          // List contexts
-          let contexts: string[] = [];
-          try {
-            const contextFiles = await fs.readdir(contextsDir);
-            contexts = contextFiles
-              .filter(f => f.endsWith('.jsonl'))
-              .map(f => f.replace('.jsonl', ''));
-          } catch {
-            // No contexts directory yet
-          }
-
-          tasks.push({
-            id: entry,
-            claudeMdPath,
-            contextsDir,
-            contexts,
-            lastUsed: stats.mtime
-          });
-        } catch {
-          // Not a valid task (missing CLAUDE.md)
-        }
-      }
-    }
-
-    return tasks.sort((a, b) => {
-      if (!a.lastUsed) return 1;
-      if (!b.lastUsed) return -1;
-      return b.lastUsed.getTime() - a.lastUsed.getTime();
-    });
-  } catch {
-    return [];
-  }
-}
-
-export async function taskExists(taskId: string): Promise<boolean> {
-  const tasksDir = await getTasksDir();
-  const taskPath = path.join(tasksDir, taskId, 'CLAUDE.md');
-
-  try {
-    await fs.access(taskPath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export async function getCurrentTask(): Promise<string> {
-  const claudeMdPath = path.join(process.cwd(), '.claude/CLAUDE.md');
-
-  try {
-    const content = await fs.readFile(claudeMdPath, 'utf-8');
-    // Match: @import ~/.claude/projects/<project-id>/tasks/<task-id>/CLAUDE.md
-    const match = content.match(/@import ~\/\.claude\/projects\/[^\/]+\/tasks\/([^\/]+)\/CLAUDE\.md/);
-
-    if (match) {
-      return match[1];
-    }
-  } catch {
-    // Fall through
-  }
-
-  return 'default';
-}
-
-export async function validateContextName(name: string): boolean {
-  return /^[a-z0-9-]+$/.test(name);
-}
-```
-
-**Testing:**
-- [ ] Lists all valid tasks
-- [ ] Sorts by last used
-- [ ] Validates task existence
-- [ ] Extracts current task from CLAUDE.md
-- [ ] Validates context names correctly
-
----
-
-## Phase 2: Task Commands
-
-### 2.1 /task Command (commands/task.md)
-
-**Purpose:** Activate a task environment with optional context
+**Purpose:** Switch to a task (creates if new, resumes if exists)
 
 **Implementation:**
 
 ```markdown
 ---
-description: Activate a task environment with optional context
-allowed-tools: Bash, Read, Write
-pre-tool-use: |
-  # Update task import in CLAUDE.md
-  npx tsx ~/.claude/context-curator/scripts/update-import.ts $1
+description: Switch to a task (create if new, resume if exists)
+allowed-tools: Bash, Read, Write, Edit
 ---
 
-# Task Activation
+# Task Switcher
 
-Usage: /task <task-id> [context-name]
+Usage: /task <task-id>
 
-## PreToolUse (Automatic)
-
-The pre-tool-use hook has already updated .claude/CLAUDE.md:
-- Changed @-import line to point to this task's CLAUDE.md
-
-## Step 1: Check for unsaved work
-
-Check if current session has messages using the session reader:
+## Step 1: Validate input
 
 ```bash
-npx tsx ~/.claude/context-curator/scripts/check-session.ts
-```
+TASK_ID=$1
 
-If there are unsaved messages, ask user:
-"Current session: N messages (unsaved). Save? (yes/no)"
+if [ -z "$TASK_ID" ]; then
+  echo "Usage: /task <task-id>"
+  exit 1
+fi
 
-If yes:
-- Ask for context name (validate: lowercase, numbers, hyphens only)
-- Run: `npx tsx ~/.claude/context-curator/scripts/task-save.ts <context-name>`
-
-## Step 2: Clear session
-
-Execute `/clear` to reset the conversation.
-
-## Step 3: Prepare context session
-
-Run:
-```bash
-SESSION_ID=$(npx tsx ~/.claude/context-curator/scripts/prepare-context.ts $1 $2)
-```
-
-This:
-- Creates new session file with context messages (if context-name provided)
-- Records session→task mapping
-- Returns session ID
-
-## Step 4: Display task focus and tell user to resume
-
-Read the task's CLAUDE.md to show key points:
-```bash
-head -n 20 .context-curator/tasks/$1/CLAUDE.md
-```
-
-Display:
-```
-✓ Task context: $1
-✓ Session ready: $SESSION_ID
-
-Type: /resume $SESSION_ID
-
-Your focus for this task:
-• [Extract key points from task CLAUDE.md]
-```
-
-## Important Notes
-
-- Always run PreToolUse first (automatic)
-- Offer to save unsaved work
-- Use /clear for hard reset
-- Tell user to /resume (don't do it automatically)
-- Running sessions are unaffected by this command
-```
-
-**Supporting Script: check-session.ts**
-
-```typescript
-#!/usr/bin/env tsx
-
-import fs from 'fs/promises';
-import path from 'path';
-
-async function checkSession() {
-  // Parse ~/.claude/history.jsonl to find current session
-  const historyPath = path.join(process.env.HOME!, '.claude/history.jsonl');
-
-  try {
-    const content = await fs.readFile(historyPath, 'utf-8');
-    const lines = content.trim().split('\n');
-
-    // Count messages in current session
-    let messageCount = 0;
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const line = lines[i];
-      try {
-        const entry = JSON.parse(line);
-        if (entry.type === 'session_start') {
-          break;
-        }
-        if (entry.role === 'user' || entry.role === 'assistant') {
-          messageCount++;
-        }
-      } catch {
-        continue;
-      }
-    }
-
-    console.log(messageCount);
-  } catch {
-    console.log(0);
-  }
-}
-
-checkSession().catch(() => console.log(0));
-```
-
-**Testing:**
-- [ ] PreToolUse hook updates @-import
-- [ ] Checks for unsaved work
-- [ ] Prompts to save if needed
-- [ ] Validates context names
-- [ ] Executes /clear successfully
-- [ ] Prepares context session
-- [ ] Displays task focus
-- [ ] Provides /resume command
-
----
-
-### 2.2 /task-create Command (commands/task-create.md)
-
-**Purpose:** Create a new task with interactive configuration
-
-**Implementation:**
-
-```markdown
----
-description: Create a new task
-allowed-tools: Bash, Read, Write
----
-
-# Task Creation
-
-Usage: /task-create <task-id>
-
-## Step 1: Check if first task
-
-Check if .context-curator/tasks/ exists:
-
-```bash
-if [ ! -d .context-curator ]; then
-  echo "first-time"
-else
-  echo "existing"
+if ! [[ "$TASK_ID" =~ ^[a-z0-9-]+$ ]]; then
+  echo "❌ Invalid task ID. Use lowercase, numbers, hyphens only."
+  exit 1
 fi
 ```
 
-If this is the first task:
-1. Explain the @-import system will be set up
-2. Run: `npx tsx ~/.claude/context-curator/scripts/init-project.ts`
-3. Explain what was created
+## Step 2: Check if task exists
 
-## Step 2: Validate task ID
+Check both:
+- Personal: `~/.claude/projects/<project-id>/tasks/<task-id>/CLAUDE.md`
+- Project: `./.claude/tasks/<task-id>/CLAUDE.md`
 
-Must match /^[a-z0-9-]+$/
+## Step 3a: Create new task (if needed)
 
-Check if task already exists:
-```bash
-if [ -d .context-curator/tasks/$1 ]; then
-  echo "exists"
-else
-  echo "new"
-fi
-```
+Ask the user: **"What should this task focus on?"**
 
-If exists, ask to overwrite or choose new name.
+Based on their answer, create task CLAUDE.md:
 
-## Step 3: Ask for task focus
-
-Ask user:
-"What should this task focus on? Describe the goal, guidelines, and patterns."
-
-## Step 4: Create task CLAUDE.md
-
-Write the task's CLAUDE.md file using the Write tool.
-
-Structure:
 ```markdown
 # Task: <task-id>
 
 ## Focus
 [User's description]
 
+## Key Areas
+[Relevant subsystems based on description]
+
 ## Guidelines
-- [Key practices for this task]
+[Task-specific best practices]
 
-## Tool Usage
-### Preferred Skills for This Task
-- **skill-name**: How to use it for this task
+## Common Pitfalls
+[Document these as you discover them]
 
-### Preferred Agents
-- **agent-name**: When to use it
-
-## Patterns
-[Task-specific code patterns or examples]
-
-## Reference
-[Links to relevant documentation]
+## Reference Files
+[Key files for this task]
 ```
 
-Write to: .context-curator/tasks/<task-id>/CLAUDE.md
+Create in personal storage: `~/.claude/projects/<project-id>/tasks/<task-id>/CLAUDE.md`
+Create contexts dir: `~/.claude/projects/<project-id>/tasks/<task-id>/contexts/`
 
-## Step 5: Create contexts directory
+## Step 3b: List contexts (if task exists)
 
-```bash
-mkdir -p .context-curator/tasks/$1/contexts
+Show both personal and golden contexts:
+
+```
+Which context to load?
+
+Personal contexts:
+1. my-progress (15 msgs) - 2025-01-16
+
+Golden contexts (team shared):
+2. oauth-deep-dive (47 msgs) - 2025-01-15 - by: alice ⭐
+
+Choice (or enter for default):
 ```
 
-## Step 6: Confirm creation
+## Step 4: Update .claude/CLAUDE.md
 
-Display:
+Modify @import line to point to selected task's CLAUDE.md.
+
+## Step 5: Prepare session
+
+If context selected, copy to session file.
+Generate session ID.
+
+## Step 6: Output instructions
+
 ```
-✓ Task '$1' created!
-  Location: .context-curator/tasks/$1/
+✓ Task: oauth-refactor
+✓ Context: oauth-deep-dive (47 msgs)
 
-Task CLAUDE.md created with:
-• Focus: [summary of focus]
-• [Line count] lines
+Run: /resume sess-abc123
 
-Next steps:
-• /task $1               - Start working
-• Edit task CLAUDE.md    - Refine instructions
-• /task-list             - See all tasks
-
-Note: This task uses project-wide skills and agents from .claude/
-      Task-specific tool guidance is in the task's CLAUDE.md
+Your focus:
+  Refactoring the legacy OAuth implementation in src/auth/
 ```
 ```
 
 **Testing:**
-- [ ] Detects first-time use
-- [ ] Runs init-project on first use
 - [ ] Validates task ID format
-- [ ] Checks for existing tasks
-- [ ] Creates task CLAUDE.md with proper structure
-- [ ] Creates contexts directory
-- [ ] Confirms creation with summary
+- [ ] Creates new tasks with user guidance
+- [ ] Lists personal and golden contexts
+- [ ] Updates @import correctly
+- [ ] Provides /resume command
+- [ ] Shows task focus summary
 
----
+### 2.2 /context-save Command
 
-### 2.3 /task-save Command (commands/task-save.md)
+**Purpose:** Save current session as a context (personal by default, golden if flagged)
 
-**Purpose:** Save current session as a named context
+**Execution:** Forked context (has access to current session)
 
 **Implementation:**
 
 ```markdown
 ---
-description: Save current session as a named context
+description: Save current session as a context
+context: fork
 allowed-tools: Bash, Read, Write
 ---
 
-# Task Save
+# Save Session Context
 
-Usage: /task-save <context-name>
+Usage: /context-save <name>
+
+You have full access to the current conversation for analysis.
 
 ## Step 1: Validate context name
 
 Must match /^[a-z0-9-]+$/
 
-If invalid, show error and examples.
-
 ## Step 2: Determine current task
 
-Get from @-import line:
-```bash
-npx tsx ~/.claude/context-curator/scripts/get-current-task.ts
+Extract from @import line in .claude/CLAUDE.md
+
+## Step 3: Scan for secrets
+
+Check for:
+- Stripe API keys: sk_test_, sk_live_
+- AWS keys: AKIA[0-9A-Z]{16}
+- GitHub tokens: ghp_[a-zA-Z0-9]{36}
+- Generic API keys: api_key, apiKey patterns
+- Passwords: password=, pwd=
+- Private keys: -----BEGIN PRIVATE KEY-----
+
+If found, warn user and list locations.
+
+## Step 4: Ask storage location
+
+```
+Save this context as:
+1. Personal (only you can access)
+2. Golden (shared with team via git)
+
+Choice (1/2):
 ```
 
-## Step 3: Get current session ID
+## Step 5a: Save as personal
 
-Parse ~/.claude/history.jsonl to find current session ID.
+Save to: `~/.claude/projects/<project-id>/tasks/<task-id>/contexts/<name>.jsonl`
 
-## Step 4: Copy session to context
+## Step 5b: Save as golden
 
-Find session file in `~/.claude/projects/<project-dir>/`:
-```bash
-npx tsx ~/.claude/context-curator/scripts/task-save.ts <context-name>
+If secrets found and not redacted, require confirmation.
+
+Save to: `./.claude/tasks/<task-id>/contexts/<name>.jsonl`
+
+Remind user:
+```
+Next steps:
+  git add .claude/tasks/<task-id>/contexts/<name>.jsonl
+  git commit -m "Add <name> golden context"
+  git push
 ```
 
-This script:
-- Validates context name
-- Determines current task
-- Finds current session
-- Copies to task's contexts directory
-- Handles overwrite with backup
+## Step 6: Confirm
 
-## Step 5: Confirm save
-
-Display:
 ```
-✓ Saved as '<context-name>' (N msgs, Xk tokens)
-  Task: <task-id>
-  Location: .context-curator/tasks/<task-id>/contexts/<context-name>.jsonl
+✓ Saved as personal context
+✓ Location: ~/.claude/projects/.../contexts/<name>.jsonl
 ```
 ```
-
-**Supporting Script: task-save.ts** (from PRD)
 
 **Testing:**
-- [ ] Validates context name format
-- [ ] Determines current task correctly
-- [ ] Finds current session
-- [ ] Copies session to contexts directory
-- [ ] Handles overwrite with backup
-- [ ] Shows confirmation with stats
+- [ ] Validates context name
+- [ ] Scans for secrets
+- [ ] Asks personal vs golden
+- [ ] Saves to correct location
+- [ ] Warns about secrets
+- [ ] Provides git commands for golden
 
----
+### 2.3 /context-list Command
 
-### 2.4 /task-list Command (commands/task-list.md)
+**Purpose:** List all contexts with AI-generated summaries
 
-**Purpose:** List all tasks or show task details
+**Execution:** Forked context (can read files and generate summaries)
 
 **Implementation:**
 
 ```markdown
 ---
-description: List all tasks or show task details
+description: List contexts with AI-generated summaries
+context: fork
 allowed-tools: Bash, Read
 ---
 
-# Task List
-
-Usage: /task-list [task-id]
-
-## Without task-id: List all tasks
-
-```bash
-npx tsx ~/.claude/context-curator/scripts/task-list.ts
-```
-
-Display format:
-```
-# Available Tasks
-
-default (current)
-• Contexts: 2
-• Last used: 2 hours ago
-
-integration-tests
-• Contexts: 3
-• Last used: 1 day ago
-
-Total: X tasks, Y saved contexts
-
-Current: @import .context-curator/tasks/default/CLAUDE.md
-```
-
-## With task-id: Show task details
-
-```bash
-npx tsx ~/.claude/context-curator/scripts/task-list.ts <task-id>
-```
-
-Display format:
-```
-# Task: <task-id>
-
-## Overview
-[First few lines of task CLAUDE.md]
-
-## CLAUDE.md
-N lines
-Focus: [Summary]
-
-## Saved Contexts
-1. context-name (N msgs, Xk tokens) - Y ago
-2. ...
-
-## Usage
-/task <task-id>              - Start fresh
-/task <task-id> <context>    - Resume saved work
-```
-```
-
-**Supporting Script: task-list.ts**
-
-```typescript
-#!/usr/bin/env tsx
-
-import { listTasks, getCurrentTask } from '../src/task-manager.js';
-import fs from 'fs/promises';
-
-async function main() {
-  const taskId = process.argv[2];
-
-  if (!taskId) {
-    // List all tasks
-    const tasks = await listTasks();
-    const currentTask = await getCurrentTask();
-
-    console.log('\n# Available Tasks\n');
-
-    for (const task of tasks) {
-      const isCurrent = task.id === currentTask;
-      console.log(`${task.id}${isCurrent ? ' (current)' : ''}`);
-      console.log(`• Contexts: ${task.contexts.length}`);
-      if (task.lastUsed) {
-        console.log(`• Last used: ${formatDate(task.lastUsed)}`);
-      }
-      console.log('');
-    }
-
-    const totalContexts = tasks.reduce((sum, t) => sum + t.contexts.length, 0);
-    console.log(`Total: ${tasks.length} tasks, ${totalContexts} saved contexts\n`);
-    console.log(`Current: @import .context-curator/tasks/${currentTask}/CLAUDE.md\n`);
-  } else {
-    // Show task details
-    const tasks = await listTasks();
-    const task = tasks.find(t => t.id === taskId);
-
-    if (!task) {
-      console.error(`❌ Task '${taskId}' not found`);
-      process.exit(1);
-    }
-
-    console.log(`\n# Task: ${task.id}\n`);
-
-    // Show CLAUDE.md overview
-    const claudeMdContent = await fs.readFile(task.claudeMdPath, 'utf-8');
-    const lines = claudeMdContent.split('\n');
-    const focusSection = lines.slice(0, 5).join('\n');
-
-    console.log('## Overview');
-    console.log(focusSection);
-    console.log('');
-
-    console.log('## CLAUDE.md');
-    console.log(`${lines.length} lines`);
-    console.log('');
-
-    // Show contexts
-    console.log('## Saved Contexts');
-    if (task.contexts.length === 0) {
-      console.log('(No saved contexts yet)');
-    } else {
-      for (let i = 0; i < task.contexts.length; i++) {
-        const context = task.contexts[i];
-        console.log(`${i + 1}. ${context}`);
-      }
-    }
-    console.log('');
-
-    console.log('## Usage');
-    console.log(`/task ${task.id}              - Start fresh`);
-    console.log(`/task ${task.id} <context>    - Resume saved work`);
-    console.log('');
-  }
-}
-
-function formatDate(date: Date): string {
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
-  const hours = Math.floor(diff / (1000 * 60 * 60));
-
-  if (hours < 1) return 'just now';
-  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
-
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days} day${days === 1 ? '' : 's'} ago`;
-
-  const weeks = Math.floor(days / 7);
-  return `${weeks} week${weeks === 1 ? '' : 's'} ago`;
-}
-
-main().catch(console.error);
-```
-
-**Testing:**
-- [ ] Lists all tasks with stats
-- [ ] Shows current task indicator
-- [ ] Displays task details when task-id provided
-- [ ] Shows context count
-- [ ] Formats dates nicely
-- [ ] Handles no tasks gracefully
-
----
-
-## Phase 3: Context Commands
-
-### 3.1 /context-list Command (commands/context-list.md)
-
-**Purpose:** List contexts in active or specified task
-
-**Implementation:**
-
-```markdown
----
-description: List contexts in a task
-allowed-tools: Bash, Read
----
-
-# Context List
+# Context Listing with Summaries
 
 Usage: /context-list [task-id]
 
-## Without task-id: Active task's contexts
+## Step 1: Determine task
 
-```bash
-npx tsx ~/.claude/context-curator/scripts/context-list.ts
+If task-id provided, use it.
+Otherwise, extract current task from @import line.
+
+## Step 2: List personal contexts
+
+Read from: `~/.claude/projects/<project-id>/tasks/<task-id>/contexts/`
+
+For each .jsonl file:
+- Count messages
+- Get last modified date
+- Read sample messages (first 10, last 10)
+- Generate 1-2 sentence summary
+
+## Step 3: List golden contexts
+
+Read from: `./.claude/tasks/<task-id>/contexts/`
+
+For each .jsonl file:
+- Count messages
+- Get last modified date
+- Get author from git log
+- Read sample and generate summary
+
+## Step 4: Display
+
 ```
+# Contexts: oauth-refactor
 
-## With task-id: Specific task's contexts
+## Personal contexts
 
-```bash
-npx tsx ~/.claude/context-curator/scripts/context-list.ts <task-id>
-```
+### my-progress
+**15 messages** • 2025-01-16
 
-Display format:
-```
-# Contexts: <task-id>
+**Summary:** Working through OAuth token validation edge cases,
+focusing on mobile app authentication flow and session timeout handling.
 
-1. context-name
-   • N messages, Xk tokens
-   • Created: Y ago
-   • Last modified: Z ago
+## Golden contexts (team shared)
 
-2. ...
+### oauth-deep-dive ⭐
+**47 messages** • 2025-01-15 • by: alice
 
-Total: N contexts
-
-Load: /task <task-id> <context-name>
-```
-```
-
-**Testing:**
-- [ ] Lists contexts for active task
-- [ ] Lists contexts for specified task
-- [ ] Shows context stats
-- [ ] Formats dates nicely
-- [ ] Shows load command
+**Summary:** Complete analysis of legacy OAuth implementation including
+custom token format, three-tier session storage, and rate limiting issue.
 
 ---
 
-### 3.2 prepare-context.ts Script
-
-**Purpose:** Prepare session for task activation with optional context
-
-**Implementation:** (from PRD lines 843-965)
+**Load a context:** `/task oauth-refactor` then select from menu
+```
+```
 
 **Testing:**
-- [ ] Generates unique session ID
-- [ ] Creates session file
-- [ ] Copies context if specified
-- [ ] Records session→task mapping
-- [ ] Returns session ID
-- [ ] Lists available contexts on error
+- [ ] Lists personal contexts
+- [ ] Lists golden contexts
+- [ ] Generates meaningful summaries
+- [ ] Shows author for golden contexts
+- [ ] Shows message counts and dates
+- [ ] Provides load instructions
+
+---
+
+## Phase 3: Context Management
+
+### 3.1 /context-manage Command
+
+**Purpose:** Interactive context management with Claude's assistance
+
+**Execution:** Forked context (full file access and intelligent suggestions)
+
+**Implementation:**
+
+```markdown
+---
+description: Interactive context management with Claude's assistance
+context: fork
+allowed-tools: Bash, Read, Write, Edit
+---
+
+# Context Management Assistant
+
+## Phase 1: Discovery
+
+Scan all contexts across all tasks and present organized view:
+
+```
+I found **8 contexts** across **3 tasks**:
+
+### oauth-refactor (current)
+**Personal:**
+1. `my-progress` - 15 msgs - OAuth token validation work
+2. `edge-cases` - 8 msgs - Session timeout edge cases
+
+**Golden:**
+3. `oauth-deep-dive` ⭐ - 47 msgs - Complete OAuth analysis (by: alice)
+
+### payment-integration
+**Personal:**
+4. `stripe-work` - 12 msgs - Webhook handling
+
+**Golden:**
+5. `stripe-flow` ⭐ - 32 msgs - Production integration (by: you)
+```
+
+## Phase 2: Interactive Loop
+
+Accept commands:
+- `rename <number>` - Rename a context
+- `delete <number>` - Delete a context
+- `merge <numbers>` - Merge multiple contexts
+- `promote <number>` - Make a golden context
+- `demote <number>` - Make personal again
+- `view <number>` - View full summary
+- `diff <num1> <num2>` - Compare two contexts
+- `secrets <number>` - Scan for secrets
+- `clean` - Find and remove old/duplicate contexts
+- `archive` - Archive contexts older than 30 days
+- `done` - Exit management
+
+## Intelligent Assistance
+
+- For rename: suggest better names based on content
+- For delete: warn about important contexts
+- For clean: analyze for duplicates, stale contexts
+- For promote: scan secrets, confirm sharing
+- For view: generate comprehensive summary
+- For merge: intelligently combine related contexts
+
+## Example Session
+
+User: clean
+
+```
+Let me analyze for cleanup opportunities...
+
+Found:
+
+**Stale contexts:**
+- `old-approach` (legacy-migration) - 5 msgs, 60 days old
+  Superseded by migration-strategy
+  → Recommend: Archive
+
+**Very small contexts:**
+- `experiment` (payment-integration) - 3 msgs
+  Might be incomplete
+  → Recommend: Delete or merge with stripe-work
+
+Apply recommendations? (yes/no/review)
+```
+```
+
+**Testing:**
+- [ ] Scans all tasks and contexts
+- [ ] Supports all management commands
+- [ ] Provides intelligent suggestions
+- [ ] Handles confirmation workflows
+- [ ] Updates files correctly
+
+### 3.2 /context-promote Command
+
+**Purpose:** Promote personal context to golden (shared with team)
+
+**Execution:** Forked context
+
+**Implementation:**
+
+```markdown
+---
+description: Promote personal context to golden (shared with team)
+context: fork
+allowed-tools: Bash, Read, Write
+---
+
+# Promote to Golden Context
+
+Usage: /context-promote <name>
+
+## Step 1: Find personal context
+
+Locate: `~/.claude/projects/<project-id>/tasks/<current-task>/contexts/<name>.jsonl`
+
+## Step 2: Scan for secrets
+
+Check for API keys, passwords, tokens, private keys.
+
+## Step 3: Handle secrets
+
+If secrets found:
+```
+⚠️  Found potential secrets:
+- Line 89: API key pattern (pk_test_...)
+- Line 124: Database password
+
+Options:
+1. Continue anyway (not recommended)
+2. Let me help redact secrets first
+3. Cancel
+```
+
+If option 2:
+- Create sanitized version
+- Show what was redacted
+- Confirm before saving
+
+## Step 4: Promote
+
+Copy sanitized (or original) to: `./.claude/tasks/<task-id>/contexts/<name>.jsonl`
+
+Keep personal copy as backup.
+
+## Step 5: Confirm
+
+```
+✓ Promoted to golden context
+✓ Location: ./.claude/tasks/oauth-refactor/contexts/edge-cases.jsonl
+
+Personal copy remains at:
+  ~/.claude/projects/.../oauth-refactor/contexts/edge-cases.jsonl
+
+Next steps:
+  git add .claude/tasks/oauth-refactor/contexts/edge-cases.jsonl
+  git commit -m "Share edge-cases context for OAuth work"
+  git push
+```
+```
+
+**Testing:**
+- [ ] Finds personal context
+- [ ] Scans for secrets accurately
+- [ ] Offers redaction option
+- [ ] Copies to golden location
+- [ ] Preserves personal backup
+- [ ] Provides git commands
 
 ---
 
 ## Phase 4: Advanced Features
 
-### 4.1 /task-manage Command
+### 4.1 Secret Detection
 
-**Purpose:** Interactive task management
+**Patterns to detect:**
+- Stripe: `sk_test_`, `sk_live_`, `pk_test_`, `pk_live_`
+- AWS: `AKIA[0-9A-Z]{16}`, `aws_secret_access_key`
+- GitHub: `ghp_[a-zA-Z0-9]{36}`, `github_pat_`
+- Generic: `api_key`, `apiKey`, `API_KEY`, `secret`, `password`, `pwd`
+- Private keys: `-----BEGIN PRIVATE KEY-----`, `-----BEGIN RSA PRIVATE KEY-----`
+- Database URLs: `postgres://`, `mysql://`, `mongodb://` with embedded passwords
 
-**Features:**
-- Rename tasks
-- Edit task CLAUDE.md
-- View task statistics
-- Delete tasks
+**Redaction approach:**
+- Replace with `[REDACTED]` while preserving context
+- Keep first few characters for recognition (e.g., `pk_test_[REDACTED]`)
+- Note line numbers in report
 
-### 4.2 /task-delete Command
+### 4.2 Context Analytics (Future)
 
-**Purpose:** Delete a task and all contexts
+Track:
+- Context usage frequency
+- Session outcomes after loading context
+- Most valuable contexts (time saved)
 
-**Features:**
-- Confirmation required
-- Shows what will be deleted
-- Switches to default if deleting current task
+### 4.3 Context Merging (Future)
 
-### 4.3 /context-manage Command
-
-**Purpose:** Interactive context management
-
-**Features:**
-- Rename contexts
-- View context details
-- Compare contexts
-- Delete contexts
-
-### 4.4 /context-delete Command
-
-**Purpose:** Delete a saved context
-
-**Features:**
-- Confirmation required
-- Shows context stats before deletion
+Intelligently combine contexts:
+- Deduplicate similar messages
+- Preserve chronological order
+- Maintain coherent conversation flow
 
 ---
 
-## Implementation Timeline
+## File Structure
 
-### Day 1: Foundation
-- [ ] Implement init-project.ts
-- [ ] Implement update-import.ts
-- [ ] Implement task-manager.ts utilities
-- [ ] Test @-import mechanism
-- [ ] Verify multi-instance isolation
+### Commands (in ~/.claude/commands/)
 
-### Day 2: Core Commands
-- [ ] Implement /task command with PreToolUse
-- [ ] Implement /task-create command
-- [ ] Implement /task-save command
-- [ ] Implement /task-list command
-- [ ] Implement prepare-context.ts
-- [ ] Test task switching workflow
+| File | Purpose |
+|------|---------|
+| `task.md` | Switch/create tasks |
+| `context-save.md` | Save sessions |
+| `context-list.md` | List with summaries |
+| `context-manage.md` | Interactive management |
+| `context-promote.md` | Personal → Golden |
 
-### Day 3: Context Commands & Polish
-- [ ] Implement /context-list command
-- [ ] Implement context-list.ts script
-- [ ] Test context save/load workflow
-- [ ] Write documentation
-- [ ] End-to-end testing
+### Project Files (in ./.claude/)
 
-### Optional (Day 4+): Advanced Features
-- [ ] Implement /task-manage
-- [ ] Implement /task-delete
-- [ ] Implement /context-manage
-- [ ] Implement /context-delete
-- [ ] Additional testing
+| File | Committed | Purpose |
+|------|-----------|---------|
+| `CLAUDE.md` | No (git-ignored) | Auto-generated @import |
+| `tasks/*/CLAUDE.md` | Yes | Task instructions |
+| `tasks/*/README.md` | Yes | Task documentation |
+| `tasks/*/contexts/*.jsonl` | Yes | Golden contexts |
+| `.gitignore` | Yes | Ignore rules |
+
+### Personal Files (in ~/.claude/projects/)
+
+| Path | Purpose |
+|------|---------|
+| `<project-id>/tasks/*/CLAUDE.md` | Personal task instructions |
+| `<project-id>/tasks/*/contexts/*.jsonl` | Personal contexts |
+| `<project-id>/.stash/original-CLAUDE.md` | Backup |
 
 ---
 
 ## Testing Strategy
 
-### Installation Tests
-- [ ] install.sh copies only necessary files (scripts, src, configs)
-- [ ] Scripts installed to ~/.claude/context-curator/scripts/
-- [ ] Source files installed to ~/.claude/context-curator/src/
-- [ ] Commands installed to ~/.claude/commands/task/
-- [ ] npm dependencies installed in ~/.claude/context-curator/
-- [ ] Commands are accessible from Claude Code
-- [ ] Scripts execute via npx tsx ~/.claude/context-curator/scripts/
-- [ ] No .git, README, or other repo files copied
-- [ ] Installation is clean and minimal
-
 ### Unit Tests
-- [ ] Task manager utilities
-- [ ] Session reader/writer
-- [ ] @-import parsing
+
+- [ ] Project ID encoding
+- [ ] @import parsing and updating
 - [ ] Context name validation
-- [ ] Script path resolution
+- [ ] Secret detection patterns
+- [ ] JSONL reading/writing
 
 ### Integration Tests
-- [ ] Full task creation workflow (in curator session)
-- [ ] Task switching with context (in work session)
-- [ ] Context save/load (save in curator, load in work)
-- [ ] Multi-instance isolation
-- [ ] Commands execute scripts via npx tsx ~/.claude/context-curator/scripts/
-- [ ] Curator session isolation (management doesn't pollute work sessions)
-- [ ] Work session isolation (work doesn't pollute curator session)
+
+- [ ] Project initialization workflow
+- [ ] Task creation workflow
+- [ ] Context save (personal)
+- [ ] Context save (golden)
+- [ ] Context promotion with secrets
+- [ ] @import switching
 
 ### End-to-End Tests
-- [ ] Run install.sh from cloned repo
-- [ ] Verify clean installation in ~/.claude/
-- [ ] Start curator session: claude -r context-curator
-- [ ] Initialize curator with /task-create
-- [ ] Create multiple tasks (in curator session)
-- [ ] Start work session: claude
-- [ ] Switch between tasks (in work session)
-- [ ] Do work and exit
-- [ ] Save contexts (in curator session)
-- [ ] Load contexts (in work session)
-- [ ] Verify multi-instance safety
-- [ ] Verify session isolation (curator vs work)
-- [ ] Verify scripts execute from global location
+
+- [ ] Fresh project initialization
+- [ ] Create task, warm up, save context
+- [ ] Load golden context on different machine
+- [ ] Multi-developer workflow simulation
+- [ ] Secret detection prevents accidental leaks
 
 ---
 
 ## Success Criteria
 
 ### Technical
-- [ ] @-import mechanism works reliably
-- [ ] PreToolUse hooks execute correctly
-- [ ] Task switching is atomic
-- [ ] Context save/load preserves all messages
-- [ ] Multi-instance isolation verified
+
+- [ ] Two-file CLAUDE.md system works
+- [ ] @import updates correctly
+- [ ] /resume loads new instructions
+- [ ] Personal/golden separation clear
+- [ ] Secret detection catches common patterns
 - [ ] No data loss in any scenario
-- [ ] TypeScript compilation clean
 
 ### User Experience
-- [ ] Commands feel natural and intuitive
-- [ ] Clear feedback at each step
-- [ ] Error messages are helpful
-- [ ] Default task "just works"
-- [ ] Task switching is fast
-- [ ] Context organization is clear
+
+- [ ] Task switching feels natural
+- [ ] Context save is one command
+- [ ] Summaries are helpful
+- [ ] Golden context sharing is explicit
+- [ ] Error messages guide users
 
 ### Documentation
+
 - [ ] All commands documented
-- [ ] Multi-instance workflow explained
+- [ ] Two-file system explained
+- [ ] Personal vs golden clear
 - [ ] Troubleshooting guide complete
-- [ ] Example task templates provided
-- [ ] Architecture clearly explained
 
 ---
 
-## Key Design Principles
+## Implementation Timeline
 
-### 1. @-import is the Foundation
+### Day 1: Foundation
+- [ ] Command files structure
+- [ ] Project initialization (/task-init)
+- [ ] @import mechanism
+- [ ] Basic /task command
 
-The entire system relies on Claude Code reading CLAUDE.md once at startup:
-- Each instance captures the @-import state when it starts
-- Running instances are never affected by subsequent changes
-- This enables true multi-instance isolation
+### Day 2: Core Commands
+- [ ] /task with context selection
+- [ ] /context-save (personal)
+- [ ] /context-save (golden)
+- [ ] /context-list
 
-### 2. Atomic Operations
+### Day 3: Management
+- [ ] /context-manage
+- [ ] /context-promote
+- [ ] Secret detection
+- [ ] Secret redaction
 
-Task switching must be all-or-nothing:
-1. Update @-import (PreToolUse)
-2. Save current work (if needed)
-3. Hard reset (/clear)
-4. Prepare new session
-5. Tell user to resume
+### Day 4: Polish
+- [ ] Testing
+- [ ] Documentation
+- [ ] Edge cases
+- [ ] User feedback
 
-No partial states, no confusion.
+---
 
-### 3. Default Task Simplicity
+## Key Design Decisions
 
-Users shouldn't need to think about tasks:
-- Default task created automatically
-- Works without any task commands
-- Tasks are opt-in for organization
+### 1. Two-File System
 
-### 4. Shared Tooling
+**Why:** Eliminates git conflicts while preserving clean project history.
 
-Skills and agents are project-wide:
-- All tasks use the same tools
-- Simpler mental model
-- Task CLAUDE.md provides usage guidance
+- Root `./CLAUDE.md` is canonical, committed, never touched
+- `./.claude/CLAUDE.md` is per-developer, auto-generated
 
-### 5. No API Key Required
+### 2. Personal by Default
 
-Everything uses Claude Code's native features:
-- PreToolUse hooks
-- Custom slash commands
-- File system operations
-- Native /clear and /resume
+**Why:** Prevents accidental secret leaks and reduces noise in team repos.
+
+- All contexts start personal
+- Explicit `/context-promote` to share
+- Secret scanning before promotion
+
+### 3. Forked Context Execution
+
+**Why:** Commands have full conversation access for analysis without polluting main session.
+
+- `context: fork` in command definition
+- Can generate summaries, scan content
+- Doesn't affect user's working session
+
+### 4. @import at Resume Time
+
+**Why:** Claude Code re-reads CLAUDE.md on `/resume`.
+
+- Task switching = update @import + /resume
+- No complex state management
+- Works with existing Claude Code behavior
+
+### 5. Golden Context via Git
+
+**Why:** Uses existing infrastructure, familiar workflow.
+
+- Committed to repo like any other file
+- Standard git workflow (add, commit, push)
+- Team sees contexts in PR reviews
 
 ---
 
 ## Migration Notes
 
-### From Previous Versions
+### From v10.x
 
-This is a **complete rewrite** from previous versions. The old conversational session management approach has been replaced with the task-based @-import system.
+v13.0 is a significant architecture change:
 
-**Do not attempt to migrate old data.** Start fresh with v10.0.
+**Changed:**
+- "Curator session" pattern removed (use `context: fork` instead)
+- Personal storage structure updated
+- Golden contexts added to project directory
+- Two-file CLAUDE.md system
 
-### For New Projects
-
-1. Install globally (one time):
-   ```bash
-   git clone <repo-url> context-curator
-   cd context-curator
-   ./install.sh
-   ```
-
-2. In any project, start using:
-   ```bash
-   cd ~/my-project
-   claude -r context-curator
-   /task-create my-first-task
-   ```
-
-3. On first use in a project, system auto-initializes with default task
+**Actions:**
+1. Re-download commands
+2. Run `/task-init` in each project
+3. Personal contexts auto-migrate on first access
+4. Golden contexts require explicit creation
 
 ---
 
 ## Troubleshooting
 
-### Issue: @-import not updating
+### @import not taking effect
 
 **Solution:**
-- Verify PreToolUse hook in command definition
-- Check task exists: `ls ~/.claude/projects/<project-id>/tasks/<task-id>/CLAUDE.md`
-  (where <project-id> is your project path with slashes replaced by hyphens)
-- Run manually: `npx tsx ~/.claude/context-curator/scripts/update-import.ts <task-id>`
-- Verify @-import line format: `@import ~/.claude/projects/<project-id>/tasks/<task-id>/CLAUDE.md`
+1. Verify `.claude/CLAUDE.md` has @import line
+2. Ensure path in @import exists
+3. Use `/resume` to reload (not just continue session)
 
-### Issue: Context not loading
+### Context not showing in list
 
 **Solution:**
-- List contexts: `/context-list <task-id>`
-- Verify context exists: `ls ~/.claude/projects/<project-id>/tasks/<task-id>/contexts/<context>.jsonl`
-- Check context name format (lowercase, numbers, hyphens only)
-- Find your project ID: `echo $(pwd | sed 's/\//−/g')` (replace slashes with hyphens)
+1. Check file location (personal vs golden)
+2. Verify .jsonl extension
+3. Check context name format (lowercase, hyphens)
 
-### Issue: Multi-instance interference
-
-**Solution:**
-- Verify instances were started AFTER their `/task` commands
-- Confirm CLAUDE.md wasn't manually edited during session
-- Restart affected instances
-
-### Issue: Management tasks appearing in work sessions
+### Secrets detected incorrectly
 
 **Solution:**
-- Always use `claude -r context-curator` for management activities
-- Use regular `claude` for actual development work
-- This keeps sessions properly isolated
+1. False positives happen (generic patterns)
+2. Use "continue anyway" if certain
+3. Report patterns for improvement
+
+### Git conflicts in .claude/
+
+**Solution:**
+1. `.claude/CLAUDE.md` should be in `.claude/.gitignore`
+2. Only `tasks/*/` contents should be committed
+3. Each dev's @import is independent
 
 ---
 
-## Next Steps After MVP
+## Appendix: Command Quick Reference
 
-### v1.1 Enhancements
-- Task templates library
-- Auto-suggest task for new work
-- Context analytics
-- Task usage statistics
-
-### v1.2 Features
-- Task collaboration (share definitions)
-- Context diff viewer
-- Automated optimization
-- Cross-project templates
-
-### v2.0 Vision (Official Adoption)
-- Built into Claude Code
-- Native task picker UI
-- Session-scoped configuration
-- Per-task skills and agents
-- Cloud sync
+| Command | Purpose | Context |
+|---------|---------|---------|
+| `/task <id>` | Switch/create task | Main |
+| `/context-save <name>` | Save session | Fork |
+| `/context-list [task]` | List contexts | Fork |
+| `/context-manage` | Interactive management | Fork |
+| `/context-promote <name>` | Personal → Golden | Fork |
 
 ---
 
-## Appendix: File Checklist
+## Version History
 
-### Scripts to Create (in scripts/)
-- [x] scripts/init-project.ts
-- [ ] scripts/update-import.ts
-- [ ] scripts/check-session.ts
-- [ ] scripts/prepare-context.ts
-- [ ] scripts/task-save.ts (implementation in PRD)
-- [ ] scripts/task-list.ts
-- [ ] scripts/context-list.ts
-- [ ] scripts/get-current-task.ts
-- [ ] scripts/apply-edits.ts (for manage command)
-
-### Commands to Create (in commands/task/)
-- [ ] commands/task/task.md
-- [ ] commands/task/task-create.md
-- [ ] commands/task/task-save.md
-- [ ] commands/task/task-list.md
-- [ ] commands/task/context-list.md
-- [ ] commands/task/task-manage.md (optional)
-- [ ] commands/task/task-delete.md (optional)
-- [ ] commands/task/context-manage.md (optional)
-- [ ] commands/task/context-delete.md (optional)
-
-### Source Files to Create (in src/)
-- [ ] src/types.ts
-- [ ] src/task-manager.ts
-- [ ] src/session-reader.ts (may exist, verify compatibility)
-- [ ] src/session-writer.ts (may exist, verify compatibility)
-- [ ] src/utils.ts
-
-### Installation Files
-- [x] install.sh (installs to ~/.claude/ globally)
-  - Copies scripts/*.ts to ~/.claude/context-curator/scripts/
-  - Copies src/*.ts to ~/.claude/context-curator/src/
-  - Copies package.json and tsconfig.json
-  - Runs npm install in ~/.claude/context-curator/
-  - Copies commands/task/*.md to ~/.claude/commands/task/
-- [x] package.json (scripts and dependencies)
-- [x] tsconfig.json (TypeScript configuration)
-
-### Documentation to Update
-- [x] README.md (global installation, session management pattern)
-- [x] install.sh (session management guidance in output)
-- [ ] ARCHITECTURE.md (global installation model, session isolation)
-- [ ] TROUBLESHOOTING.md (session management issues)
+- **v13.0** (2026-01-17): Two-file CLAUDE.md system, golden contexts, secret detection
+- **v10.1** (2026-01-13): Global installation model
+- **v10.0** (2026-01-10): Initial @-import architecture
 
 ---
 
-## Final Notes
-
-This plan implements PRD v10.0's vision of task-based context management with the @-import mechanism and global installation model. The architecture enables:
-
-✅ **Global installation** - Install once to ~/.claude/, use everywhere
-✅ **Clean installation** - Only necessary files copied (scripts, source, configs)
-✅ **Session isolation** - Curator session for management, work session for development
-✅ **Multi-instance safety** - Run 8-9 instances without interference
-✅ **Atomic task switching** - Clean, predictable transitions
-✅ **Simple mental model** - Tasks = instruction sets, Contexts = snapshots
-✅ **No API key needed** - Uses only Claude Code native features
-✅ **Backward compatible** - Default task preserves existing workflow
-
-**Key Workflows:**
-
-1. **Setup** (one time):
-   ```bash
-   git clone <repo> context-curator
-   cd context-curator
-   ./install.sh
-   ```
-
-2. **Create tasks** (curator session):
-   ```bash
-   claude -r context-curator
-   /task-create <task-id>
-   ```
-
-3. **Do work** (normal session):
-   ```bash
-   claude
-   /task <task-id>
-   /resume <session-id>
-   ```
-
-4. **Save progress** (curator session):
-   ```bash
-   claude -r context-curator
-   /task-save <context-name>
-   ```
-
-**Implementation is ready to begin. Follow the phases in order for best results.**
+**Built to preserve developer sanity and hard-won knowledge.**
