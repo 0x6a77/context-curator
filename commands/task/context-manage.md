@@ -17,7 +17,7 @@ Interactive context management with intelligent suggestions.
 Scan all contexts across all tasks:
 
 ```bash
-npx tsx ~/.claude/context-curator/scripts/list-all-contexts.ts
+node ~/.claude/context-curator/dist/scripts/list-all-contexts.js
 ```
 
 Present an organized view:
@@ -40,13 +40,6 @@ I found **8 contexts** across **3 tasks**:
 
 **Golden:**
 6. `stripe-flow` ⭐ - 32 msgs - Production integration (by: bob)
-
-### legacy-migration
-**Personal:**
-7. `old-approach` - 5 msgs - Failed migration attempt (60 days old)
-
-**Golden:**
-8. `migration-strategy` ⭐ - 62 msgs - Comprehensive plan (by: alice)
 ```
 
 ## Phase 2: Interactive Loop
@@ -106,197 +99,29 @@ User: yes
 Claude: ✓ Deleted 'experiment'
 ```
 
-### merge
-
-Use the Read tool to combine messages from both contexts.
-
-```
-User: merge 1 2
-
-Claude: Merging:
-  - my-progress (15 msgs)
-  - edge-cases (8 msgs)
-
-Combined name (or press Enter for 'my-progress-merged'):
-
-User: oauth-complete
-
-Claude: ✓ Created 'oauth-complete' (23 msgs)
-✓ Original contexts preserved
-
-Delete originals? (yes/no)
-
-User: no
-
-Claude: ✓ Merge complete
-```
-
 ### promote
 
-Run secret scan first.
+Run secret scan first:
 
-```
-User: promote 1
-
-Claude: Promoting 'my-progress' to golden...
-
-Scanning for secrets... ✓ None found
-
-This will be shared with your team via git.
-Confirm? (yes/no)
-
-User: yes
-
-Claude: ✓ Promoted to golden context
-✓ Location: ./.claude/tasks/oauth-refactor/contexts/my-progress.jsonl
-
-Next steps:
-  git add .claude/tasks/oauth-refactor/contexts/my-progress.jsonl
-  git commit -m "Add my-progress context"
-  git push
+```bash
+node ~/.claude/context-curator/dist/scripts/scan-secrets.js "$CONTEXT_PATH"
 ```
 
-### demote
+Then:
 
-```
-User: demote 3
-
-Claude: Demote 'oauth-deep-dive' from golden to personal?
-It will no longer be shared with the team.
-Confirm? (yes/no)
-
-User: yes
-
-Claude: ✓ Demoted to personal context
-✓ Location: ~/.claude/projects/.../contexts/oauth-deep-dive.jsonl
-
-Note: The golden file still exists. To fully remove:
-  git rm .claude/tasks/oauth-refactor/contexts/oauth-deep-dive.jsonl
-  git commit -m "Remove oauth-deep-dive from shared contexts"
-```
-
-### view
-
-Use Read tool to read context and generate detailed summary.
-
-```
-User: view 3
-
-Claude: # oauth-deep-dive
-
-**Location:** Golden (shared) ⭐
-**Messages:** 47
-**Tokens:** ~12k
-**Created:** 5 days ago
-**Author:** alice
-
-## Summary
-
-This context captures a comprehensive walkthrough of the legacy OAuth
-implementation. Key topics covered:
-
-1. **Token Format:** The custom v2.{sessionId}.{hmac} format used for
-   session tokens, and why it was chosen over JWTs.
-
-2. **Session Storage:** Three-tier storage architecture:
-   - Redis for fast lookup (5 minute TTL)
-   - PostgreSQL for persistence
-   - Cookies for fallback
-
-3. **Rate Limiting:** Discovery of the bypass issue in middleware and
-   the fix implemented.
-
-4. **Mobile Auth:** Special handling for mobile app authentication
-   including refresh token rotation.
-
-## Key Files Discussed
-- src/auth/oauth.ts
-- src/middleware/session.ts
-- src/services/token.ts
-```
-
-### diff
-
-```
-User: diff 1 2
-
-Claude: # Comparing: my-progress vs edge-cases
-
-**my-progress (15 msgs):**
-- Covers basic OAuth flow understanding
-- Token validation implementation
-- Session management overview
-
-**edge-cases (8 msgs):**
-- Concurrent request handling
-- Redis cache failures
-- Timeout edge cases
-
-**Overlap:**
-- Both discuss session token format
-- Both reference src/auth/oauth.ts
-
-**Recommendation:**
-These contexts are complementary. Consider merging for a complete picture.
+```bash
+node ~/.claude/context-curator/dist/scripts/promote-context.js "$TASK_ID" "$CONTEXT_NAME"
 ```
 
 ### secrets
 
-```
-User: secrets 4
-
-Claude: Scanning 'stripe-work' for secrets...
-
-⚠️ Found potential secrets:
-
-Line 234: Stripe API Key
-  sk_test_4eC39HqLyjWDarj...
-
-Line 456: Generic Secret
-  api_key: "abc123def456..."
-
-These would be visible if promoted to golden.
-Consider redacting before sharing.
+```bash
+node ~/.claude/context-curator/dist/scripts/scan-secrets.js "$CONTEXT_PATH"
 ```
 
 ### clean
 
-```
-User: clean
-
-Claude: Analyzing contexts for cleanup opportunities...
-
-**Stale contexts (>30 days, not golden):**
-- `old-approach` (legacy-migration) - 5 msgs, 60 days old
-  Likely superseded by migration-strategy
-  → Recommend: Archive
-
-**Very small contexts (<5 msgs):**
-- `experiment` (payment-integration) - 3 msgs
-  May be incomplete or test data
-  → Recommend: Delete or merge with stripe-work
-
-Apply recommendations? (yes/no/review)
-```
-
-### archive
-
-```
-User: archive
-
-Claude: Archiving contexts older than 30 days...
-
-Found 1 context to archive:
-- `old-approach` (legacy-migration) - 60 days old
-
-Archive to ~/.claude/projects/.../archive/? (yes/no)
-
-User: yes
-
-Claude: ✓ Archived 'old-approach'
-  From: contexts/old-approach.jsonl
-  To: archive/old-approach-2025-01-17.jsonl
-```
+Analyze contexts for cleanup opportunities based on age and size.
 
 ## Exit
 

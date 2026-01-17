@@ -38,7 +38,7 @@ fi
 Check if `.claude/tasks/default/CLAUDE.md` exists. If not, initialize the project first:
 
 ```bash
-npx tsx ~/.claude/context-curator/scripts/init-project.ts
+node ~/.claude/context-curator/dist/scripts/init-project.js
 ```
 
 ## Step 3: Check if Task Exists
@@ -46,7 +46,7 @@ npx tsx ~/.claude/context-curator/scripts/init-project.ts
 Run the task-check script to see if the task exists:
 
 ```bash
-npx tsx ~/.claude/context-curator/scripts/task-check.ts "$TASK_ID"
+node ~/.claude/context-curator/dist/scripts/task-check.js "$TASK_ID"
 ```
 
 This script outputs:
@@ -83,7 +83,7 @@ Based on their answer, create the task's CLAUDE.md with this structure:
 
 Create in personal storage by default:
 ```bash
-npx tsx ~/.claude/context-curator/scripts/task-create.ts "$TASK_ID" "<claude-md-content>"
+echo "<claude-md-content>" | node ~/.claude/context-curator/dist/scripts/task-create.js "$TASK_ID"
 ```
 
 Then continue to Step 5.
@@ -93,7 +93,7 @@ Then continue to Step 5.
 Run the context listing script:
 
 ```bash
-npx tsx ~/.claude/context-curator/scripts/context-list.ts "$TASK_ID"
+node ~/.claude/context-curator/dist/scripts/context-list.js "$TASK_ID"
 ```
 
 If there are contexts, present them to the user:
@@ -118,7 +118,7 @@ If user presses Enter or says "fresh", use no context.
 Update the @import line in `.claude/CLAUDE.md`:
 
 ```bash
-npx tsx ~/.claude/context-curator/scripts/update-import.ts "$TASK_ID"
+node ~/.claude/context-curator/dist/scripts/update-import.js "$TASK_ID"
 ```
 
 ## Step 6: Prepare Session
@@ -126,13 +126,13 @@ npx tsx ~/.claude/context-curator/scripts/update-import.ts "$TASK_ID"
 If a context was selected, prepare it:
 
 ```bash
-SESSION_ID=$(npx tsx ~/.claude/context-curator/scripts/prepare-context.ts "$TASK_ID" "$CONTEXT_NAME")
+SESSION_ID=$(node ~/.claude/context-curator/dist/scripts/prepare-context.js "$TASK_ID" "$CONTEXT_NAME")
 ```
 
 If no context (fresh start), just get a new session ID:
 
 ```bash
-SESSION_ID=$(npx tsx ~/.claude/context-curator/scripts/prepare-context.ts "$TASK_ID")
+SESSION_ID=$(node ~/.claude/context-curator/dist/scripts/prepare-context.js "$TASK_ID")
 ```
 
 ## Step 7: Display Results

@@ -1,34 +1,19 @@
 {
   "name": "claude-context-curator",
-  "version": "0.3.0",
-  "description": "Claude Code session manager with conversational editing",
+  "version": "13.0.0",
+  "description": "Task-based context management for Claude Code",
   "type": "module",
   "scripts": {
-    "init": "tsx scripts/init.ts",
-    "init-project": "tsx scripts/init-project.ts",
-    "update-import": "tsx scripts/update-import.ts",
-    "check-session": "tsx scripts/check-session.ts",
-    "prepare-context": "tsx scripts/prepare-context.ts",
-    "task-save": "tsx scripts/task-save.ts",
-    "task-list": "tsx scripts/task-list.ts",
-    "context-list": "tsx scripts/context-list.ts",
-    "get-current-task": "tsx scripts/get-current-task.ts",
-    "context": "tsx scripts/context.ts",
-    "list": "tsx scripts/list.ts",
-    "analyze": "tsx scripts/analyze.ts",
-    "apply-edits": "tsx scripts/apply-edits.ts",
-    "checkpoint": "tsx scripts/checkpoint.ts",
-    "delete": "tsx scripts/delete.ts",
-    "dump": "tsx scripts/dump.ts",
-    "help": "tsx scripts/help.ts"
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "rebuild": "npm run clean && npm run build"
   },
-  "keywords": ["claude", "context", "session-manager"],
+  "keywords": ["claude", "context", "session-manager", "task-management"],
   "author": "",
   "license": "MIT",
   "dependencies": {},
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "tsx": "^4.19.0",
     "typescript": "^5.7.0"
   }
 }

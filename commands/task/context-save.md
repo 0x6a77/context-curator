@@ -41,7 +41,7 @@ fi
 Get the current task from the @import line:
 
 ```bash
-TASK_ID=$(npx tsx ~/.claude/context-curator/scripts/get-current-task.ts)
+TASK_ID=$(node ~/.claude/context-curator/dist/scripts/get-current-task.js)
 echo "Current task: $TASK_ID"
 ```
 
@@ -50,7 +50,7 @@ echo "Current task: $TASK_ID"
 Find the current session file to determine its content:
 
 ```bash
-npx tsx ~/.claude/context-curator/scripts/find-current-session.ts
+node ~/.claude/context-curator/dist/scripts/find-current-session.js
 ```
 
 This will output the session path and stats.
@@ -62,7 +62,7 @@ This will output the session path and stats.
 Run the secret scanner:
 
 ```bash
-npx tsx ~/.claude/context-curator/scripts/scan-secrets.ts "$SESSION_PATH"
+node ~/.claude/context-curator/dist/scripts/scan-secrets.js "$SESSION_PATH"
 ```
 
 If secrets are found, display them to the user:
@@ -102,7 +102,7 @@ Choice (1/2):
 Save to personal storage:
 
 ```bash
-npx tsx ~/.claude/context-curator/scripts/save-context.ts "$TASK_ID" "$NAME" --personal
+node ~/.claude/context-curator/dist/scripts/save-context.js "$TASK_ID" "$NAME" --personal
 ```
 
 Display:
@@ -136,7 +136,7 @@ Proceed anyway? (yes/no):
 If confirmed, save to golden storage:
 
 ```bash
-npx tsx ~/.claude/context-curator/scripts/save-context.ts "$TASK_ID" "$NAME" --golden
+node ~/.claude/context-curator/dist/scripts/save-context.js "$TASK_ID" "$NAME" --golden
 ```
 
 Display:
@@ -160,51 +160,3 @@ Next steps:
 - **Forked context** - this command runs in a forked context with full session access
 - **Secret scanning** - always scan before allowing golden saves
 - **Git workflow** - golden contexts require manual git add/commit/push
-
-## Example Interactions
-
-### Saving as personal (default):
-
-```
-User: /context-save my-progress
-
-Claude: Scanning for secrets... ✓ None found
-
-Current task: oauth-refactor
-Session: 47 messages, ~12k tokens
-
-Save this context as:
-1. Personal (only you can access)
-2. Golden (shared with team via git) ⭐
-
-User: 1
-
-Claude: ✓ Saved as personal context
-✓ Name: my-progress
-✓ Task: oauth-refactor
-✓ Messages: 47, ~12k tokens
-```
-
-### Saving as golden with secrets warning:
-
-```
-User: /context-save stripe-integration
-
-Claude: ⚠️ Potential secrets detected:
-Line 234: Stripe API Key (sk_test_4eC39...)
-
-Save this context as:
-1. Personal (only you can access)
-2. Golden (shared with team via git) ⭐
-
-User: 2
-
-Claude: ⚠️ GOLDEN CONTEXT WARNING
-
-This context contains potential secrets that will be visible to your team.
-Proceed anyway? (yes/no)
-
-User: no
-
-Claude: ✓ Cancelled. Consider removing secrets and trying again.
-```

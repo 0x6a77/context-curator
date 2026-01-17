@@ -12,35 +12,34 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # 1. Create directory structure
 echo "📦 Creating installation directories..."
-mkdir -p "$INSTALL_DIR/scripts"
-mkdir -p "$INSTALL_DIR/src"
+mkdir -p "$INSTALL_DIR"
 mkdir -p "$HOME/.claude/commands/task"
 mkdir -p "$HOME/.claude/projects"
 
-# 2. Copy necessary files
-echo "📋 Copying scripts and source files..."
+# 2. Build TypeScript (compile once for fast execution)
+echo "🔨 Building TypeScript..."
+cd "$SCRIPT_DIR"
 
-# Copy scripts
-cp -r "$SCRIPT_DIR"/scripts/*.ts "$INSTALL_DIR/scripts/"
-echo "   ✓ Copied scripts"
-
-# Copy source files
-cp -r "$SCRIPT_DIR"/src/*.ts "$INSTALL_DIR/src/"
-echo "   ✓ Copied source files"
-
-# Copy package files
-cp "$SCRIPT_DIR/package.json" "$INSTALL_DIR/"
-cp "$SCRIPT_DIR/tsconfig.json" "$INSTALL_DIR/"
-echo "   ✓ Copied package.json and tsconfig.json"
-
-# 3. Install npm dependencies
-echo "📦 Installing dependencies..."
-cd "$INSTALL_DIR"
+# Install dev dependencies for build
 npm install --silent
+
+# Compile TypeScript to JavaScript
+npm run build --silent
+
+echo "   ✓ Compiled to JavaScript"
+
+# 3. Copy compiled files
+echo "📋 Installing compiled files..."
+
+# Copy the dist directory (compiled JS)
+cp -r "$SCRIPT_DIR/dist" "$INSTALL_DIR/"
+echo "   ✓ Installed compiled scripts"
+
+# Copy package.json (for module resolution)
+cp "$SCRIPT_DIR/package.json" "$INSTALL_DIR/"
 
 # 4. Install slash commands
 echo "📋 Installing slash commands..."
-cd "$SCRIPT_DIR"
 for cmd in commands/task/*.md; do
   if [ -f "$cmd" ]; then
     cmd_name=$(basename "$cmd")
@@ -57,10 +56,11 @@ echo
 echo "✅ Context Curator v13.0 installed"
 echo
 echo "Installation locations:"
-echo "  • Scripts:  ~/.claude/context-curator/scripts/"
-echo "  • Source:   ~/.claude/context-curator/src/"
+echo "  • Scripts:  ~/.claude/context-curator/dist/"
 echo "  • Commands: ~/.claude/commands/task/"
 echo "  • Storage:  ~/.claude/projects/<project-id>/"
+echo
+echo "⚡ Performance: Scripts are pre-compiled for fast execution"
 echo
 echo "╔════════════════════════════════════════╗"
 echo "║  Quick Start                           ║"
@@ -81,16 +81,6 @@ echo "   /task oauth-refactor"
 echo "   > Select: my-progress"
 echo "   /resume <session-id>"
 echo
-echo "╔════════════════════════════════════════╗"
-echo "║  v13.0 Features                        ║"
-echo "╚════════════════════════════════════════╝"
-echo
-echo "• Two-file CLAUDE.md system (no git conflicts)"
-echo "• Personal contexts (private, default)"
-echo "• Golden contexts (shared with team via git)"
-echo "• Secret detection before sharing"
-echo "• AI-generated context summaries"
-echo
 echo "Available commands:"
 echo "  /task <task-id>           - Switch to task (creates if new)"
 echo "  /context-save <name>      - Save current session"
@@ -98,4 +88,3 @@ echo "  /context-list [task]      - List contexts with summaries"
 echo "  /context-manage           - Interactive context management"
 echo "  /context-promote <name>   - Share context with team (golden)"
 echo
-echo "The warm-up problem is solved! 🎉"

@@ -18,7 +18,7 @@ If `task-id` is provided, use it. Otherwise, get the current task:
 
 ```bash
 if [ -z "$1" ]; then
-  TASK_ID=$(npx tsx ~/.claude/context-curator/scripts/get-current-task.ts)
+  TASK_ID=$(node ~/.claude/context-curator/dist/scripts/get-current-task.js)
 else
   TASK_ID="$1"
 fi
@@ -30,7 +30,7 @@ echo "Task: $TASK_ID"
 Run the context listing script:
 
 ```bash
-npx tsx ~/.claude/context-curator/scripts/context-list.ts "$TASK_ID"
+node ~/.claude/context-curator/dist/scripts/context-list.js "$TASK_ID"
 ```
 
 This outputs JSON with all contexts (personal and golden).
@@ -76,13 +76,6 @@ including concurrent request handling and Redis cache failures.
 custom token format (v2.{sessionId}.{hmac}), three-tier session storage
 (Redis/PostgreSQL/cookies), and rate limiting bypass issue in middleware.
 
-### warmed-up ⭐
-**32 messages** • 2 weeks ago • by: bob
-
-**Summary:** Deep dive into session state management across distributed
-systems, covering Redis cluster failover scenarios and PostgreSQL backup
-synchronization patterns.
-
 ---
 
 **Load a context:** `/task <task-id>` then select from menu
@@ -94,60 +87,3 @@ synchronization patterns.
 - **Golden contexts** are marked with ⭐
 - **Summaries are AI-generated** based on message content
 - Show author for golden contexts (from git history if available)
-
-## Example Interactions
-
-### Listing current task's contexts:
-
-```
-User: /context-list
-
-Claude: # Contexts: oauth-refactor
-
-## Personal contexts
-
-### my-progress
-**15 messages** • 2 days ago
-
-**Summary:** Initial exploration of the OAuth flow in src/auth/,
-identified the three-tier session storage pattern and documented
-key entry points.
-
-## Golden contexts (team shared)
-
-### oauth-deep-dive ⭐
-**47 messages** • 5 days ago
-
-**Summary:** Comprehensive walkthrough of legacy OAuth with Alice,
-covering token format, session management quirks, and the rate
-limiting issue that was fixed last sprint.
-
----
-
-Load a context: `/task oauth-refactor` then select from menu
-```
-
-### Listing specific task's contexts:
-
-```
-User: /context-list payment-integration
-
-Claude: # Contexts: payment-integration
-
-## Personal contexts
-
-(No personal contexts)
-
-## Golden contexts (team shared)
-
-### stripe-complete ⭐
-**62 messages** • 1 week ago
-
-**Summary:** Full Stripe integration walkthrough including webhook
-handling, idempotency keys, and the retry logic for failed charges.
-Includes the fix for duplicate charge prevention.
-
----
-
-Load a context: `/task payment-integration` then select
-```

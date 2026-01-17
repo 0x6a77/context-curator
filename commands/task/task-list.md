@@ -12,7 +12,7 @@ List all tasks in the current project, or show details for a specific task.
 ## Without task-id: List All Tasks
 
 ```bash
-npx tsx ~/.claude/context-curator/scripts/task-list.ts
+node ~/.claude/context-curator/dist/scripts/task-list.js
 ```
 
 Display format:
@@ -46,7 +46,7 @@ Switch: /task <task-id>
 ## With task-id: Show Task Details
 
 ```bash
-npx tsx ~/.claude/context-curator/scripts/task-list.ts <task-id>
+node ~/.claude/context-curator/dist/scripts/task-list.js <task-id>
 ```
 
 Display format:
@@ -73,27 +73,4 @@ Golden (in project, shared) ⭐
 
 Switch to this task: /task oauth-refactor
 Load with context: /task oauth-refactor oauth-deep-dive
-```
-
-## Example
-
-```
-User: /task-list
-
-Claude: # Available Tasks
-
-oauth-refactor (current) ⭐
-• Golden task
-• Contexts: 3
-• Last used: just now
-
-payment-integration
-• Personal task
-• Contexts: 1
-• Last used: 3 days ago
-
----
-
-Total: 2 tasks
-Switch: /task <task-id>
 ```
