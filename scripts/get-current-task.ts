@@ -1,26 +1,14 @@
 #!/usr/bin/env tsx
 
-import fs from 'fs/promises';
-import path from 'path';
+/**
+ * get-current-task.ts - Get the current task from .claude/CLAUDE.md @import line
+ * 
+ * v13.0: Supports both golden and personal task imports
+ * - Golden: @import .claude/tasks/<task-id>/CLAUDE.md
+ * - Personal: @import ~/.claude/projects/<project-id>/tasks/<task-id>/CLAUDE.md
+ */
 
-async function getCurrentTask(): Promise<string> {
-  const claudeMdPath = path.join(process.cwd(), '.claude/CLAUDE.md');
-
-  try {
-    const content = await fs.readFile(claudeMdPath, 'utf-8');
-    // Match: @import ~/.claude/projects/<project-id>/tasks/<task-id>/CLAUDE.md
-    const match = content.match(/@import ~\/\.claude\/projects\/[^\/]+\/tasks\/([^\/\s]+)\/CLAUDE\.md/);
-
-    if (match) {
-      return match[1];
-    }
-  } catch {
-    // Fall through
-  }
-
-  // Default to 'default' task if no @-import found
-  return 'default';
-}
+import { getCurrentTask } from '../src/utils.js';
 
 getCurrentTask()
   .then(task => console.log(task))

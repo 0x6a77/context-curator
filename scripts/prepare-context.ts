@@ -1,8 +1,27 @@
 #!/usr/bin/env tsx
 
+/**
+ * prepare-context.ts - Prepare a session with an optional context
+ * 
+ * v13.0: Supports both golden and personal contexts
+ * - Golden contexts: ./.claude/tasks/<task-id>/contexts/
+ * - Personal contexts: ~/.claude/projects/<project-id>/tasks/<task-id>/contexts/
+ */
+
 import fs from 'fs/promises';
 import path from 'path';
 import { randomUUID } from 'crypto';
+import {
+  getProjectId,
+  getPersonalProjectDir,
+  getGoldenTasksDir,
+  getPersonalTasksDir,
+  getTaskInfo,
+  listContexts,
+  getSessionStats,
+  ensureDir,
+  fileExists
+} from '../src/utils.js';
 
 async function prepareContext(taskId: string, contextName?: string) {
   // Verify HOME is set first
@@ -12,14 +31,14 @@ async function prepareContext(taskId: string, contextName?: string) {
   }
 
   const cwd = process.cwd();
-  const projectId = cwd.replace(/\//g, '-');
-  const taskDir = path.join(process.env.HOME, '.claude/projects', projectId, 'tasks', taskId);
-
+  const projectId = getProjectId(cwd);
+  
   // Verify task exists
-  try {
-    await fs.access(path.join(taskDir, 'CLAUDE.md'));
-  } catch {
+  const taskInfo = await getTaskInfo(taskId, cwd);
+  if (!taskInfo) {
     console.error(`❌ Task '${taskId}' not found`);
+    console.error('');
+    console.error('Create it with: /task ' + taskId);
     process.exit(1);
   }
 
@@ -28,66 +47,82 @@ async function prepareContext(taskId: string, contextName?: string) {
 
   // Create session file in Claude Code's session directory
   const sessionDir = path.join(process.env.HOME, '.claude/projects', projectId);
-  await fs.mkdir(sessionDir, { recursive: true });
+  await ensureDir(sessionDir);
 
   const sessionFile = path.join(sessionDir, `${sessionId}.jsonl`);
 
   if (contextName) {
-    // Copy context messages to new session
-    const contextPath = path.join(taskDir, 'contexts', `${contextName}.jsonl`);
+    // Find context (check golden first, then personal)
+    const goldenContextPath = path.join(
+      getGoldenTasksDir(cwd), taskId, 'contexts', `${contextName}.jsonl`
+    );
+    const personalContextPath = path.join(
+      getPersonalTasksDir(cwd), taskId, 'contexts', `${contextName}.jsonl`
+    );
+    
+    let contextPath: string | null = null;
+    let contextLocation: 'golden' | 'personal' = 'personal';
+    
+    if (await fileExists(goldenContextPath)) {
+      contextPath = goldenContextPath;
+      contextLocation = 'golden';
+    } else if (await fileExists(personalContextPath)) {
+      contextPath = personalContextPath;
+      contextLocation = 'personal';
+    }
 
-    try {
-      await fs.access(contextPath);
+    if (contextPath) {
       await fs.copyFile(contextPath, sessionFile);
       const stats = await getSessionStats(sessionFile);
-      console.log(`✓ Loaded context: ${contextName} (${stats.messages} messages)`);
-    } catch (error) {
+      console.log(`✓ Loaded context: ${contextName}`);
+      console.log(`  ${stats.messages} messages, ~${Math.round(stats.tokens / 1000)}k tokens`);
+      console.log(`  Location: ${contextLocation}${contextLocation === 'golden' ? ' ⭐' : ''}`);
+    } else {
       console.error(`❌ Context '${contextName}' not found in task '${taskId}'`);
+      console.error('');
 
       // List available contexts
-      const contextsDir = path.join(taskDir, 'contexts');
-      try {
-        const contexts = await fs.readdir(contextsDir);
-        const jsonlContexts = contexts
-          .filter(f => f.endsWith('.jsonl'))
-          .map(f => f.replace('.jsonl', ''));
-
-        if (jsonlContexts.length > 0) {
-          console.error('\nAvailable contexts:');
-          jsonlContexts.forEach(c => console.error(`   - ${c}`));
-        } else {
-          console.error('   (No contexts saved yet)');
+      const contexts = await listContexts(taskId, cwd);
+      
+      if (contexts.length > 0) {
+        console.error('Available contexts:');
+        
+        const golden = contexts.filter(c => c.location === 'golden');
+        const personal = contexts.filter(c => c.location === 'personal');
+        
+        if (golden.length > 0) {
+          console.error('  Golden (shared):');
+          golden.forEach(c => console.error(`    - ${c.name} ⭐`));
         }
-      } catch {
-        console.error('   (No contexts saved yet)');
+        
+        if (personal.length > 0) {
+          console.error('  Personal:');
+          personal.forEach(c => console.error(`    - ${c.name}`));
+        }
+      } else {
+        console.error('No contexts saved yet for this task.');
       }
 
       process.exit(1);
     }
   } else {
-    // Create empty session
+    // Create empty session for fresh start
     await fs.writeFile(sessionFile, '');
     console.log(`✓ Created fresh session`);
-  }
-
-  // Verify the file was actually created
-  try {
-    await fs.access(sessionFile);
-    console.log(`✓ Session file created: ${sessionFile}`);
-  } catch (error) {
-    console.error(`❌ Failed to create session file: ${sessionFile}`);
-    console.error(`   Error: ${error}`);
-    process.exit(1);
   }
 
   // Record session→task mapping
   await recordSessionTask(sessionId, taskId, contextName);
 
-  // Show resume command
-  console.log(`\nResume with: /resume ${sessionId}`);
-
-  // Output session ID as the last line (for capture)
+  // Output session ID and resume command
+  console.log('');
+  console.log(`Session: ${sessionId}`);
+  console.log(`Resume:  /resume ${sessionId}`);
+  
+  // Output just the session ID on the last line for capture
+  console.log('');
   console.log(sessionId);
+  
   return sessionId;
 }
 
@@ -97,14 +132,10 @@ async function recordSessionTask(
   contextName?: string
 ) {
   const cwd = process.cwd();
-  const projectId = cwd.replace(/\//g, '-');
-  const mapPath = path.join(
-    process.env.HOME!,
-    '.claude/projects',
-    projectId,
-    'tasks',
-    'session-task-map.json'
-  );
+  const projectId = getProjectId(cwd);
+  const personalDir = getPersonalProjectDir(cwd);
+  
+  const mapPath = path.join(personalDir, 'session-task-map.json');
 
   let map: Record<string, any> = {};
 
@@ -121,32 +152,13 @@ async function recordSessionTask(
     created_at: new Date().toISOString()
   };
 
+  await ensureDir(path.dirname(mapPath));
   await fs.writeFile(mapPath, JSON.stringify(map, null, 2));
 }
 
-async function getSessionStats(sessionPath: string) {
-  const content = await fs.readFile(sessionPath, 'utf-8');
-  const lines = content.split('\n').filter(l => l.trim());
-
-  const totalChars = lines.reduce((sum, line) => {
-    try {
-      const msg = JSON.parse(line);
-      const contentStr = typeof msg.content === 'string'
-        ? msg.content
-        : JSON.stringify(msg.content);
-      return sum + contentStr.length;
-    } catch {
-      return sum;
-    }
-  }, 0);
-
-  return {
-    messages: lines.length,
-    tokens: Math.ceil(totalChars / 4)
-  };
-}
-
+// Main
 const [taskId, contextName] = process.argv.slice(2);
+
 if (!taskId) {
   console.error('Usage: prepare-context <task-id> [context-name]');
   process.exit(1);

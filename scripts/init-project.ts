@@ -1,10 +1,20 @@
 #!/usr/bin/env tsx
 
+/**
+ * init-project.ts - Initialize context-curator in a project
+ * 
+ * v13.0: Two-file CLAUDE.md system
+ * - Root ./CLAUDE.md: Never modified, committed to git
+ * - ./.claude/CLAUDE.md: Auto-generated, git-ignored, contains @import
+ * - ./.claude/tasks/: Golden contexts (committed)
+ * - ~/.claude/projects/: Personal contexts (never committed)
+ */
+
 import fs from 'fs/promises';
 import path from 'path';
 
 async function initProject() {
-  console.log('Initializing context-curator...\n');
+  console.log('Initializing context-curator v13...\n');
   
   const cwd = process.cwd();
   const projectPath = cwd;
@@ -15,36 +25,86 @@ async function initProject() {
   console.log(`Project: ${projectPath}`);
   console.log(`Project ID: ${projectId}\n`);
   
-  // 2. Create project directory structure in ~/.claude/projects/
-  const projectDir = path.join(process.env.HOME!, '.claude/projects', projectId);
-  const tasksDir = path.join(projectDir, 'tasks');
+  // 2. Check if already initialized
+  const claudeDir = path.join(cwd, '.claude');
+  const tasksDir = path.join(claudeDir, 'tasks');
   const defaultTaskDir = path.join(tasksDir, 'default');
   
-  await fs.mkdir(defaultTaskDir, { recursive: true });
-  await fs.mkdir(path.join(defaultTaskDir, 'contexts'), { recursive: true });
-  console.log(`✓ Created project directory: ${projectDir}`);
-  
-  // 3. Backup existing CLAUDE.md to default task
-  const currentClaudeMd = path.join(cwd, '.claude/CLAUDE.md');
-  
   try {
-    const content = await fs.readFile(currentClaudeMd, 'utf-8');
-    await fs.writeFile(
-      path.join(defaultTaskDir, 'CLAUDE.md'),
-      content
-    );
-    console.log('✓ Backed up current CLAUDE.md to default task');
+    await fs.access(path.join(defaultTaskDir, 'CLAUDE.md'));
+    console.log('⚠️  Project already initialized.');
+    console.log(`   Task directory: ${tasksDir}`);
+    console.log('\nTo reinitialize, delete .claude/tasks/default/ first.');
+    return;
   } catch {
-    await fs.writeFile(
-      path.join(defaultTaskDir, 'CLAUDE.md'),
-      '# Default Task\n\nGeneral development work.\n'
-    );
-    console.log('✓ Created default task CLAUDE.md');
+    // Not initialized, continue
   }
   
-  // 4. Create new CLAUDE.md with @-import
+  // 3. Create .claude directory structure (for golden contexts)
+  await fs.mkdir(defaultTaskDir, { recursive: true });
+  await fs.mkdir(path.join(defaultTaskDir, 'contexts'), { recursive: true });
+  console.log(`✓ Created .claude/tasks/default/`);
+  
+  // 4. Create .gitignore in .claude/ directory
+  // Git-ignore the auto-generated CLAUDE.md but NOT the tasks directory
+  const gitignoreContent = `# Auto-generated file (each developer has their own)
+CLAUDE.md
+
+# Personal data files
+*.local.json
+`;
+  await fs.writeFile(path.join(claudeDir, '.gitignore'), gitignoreContent);
+  console.log('✓ Created .claude/.gitignore');
+  
+  // 5. Read existing root CLAUDE.md (if any) for backup
+  const rootClaudeMd = path.join(cwd, 'CLAUDE.md');
+  let existingContent = '';
+  
+  try {
+    existingContent = await fs.readFile(rootClaudeMd, 'utf-8');
+    console.log('✓ Found existing root CLAUDE.md (will not modify)');
+  } catch {
+    console.log('ℹ  No root CLAUDE.md found (that\'s okay)');
+  }
+  
+  // 6. Create default task CLAUDE.md (copy of root or minimal default)
+  const defaultClaudeMd = existingContent || `# Default Task
+
+General development work for this project.
+
+## Guidelines
+- Follow existing code patterns
+- Write tests for new functionality
+- Keep commits focused and well-documented
+`;
+  
+  await fs.writeFile(
+    path.join(defaultTaskDir, 'CLAUDE.md'),
+    defaultClaudeMd
+  );
+  console.log('✓ Created default task CLAUDE.md');
+  
+  // 7. Create personal storage directory
+  const personalProjectDir = path.join(process.env.HOME!, '.claude/projects', projectId);
+  const personalTasksDir = path.join(personalProjectDir, 'tasks', 'default', 'contexts');
+  const stashDir = path.join(personalProjectDir, '.stash');
+  
+  await fs.mkdir(personalTasksDir, { recursive: true });
+  await fs.mkdir(stashDir, { recursive: true });
+  console.log(`✓ Created personal storage: ~/.claude/projects/${projectId}/`);
+  
+  // 8. Backup root CLAUDE.md to stash (if exists)
+  if (existingContent) {
+    await fs.writeFile(
+      path.join(stashDir, 'original-CLAUDE.md'),
+      existingContent
+    );
+    console.log('✓ Backed up root CLAUDE.md to personal stash');
+  }
+  
+  // 9. Create the auto-generated .claude/CLAUDE.md with @import
   const projectName = path.basename(cwd);
-  const newClaudeMd = `# Project: ${projectName}
+  const generatedClaudeMd = `# Project: ${projectName}
 
 ## Universal Instructions
 
@@ -55,39 +115,40 @@ Add your project-wide guidelines here:
 
 ## Task-Specific Context
 
-@import ~/.claude/projects/${projectId}/tasks/default/CLAUDE.md
+@import .claude/tasks/default/CLAUDE.md
 
 <!-- This line is managed by context-curator. Do not edit manually. -->
 `;
   
-  await fs.writeFile(currentClaudeMd, newClaudeMd);
-  console.log('✓ Added @-import line to .claude/CLAUDE.md');
+  await fs.writeFile(path.join(claudeDir, 'CLAUDE.md'), generatedClaudeMd);
+  console.log('✓ Created .claude/CLAUDE.md with @import');
   
-  // 5. Create default-default context (empty)
-  const defaultContext = path.join(defaultTaskDir, 'contexts/default-default.jsonl');
-  await fs.writeFile(defaultContext, '');
-  console.log('✓ Created default-default context');
-  
-  // 6. Create session-task-map.json
+  // 10. Create config file in personal storage
   await fs.writeFile(
-    path.join(projectDir, 'session-task-map.json'),
-    '{}\n'
+    path.join(personalProjectDir, 'config.json'),
+    JSON.stringify({
+      projectPath,
+      projectId,
+      version: '13.0',
+      createdAt: new Date().toISOString()
+    }, null, 2)
   );
+  console.log('✓ Created config file');
   
-  // 7. Create config.json
-  await fs.writeFile(
-    path.join(projectDir, 'config.json'),
-    JSON.stringify({ projectPath, projectId, createdAt: new Date().toISOString() }, null, 2)
-  );
-  console.log('✓ Created session tracking and config files');
-  
+  // Done!
   console.log('\n✓ Initialization complete!\n');
-  console.log('Context-curator is ready!');
+  console.log('Two-file system set up:');
+  console.log('  • ./CLAUDE.md         → Root instructions (committed, never modified)');
+  console.log('  • ./.claude/CLAUDE.md → Active context (git-ignored, auto-generated)');
+  console.log('');
+  console.log('Storage locations:');
+  console.log('  • ./.claude/tasks/    → Golden contexts (committed, shared with team)');
+  console.log(`  • ~/.claude/projects/${projectId}/ → Personal contexts`);
   console.log('');
   console.log('Next steps:');
-  console.log('1. Edit .claude/CLAUDE.md to add universal guidelines');
-  console.log('2. Create your first task: /task-create <task-id>');
-  console.log('3. Start working: /task <task-id>');
+  console.log('  /task oauth-refactor      Create a new task');
+  console.log('  /context-save my-progress Save your work');
+  console.log('  /context-list             View available contexts');
 }
 
 initProject().catch((err) => {

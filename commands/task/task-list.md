@@ -5,63 +5,95 @@ allowed-tools: Bash, Read
 
 # Task List
 
-Usage: /task-list [task-id]
+**Usage:** `/task-list [task-id]`
 
-## List All Tasks
+List all tasks in the current project, or show details for a specific task.
 
-If no task-id is provided, run:
+## Without task-id: List All Tasks
 
 ```bash
 npx tsx ~/.claude/context-curator/scripts/task-list.ts
 ```
 
-This will display:
-- All available tasks
-- Number of contexts in each
-- Last used timestamp
-- Current active task (based on @-import line)
+Display format:
 
-## Show Task Details
+```
+# Available Tasks
 
-If a task-id is provided, run:
+oauth-refactor (current) ⭐
+• Golden task (in project)
+• Contexts: 3 (1 personal, 2 golden)
+• Last used: 2 hours ago
+
+payment-integration
+• Personal task
+• Contexts: 2
+• Last used: 1 day ago
+
+default
+• Personal task
+• Contexts: 0
+• Last used: 1 week ago
+
+---
+
+Total: 3 tasks
+
+Current task: oauth-refactor
+Switch: /task <task-id>
+```
+
+## With task-id: Show Task Details
 
 ```bash
 npx tsx ~/.claude/context-curator/scripts/task-list.ts <task-id>
 ```
 
-This will show:
-- Task overview (from CLAUDE.md)
-- Number of lines in task's CLAUDE.md
-- Focus and guidelines summary
-- List of all saved contexts with statistics
-- Usage commands for the task
+Display format:
 
-You can also use the Read tool to show excerpts from the task's CLAUDE.md if the user wants more detail.
+```
+# Task: oauth-refactor
+
+## Location
+Golden (in project, shared) ⭐
+
+## CLAUDE.md Preview
+[First 15 lines of task CLAUDE.md]
+
+## Contexts
+
+### Personal
+1. my-progress (15 msgs) - 2 days ago
+2. edge-cases (8 msgs) - 5 days ago
+
+### Golden (shared)
+3. oauth-deep-dive (47 msgs) - 1 week ago ⭐
+
+---
+
+Switch to this task: /task oauth-refactor
+Load with context: /task oauth-refactor oauth-deep-dive
+```
 
 ## Example
 
+```
 User: /task-list
 
-You run the script and see:
-```
-# Available Tasks
+Claude: # Available Tasks
 
-default (current)
-• 2 contexts
-• Last used: 2 hours ago
+oauth-refactor (current) ⭐
+• Golden task
+• Contexts: 3
+• Last used: just now
 
-integration-tests
-• 3 contexts
-• Last used: 1 day ago
-
-api-refactor
-• 1 context
+payment-integration
+• Personal task
+• Contexts: 1
 • Last used: 3 days ago
 
-Total: 3 tasks, 6 saved contexts
-Current: @import .context-curator/tasks/default/CLAUDE.md
+---
+
+Total: 2 tasks
+Switch: /task <task-id>
 ```
-
-User: /task-list integration-tests
-
-You run the script and see task details, then can optionally read the CLAUDE.md to show focus areas.

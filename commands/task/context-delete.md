@@ -1,109 +1,116 @@
 ---
 description: Delete a saved context
-allowed-tools: Bash, Read
+allowed-tools: Bash, Read, Write
 ---
 
-# Context Deletion
+# Context Delete
 
-Usage: /context-delete <context-name> [task-id]
+**Usage:** `/context-delete <name> [--task <task-id>]`
 
-## Step 1: Determine Task
+Delete a saved context. Requires confirmation.
 
-If task-id is provided, use that task.
+## Step 1: Validate Input
 
-If not provided, determine active task from @-import line in .claude/CLAUDE.md:
 ```bash
-# Extract task ID from @-import line
-grep '@import' .claude/CLAUDE.md | sed 's/.*tasks\/\([^\/]*\)\/.*/\1/'
+NAME="$1"
+
+if [ -z "$NAME" ]; then
+  echo "Usage: /context-delete <name> [--task <task-id>]"
+  echo ""
+  echo "Examples:"
+  echo "  /context-delete old-progress"
+  echo "  /context-delete experiment --task payment-integration"
+  exit 1
+fi
 ```
 
-## Step 2: Validate Context Exists
+## Step 2: Determine Task
 
-Check if context file exists:
+If `--task` is provided, use that. Otherwise, get the current task:
+
 ```bash
-test -f .context-curator/tasks/<task-id>/contexts/<context-name>.jsonl && echo "exists" || echo "not-found"
+TASK_ID=$(npx tsx ~/.claude/context-curator/scripts/get-current-task.ts)
 ```
 
-If not found, inform user and show available contexts:
+## Step 3: Find Context
+
 ```bash
-npx tsx ~/.claude/context-curator/scripts/context-list.ts <task-id>
+npx tsx ~/.claude/context-curator/scripts/find-context.ts "$TASK_ID" "$NAME"
 ```
 
-## Step 3: Show Context Details
+If not found, show error and list available contexts.
 
-Use Bash to get file stats:
-```bash
-# Count messages (lines in JSONL)
-wc -l < .context-curator/tasks/<task-id>/contexts/<context-name>.jsonl
+## Step 4: Show Context Info
 
-# Get file size
-ls -lh .context-curator/tasks/<task-id>/contexts/<context-name>.jsonl
-
-# Get dates
-stat -f "Created: %SB" .context-curator/tasks/<task-id>/contexts/<context-name>.jsonl
-```
+Use the Read tool to get stats about the context:
+- Message count
+- Token count
+- Last modified date
+- Location (personal or golden)
 
 Display:
+
 ```
-⚠️  Delete context '<context-name>' from task '<task-id>'?
+About to delete:
 
-  156 messages, ~34k tokens
-  Created: 1 day ago
-  Last modified: 2 hours ago
+Context: <name>
+Task: <task-id>
+Location: <personal|golden>
+Messages: N
+Tokens: ~Xk
+Last modified: Y ago
 
-Type 'delete <context-name>' to confirm:
+This cannot be undone.
 ```
 
-## Step 4: Require Confirmation
+## Step 5: Confirm Deletion
 
-Ask user to type exact confirmation:
-"Type 'delete <context-name>' to confirm:"
+```
+Delete this context? (yes/no)
+```
 
-Wait for exact match. If user types anything else, cancel.
+If user confirms, proceed. Otherwise, cancel.
 
-## Step 5: Delete Context
-
-If confirmed:
+## Step 6: Delete
 
 ```bash
-rm .context-curator/tasks/<task-id>/contexts/<context-name>.jsonl
+npx tsx ~/.claude/context-curator/scripts/delete-context.ts "$TASK_ID" "$NAME"
 ```
 
-## Step 6: Confirm Deletion
+## Step 7: Confirm
 
-Display:
 ```
-✓ Context '<context-name>' deleted from task '<task-id>'
+✓ Deleted context: <name>
+✓ Task: <task-id>
+```
+
+If it was a golden context, remind about git:
+
+```
+Note: This was a golden context. To remove from git:
+  git rm .claude/tasks/<task-id>/contexts/<name>.jsonl
+  git commit -m "Remove <name> context"
+  git push
 ```
 
 ## Example
 
-User: /context-delete edge-cases
-
-You:
-[Determine active task is "integration-tests"]
-[Check file exists]
-[Gather stats]
 ```
-⚠️  Delete context 'edge-cases' from task 'integration-tests'?
+User: /context-delete old-experiment
 
-  156 messages, ~34k tokens
-  Created: 1 day ago
-  Last modified: 2 hours ago
+Claude: About to delete:
 
-Type 'delete edge-cases' to confirm:
+Context: old-experiment
+Task: oauth-refactor
+Location: personal
+Messages: 5
+Tokens: ~2k
+Last modified: 30 days ago
+
+This cannot be undone.
+Delete this context? (yes/no)
+
+User: yes
+
+Claude: ✓ Deleted context: old-experiment
 ```
-
-User: delete edge-cases
-
-You:
-[Execute deletion]
-```
-✓ Context 'edge-cases' deleted
-```
-
-User: /context-delete timeout-work api-refactor
-
-You:
-[Use specified task "api-refactor"]
-[Proceed with deletion workflow]

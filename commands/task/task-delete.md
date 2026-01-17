@@ -1,106 +1,133 @@
 ---
 description: Delete a task and all its contexts
-allowed-tools: Bash, Read
+allowed-tools: Bash, Read, Write
 ---
 
-# Task Deletion
+# Task Delete
 
-Usage: /task-delete <task-id>
+**Usage:** `/task-delete <task-id>`
 
-## Step 1: Validate Task
+Delete a task and all its contexts. Requires confirmation.
 
-Check if task exists:
-```bash
-test -d .context-curator/tasks/$1 && echo "exists" || echo "not-found"
-```
+**Warning:** This deletes both personal AND golden contexts for the task.
 
-If not found, inform user and show available tasks with `/task-list`.
-
-## Step 2: Show What Will Be Deleted
-
-Use Read tool and Bash to gather information:
-
-1. Read task CLAUDE.md to show line count:
-   `.context-curator/tasks/<task-id>/CLAUDE.md`
-
-2. List all contexts in the task:
-   ```bash
-   ls .context-curator/tasks/$1/contexts/*.jsonl 2>/dev/null | wc -l
-   ```
-
-Display:
-```
-⚠️  Delete task '<task-id>'?
-
-This will permanently delete:
-• Task CLAUDE.md (147 lines)
-• 3 saved contexts:
-  - initial-setup (45 msgs)
-  - edge-cases (156 msgs)
-  - timeout-work (89 msgs)
-
-This action cannot be undone!
-```
-
-## Step 3: Require Confirmation
-
-Ask user to type exact confirmation:
-"Type 'delete <task-id>' to confirm:"
-
-Wait for exact match. If user types anything else, cancel.
-
-## Step 4: Delete Task
-
-If confirmed:
+## Step 1: Validate Input
 
 ```bash
-rm -rf .context-curator/tasks/$1
+TASK_ID="$1"
+
+if [ -z "$TASK_ID" ]; then
+  echo "Usage: /task-delete <task-id>"
+  echo ""
+  echo "This deletes the task and ALL its contexts."
+  exit 1
+fi
+
+if [ "$TASK_ID" = "default" ]; then
+  echo "❌ Cannot delete the default task"
+  exit 1
+fi
 ```
 
-## Step 5: Handle Current Task
+## Step 2: Check Task Exists
 
-Check if this was the current active task by reading .claude/CLAUDE.md:
+```bash
+npx tsx ~/.claude/context-curator/scripts/task-check.ts "$TASK_ID"
+```
 
-If the @-import line points to this task, switch to default:
+If not found, show error and list available tasks.
+
+## Step 3: Get Task Details
+
+Use the task-list script to get details:
+
+```bash
+npx tsx ~/.claude/context-curator/scripts/task-list.ts "$TASK_ID"
+```
+
+Show what will be deleted:
+
+```
+About to delete task: <task-id>
+
+This will remove:
+
+Task CLAUDE.md:
+• Personal: ~/.claude/projects/.../tasks/<task-id>/CLAUDE.md
+• Golden: ./.claude/tasks/<task-id>/CLAUDE.md (if exists)
+
+Contexts (N total):
+• personal-context-1 (15 msgs)
+• personal-context-2 (8 msgs)
+• golden-context-1 (47 msgs) ⭐
+
+⚠️  THIS CANNOT BE UNDONE
+```
+
+## Step 4: Confirm Deletion
+
+```
+Type the task name to confirm deletion: 
+```
+
+User must type the exact task name (not just "yes") as a safety measure.
+
+## Step 5: Delete
+
+```bash
+npx tsx ~/.claude/context-curator/scripts/delete-task.ts "$TASK_ID"
+```
+
+## Step 6: Switch to Default
+
+If the deleted task was the current task, switch to default:
+
 ```bash
 npx tsx ~/.claude/context-curator/scripts/update-import.ts default
 ```
 
-Inform user: "✓ Switched to 'default' task"
+## Step 7: Confirm
 
-## Step 6: Confirm Deletion
-
-Display:
 ```
-✓ Task '<task-id>' deleted
-  - Task CLAUDE.md removed
-  - All 3 contexts removed
-✓ Active task: default
+✓ Deleted task: <task-id>
+✓ Removed N context(s)
+
+Current task is now: default
+```
+
+If there were golden files, remind about git:
+
+```
+Note: Golden files were deleted. To remove from git:
+  git rm -r .claude/tasks/<task-id>/
+  git commit -m "Remove <task-id> task"
+  git push
 ```
 
 ## Example
 
-User: /task-delete integration-tests
-
-You:
 ```
-⚠️  Delete task 'integration-tests'?
+User: /task-delete old-experiment
 
-This will permanently delete:
-• Task CLAUDE.md (147 lines)
-• 3 saved contexts:
-  - initial-setup (45 msgs)
-  - edge-cases (156 msgs)
-  - timeout-work (89 msgs)
+Claude: About to delete task: old-experiment
 
-Type 'delete integration-tests' to confirm:
-```
+This will remove:
 
-User: delete integration-tests
+Task CLAUDE.md:
+• Personal: ~/.claude/projects/.../tasks/old-experiment/CLAUDE.md
 
-You:
-[Execute deletion]
-```
-✓ Task 'integration-tests' deleted
-✓ Switched to 'default' task
+Contexts (2 total):
+• attempt-1 (5 msgs)
+• attempt-2 (3 msgs)
+
+⚠️ THIS CANNOT BE UNDONE
+
+Type "old-experiment" to confirm deletion:
+
+User: old-experiment
+
+Claude: ✓ Deleted task: old-experiment
+✓ Removed 2 context(s)
+
+Current task remains: oauth-refactor
 ```

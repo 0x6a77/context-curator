@@ -1,75 +1,210 @@
 ---
-description: Activate a task environment with optional context
-allowed-tools: Bash, Read, Write
-pre-tool-use: |
-  # Update task import in CLAUDE.md
-  npx tsx ~/.claude/context-curator/scripts/update-import.ts $1
+description: Switch to a task (creates if new, shows contexts if exists)
+allowed-tools: Bash, Read, Write, Edit
 ---
 
-# Task Activation
+# Task Switcher
 
-Usage: /task <task-id> [context-name]
+**Usage:** `/task <task-id>`
 
-## PreToolUse (Automatic)
+Switch to a task environment. Creates the task if it doesn't exist.
 
-The pre-tool-use hook has already updated .claude/CLAUDE.md:
-- Changed @-import line to point to this task's CLAUDE.md
+## Step 1: Validate Input
 
-## Step 1: Check for unsaved work
+The task ID must be provided and use only lowercase letters, numbers, and hyphens.
 
-Check if current session has messages by examining history.
-
-If there are unsaved messages, ask user:
-"Current session: N messages (unsaved). Save? (yes/no)"
-
-If yes:
-- Ask for context name (validate: lowercase, numbers, hyphens only)
-- Run: `npx tsx ~/.claude/context-curator/scripts/task-save.ts <context-name>`
-
-## Step 2: Clear session
-
-Execute `/clear` to reset the conversation.
-
-## Step 3: Prepare context session
-
-Run:
 ```bash
-SESSION_ID=$(npx tsx ~/.claude/context-curator/scripts/prepare-context.ts $1 $2)
+TASK_ID="$1"
+
+if [ -z "$TASK_ID" ]; then
+  echo "Usage: /task <task-id>"
+  echo ""
+  echo "Examples:"
+  echo "  /task oauth-refactor"
+  echo "  /task payment-integration"
+  echo "  /task bug-fixes"
+  exit 1
+fi
+
+if ! echo "$TASK_ID" | grep -qE '^[a-z0-9-]+$'; then
+  echo "❌ Invalid task ID"
+  echo "   Use lowercase letters, numbers, and hyphens only"
+  exit 1
+fi
 ```
 
-This:
-- Creates new session file with context messages (if context-name provided)
-- Records session→task mapping
-- Returns session ID (capture the last line of output)
+## Step 2: Check if Project is Initialized
 
-## Step 4: Display task focus and tell user to resume
+Check if `.claude/tasks/default/CLAUDE.md` exists. If not, initialize the project first:
 
-Read the task's CLAUDE.md to show key points using the Read tool:
-- File path: `.context-curator/tasks/$1/CLAUDE.md`
-- Show first 20-30 lines to give context
-
-Display:
-```
-✓ Task context: $1
-✓ Session ready: $SESSION_ID
-
-Type: /resume $SESSION_ID
-
-Your focus for this task:
-• [Extract key points from task CLAUDE.md]
+```bash
+npx tsx ~/.claude/context-curator/scripts/init-project.ts
 ```
 
-## Example
+## Step 3: Check if Task Exists
 
-User: /task integration-tests edge-cases
+Run the task-check script to see if the task exists:
 
-You:
-1. [PreToolUse updates @-import automatically]
-2. Check current session message count
-3. If messages exist, ask: "Save? (yes/no)"
-4. If user says yes, ask: "Context name?"
-5. Run task-save script if saving
-6. Execute /clear
-7. Run prepare-context script with "integration-tests" and "edge-cases"
-8. Use Read tool to view the task's CLAUDE.md
-9. Display task focus and tell user to /resume <session-id>
+```bash
+npx tsx ~/.claude/context-curator/scripts/task-check.ts "$TASK_ID"
+```
+
+This script outputs:
+- `exists:golden` - Task exists in project (golden)
+- `exists:personal` - Task exists in personal storage
+- `not-found` - Task doesn't exist
+
+## Step 4a: If Task Doesn't Exist - Create It
+
+Ask the user: **"What should this task focus on?"**
+
+Wait for their response describing the task's purpose, guidelines, and focus areas.
+
+Based on their answer, create the task's CLAUDE.md with this structure:
+
+```markdown
+# Task: <task-id>
+
+## Focus
+[User's description]
+
+## Key Areas
+[Relevant subsystems based on description]
+
+## Guidelines
+[Task-specific best practices]
+
+## Common Pitfalls
+[Document these as you discover them]
+
+## Reference Files
+[Key files for this task]
+```
+
+Create in personal storage by default:
+```bash
+npx tsx ~/.claude/context-curator/scripts/task-create.ts "$TASK_ID" "<claude-md-content>"
+```
+
+Then continue to Step 5.
+
+## Step 4b: If Task Exists - List Contexts
+
+Run the context listing script:
+
+```bash
+npx tsx ~/.claude/context-curator/scripts/context-list.ts "$TASK_ID"
+```
+
+If there are contexts, present them to the user:
+
+```
+Which context to load?
+
+Personal contexts:
+1. my-progress (15 msgs) - 2 days ago
+
+Golden contexts (team shared):
+2. oauth-deep-dive (47 msgs) - 5 days ago - by: alice ⭐
+
+Enter number, or press Enter for fresh start:
+```
+
+If user selects a context, note the context name.
+If user presses Enter or says "fresh", use no context.
+
+## Step 5: Update @import
+
+Update the @import line in `.claude/CLAUDE.md`:
+
+```bash
+npx tsx ~/.claude/context-curator/scripts/update-import.ts "$TASK_ID"
+```
+
+## Step 6: Prepare Session
+
+If a context was selected, prepare it:
+
+```bash
+SESSION_ID=$(npx tsx ~/.claude/context-curator/scripts/prepare-context.ts "$TASK_ID" "$CONTEXT_NAME")
+```
+
+If no context (fresh start), just get a new session ID:
+
+```bash
+SESSION_ID=$(npx tsx ~/.claude/context-curator/scripts/prepare-context.ts "$TASK_ID")
+```
+
+## Step 7: Display Results
+
+Read the task's CLAUDE.md to show focus:
+
+Use the **Read tool** to read the task's CLAUDE.md file and extract the Focus section.
+
+Display to the user:
+
+```
+✓ Task: <task-id>
+✓ Context: <context-name> (N msgs) [or "fresh start"]
+
+Run: /resume <session-id>
+
+Your focus:
+  [Extract Focus section from task CLAUDE.md]
+```
+
+## Important Notes
+
+- Tasks are created in **personal storage** by default
+- Use `/context-promote` to make a task golden (shared)
+- Golden tasks (in `.claude/tasks/`) take precedence over personal
+- The @import in `.claude/CLAUDE.md` is what Claude Code reads
+- User must run `/resume <session-id>` to activate the new context
+
+## Example Interactions
+
+### Creating a new task:
+
+```
+User: /task oauth-refactor
+
+Claude: Task 'oauth-refactor' doesn't exist yet.
+
+What should this task focus on? Describe the goal, key areas, and any guidelines.
+
+User: Refactoring the legacy OAuth implementation in src/auth/. Focus on the token validation flow, session management, and the three places auth state is stored.
+
+Claude: ✓ Created task: oauth-refactor
+✓ Location: personal storage
+
+Run: /resume sess-abc123
+
+Your focus:
+  Refactoring the legacy OAuth implementation in src/auth/
+```
+
+### Switching to existing task with contexts:
+
+```
+User: /task oauth-refactor
+
+Claude: Which context to load?
+
+Personal contexts:
+1. my-progress (15 msgs) - 2 days ago
+
+Golden contexts (team shared):
+2. oauth-deep-dive (47 msgs) - 5 days ago ⭐
+
+Enter number, or press Enter for fresh start:
+
+User: 2
+
+Claude: ✓ Task: oauth-refactor
+✓ Context: oauth-deep-dive (47 msgs)
+
+Run: /resume sess-xyz789
+
+Your focus:
+  Refactoring the legacy OAuth implementation in src/auth/
+```

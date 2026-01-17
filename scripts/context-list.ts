@@ -1,77 +1,60 @@
 #!/usr/bin/env tsx
 
-import fs from 'fs/promises';
-import path from 'path';
-import { getCurrentTask, taskExists } from '../src/task-manager.js';
-import { formatDate, getSessionStats } from '../src/utils.js';
+/**
+ * context-list.ts - List contexts for a task
+ * 
+ * v13.0: Lists both golden and personal contexts
+ * 
+ * Output format: JSON array of context info
+ */
 
-async function contextList(taskId?: string) {
-  const cwd = process.cwd();
-  const projectId = cwd.replace(/\//g, '-');
+import { listContexts, formatDate, getCurrentTask } from '../src/utils.js';
 
-  // Determine which task to list contexts for
-  const targetTask = taskId || await getCurrentTask();
-
-  const taskDir = path.join(process.env.HOME!, '.claude/projects', projectId, 'tasks', targetTask);
-  const contextsDir = path.join(taskDir, 'contexts');
-
-  // Check if task exists
-  try {
-    await fs.access(path.join(taskDir, 'CLAUDE.md'));
-  } catch {
-    console.error(`❌ Task '${targetTask}' not found`);
-    console.log('\nRun /task-list to see available tasks');
-    process.exit(1);
-  }
-
-  // List contexts
-  let contexts: any[] = [];
-
-  try {
-    const files = await fs.readdir(contextsDir);
-    const jsonlFiles = files.filter(f => f.endsWith('.jsonl'));
-
-    for (const file of jsonlFiles) {
-      const filePath = path.join(contextsDir, file);
-      const stats = await fs.stat(filePath);
-      const sessionStats = await getSessionStats(filePath);
-
-      contexts.push({
-        name: file.replace('.jsonl', ''),
-        messages: sessionStats.messages,
-        tokens: sessionStats.tokens,
-        created: stats.birthtime,
-        modified: stats.mtime
-      });
-    }
-  } catch (err) {
-    // No contexts directory or empty
-  }
-
-  console.log(`# Contexts: ${targetTask}\n`);
-
+async function main() {
+  const taskId = process.argv[2] || await getCurrentTask();
+  
+  console.error(`Listing contexts for task: ${taskId}`);
+  console.error('');
+  
+  const contexts = await listContexts(taskId);
+  
   if (contexts.length === 0) {
-    console.log('No contexts saved yet.\n');
-    console.log(`Save your current session: /task-save <context-name>`);
+    console.error('No contexts found for this task.');
+    console.error('');
+    console.error('Save one with: /context-save <name>');
+    console.log('[]');
     return;
   }
-
-  // Sort by modified date (most recent first)
-  contexts.sort((a, b) => b.modified.getTime() - a.modified.getTime());
-
-  contexts.forEach((ctx, i) => {
-    console.log(`${i + 1}. ${ctx.name}`);
-    console.log(`   • ${ctx.messages} messages, ${(ctx.tokens / 1000).toFixed(1)}k tokens`);
-    console.log(`   • Created: ${formatDate(ctx.created)}`);
-    console.log(`   • Last modified: ${formatDate(ctx.modified)}\n`);
-  });
-
-  console.log(`Total: ${contexts.length} context${contexts.length !== 1 ? 's' : ''}\n`);
-  console.log(`Load: /task ${targetTask} <context-name>`);
+  
+  // Separate by location
+  const golden = contexts.filter(c => c.location === 'golden');
+  const personal = contexts.filter(c => c.location === 'personal');
+  
+  // Display summary to stderr (for human reading)
+  if (personal.length > 0) {
+    console.error('Personal contexts:');
+    for (const ctx of personal) {
+      console.error(`  - ${ctx.name} (${ctx.messages} msgs) - ${formatDate(ctx.lastModified)}`);
+    }
+    console.error('');
+  }
+  
+  if (golden.length > 0) {
+    console.error('Golden contexts (shared):');
+    for (const ctx of golden) {
+      console.error(`  - ${ctx.name} ⭐ (${ctx.messages} msgs) - ${formatDate(ctx.lastModified)}`);
+    }
+    console.error('');
+  }
+  
+  console.error(`Total: ${contexts.length} context(s)`);
+  console.error('');
+  
+  // Output JSON to stdout (for machine reading)
+  console.log(JSON.stringify(contexts, null, 2));
 }
 
-const taskId = process.argv[2];
-contextList(taskId).catch((err) => {
-  console.error('Error listing contexts:', err.message);
+main().catch((err) => {
+  console.error('Error:', err.message);
   process.exit(1);
 });

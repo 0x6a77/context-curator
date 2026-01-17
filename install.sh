@@ -3,7 +3,7 @@
 set -e
 
 echo "╔════════════════════════════════════════╗"
-echo "║  Context Curator Installer            ║"
+echo "║  Context Curator v13.0 Installer       ║"
 echo "╚════════════════════════════════════════╝"
 echo
 
@@ -15,6 +15,7 @@ echo "📦 Creating installation directories..."
 mkdir -p "$INSTALL_DIR/scripts"
 mkdir -p "$INSTALL_DIR/src"
 mkdir -p "$HOME/.claude/commands/task"
+mkdir -p "$HOME/.claude/projects"
 
 # 2. Copy necessary files
 echo "📋 Copying scripts and source files..."
@@ -53,44 +54,48 @@ echo "╔═══════════════════════�
 echo "║  Installation Complete!                ║"
 echo "╚════════════════════════════════════════╝"
 echo
-echo "✅ Context Curator installed to: $INSTALL_DIR"
-echo "✅ Commands installed to: ~/.claude/commands/task/"
+echo "✅ Context Curator v13.0 installed"
 echo
-echo "Installation summary:"
-echo "  • Scripts: ~/.claude/context-curator/scripts/"
-echo "  • Source: ~/.claude/context-curator/src/"
-echo "  • Dependencies: ~/.claude/context-curator/node_modules/"
+echo "Installation locations:"
+echo "  • Scripts:  ~/.claude/context-curator/scripts/"
+echo "  • Source:   ~/.claude/context-curator/src/"
 echo "  • Commands: ~/.claude/commands/task/"
+echo "  • Storage:  ~/.claude/projects/<project-id>/"
 echo
 echo "╔════════════════════════════════════════╗"
-echo "║  IMPORTANT: Session Management         ║"
+echo "║  Quick Start                           ║"
 echo "╚════════════════════════════════════════╝"
 echo
-echo "When setting up tasks and managing contexts, always use a"
-echo "dedicated context-curator session:"
+echo "1. Go to your project:"
+echo "   cd ~/my-project"
 echo
-echo "  claude -r context-curator"
+echo "2. Start Claude and create a task:"
+echo "   claude"
+echo "   /task oauth-refactor"
 echo
-echo "This keeps your context-curator management work separate"
-echo "from your actual project work and prevents polluting your"
-echo "real sessions with task setup activities."
+echo "3. Work with Claude, then save your progress:"
+echo "   /context-save my-progress"
 echo
-echo "Quick Start:"
-echo "1. cd to your project directory"
-echo "2. Start the curator session: claude -r context-curator"
-echo "3. Create your first task: /task-create <task-id>"
-echo "   (This will initialize the @-import system on first use)"
-echo "4. Exit the curator session (Ctrl+D)"
-echo "5. Start a real work session: claude"
-echo "6. Switch to your task: /task <task-id>"
+echo "4. Later, resume where you left off:"
+echo "   /task oauth-refactor"
+echo "   > Select: my-progress"
+echo "   /resume <session-id>"
+echo
+echo "╔════════════════════════════════════════╗"
+echo "║  v13.0 Features                        ║"
+echo "╚════════════════════════════════════════╝"
+echo
+echo "• Two-file CLAUDE.md system (no git conflicts)"
+echo "• Personal contexts (private, default)"
+echo "• Golden contexts (shared with team via git)"
+echo "• Secret detection before sharing"
+echo "• AI-generated context summaries"
 echo
 echo "Available commands:"
-echo "  /task <task-id> [context]  - Switch to a task"
-echo "  /task-create <task-id>     - Create a new task"
-echo "  /task-save <context-name>  - Save current session"
-echo "  /task-list                 - List all tasks"
-echo "  /task-manage <task-id>     - Manage a task"
-echo "  /task-delete <task-id>     - Delete a task"
-echo "  /context-list              - List contexts in current task"
-echo "  /context-manage <name>     - Manage a context"
-echo "  /context-delete <name>     - Delete a context"
+echo "  /task <task-id>           - Switch to task (creates if new)"
+echo "  /context-save <name>      - Save current session"
+echo "  /context-list [task]      - List contexts with summaries"
+echo "  /context-manage           - Interactive context management"
+echo "  /context-promote <name>   - Share context with team (golden)"
+echo
+echo "The warm-up problem is solved! 🎉"

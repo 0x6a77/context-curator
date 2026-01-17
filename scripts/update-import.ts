@@ -1,5 +1,13 @@
 #!/usr/bin/env tsx
 
+/**
+ * update-import.ts - Update the @import line in .claude/CLAUDE.md
+ * 
+ * v13.0: Supports both golden (project) and personal (global) task locations
+ * - Golden: ./.claude/tasks/<task-id>/CLAUDE.md (in project, committed)
+ * - Personal: ~/.claude/projects/<project-id>/tasks/<task-id>/CLAUDE.md (global)
+ */
+
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -8,8 +16,20 @@ async function updateImport(taskId: string) {
   const projectId = cwd.replace(/\//g, '-');
   const claudeMdPath = path.join(cwd, '.claude/CLAUDE.md');
   
-  // Verify task exists in ~/.claude/projects/<project-id>/tasks/
-  const taskClaudeMd = path.join(
+  // Check if .claude/CLAUDE.md exists
+  try {
+    await fs.access(claudeMdPath);
+  } catch {
+    console.error('❌ Project not initialized');
+    console.error('   Run /task first to initialize context-curator');
+    process.exit(1);
+  }
+  
+  // Check for task in golden location (project directory) first
+  const goldenTaskPath = path.join(cwd, '.claude/tasks', taskId, 'CLAUDE.md');
+  
+  // Check for task in personal location (global storage)
+  const personalTaskPath = path.join(
     process.env.HOME!,
     '.claude/projects',
     projectId,
@@ -18,65 +38,138 @@ async function updateImport(taskId: string) {
     'CLAUDE.md'
   );
   
+  let importPath: string;
+  let taskLocation: 'golden' | 'personal';
+  
+  // Prefer golden (project) tasks, fall back to personal
   try {
-    await fs.access(taskClaudeMd);
-  } catch (error) {
-    console.error(`❌ Task '${taskId}' not found`);
-    console.error(`   Missing: ${taskClaudeMd}`);
-    
-    // List available tasks
-    const tasksDir = path.join(process.env.HOME!, '.claude/projects', projectId, 'tasks');
+    await fs.access(goldenTaskPath);
+    importPath = `.claude/tasks/${taskId}/CLAUDE.md`;
+    taskLocation = 'golden';
+  } catch {
     try {
-      const tasks = await fs.readdir(tasksDir);
-      const validTasks = [];
-      
-      for (const task of tasks) {
-        const taskPath = path.join(tasksDir, task);
-        const stats = await fs.stat(taskPath);
-        if (stats.isDirectory() && task !== 'node_modules') {
-          validTasks.push(task);
-        }
-      }
-      
-      if (validTasks.length > 0) {
-        console.error('\nAvailable tasks:');
-        validTasks.forEach(t => console.error(`   - ${t}`));
-      }
+      await fs.access(personalTaskPath);
+      importPath = `~/.claude/projects/${projectId}/tasks/${taskId}/CLAUDE.md`;
+      taskLocation = 'personal';
     } catch {
-      console.error('\nNo tasks directory found. Run /task-init first.');
+      console.error(`❌ Task '${taskId}' not found`);
+      console.error('');
+      console.error('Checked:');
+      console.error(`  Golden:   ${goldenTaskPath}`);
+      console.error(`  Personal: ${personalTaskPath}`);
+      console.error('');
+      
+      // List available tasks
+      await listAvailableTasks(cwd, projectId);
+      
+      process.exit(1);
     }
-    
-    process.exit(1);
   }
   
   // Read current CLAUDE.md
   let content = await fs.readFile(claudeMdPath, 'utf-8');
   
-  // Update @-import line to point to global storage
-  const importLine = `@import ~/.claude/projects/${projectId}/tasks/${taskId}/CLAUDE.md`;
-  const importRegex = /@import ~\/\.claude\/projects\/[^\/]+\/tasks\/[^\/\s]+\/CLAUDE\.md/;
+  // Update @import line
+  const newImportLine = `@import ${importPath}`;
+  
+  // Match various @import patterns
+  const importRegex = /@import [^\n]+CLAUDE\.md/;
   
   if (importRegex.test(content)) {
-    // Replace existing import
-    content = content.replace(importRegex, importLine);
+    content = content.replace(importRegex, newImportLine);
   } else {
     // Add import if not present (shouldn't happen after init)
     console.warn('⚠️  No @import line found, adding one...');
-    content = content.trim() + '\n\n' + importLine + '\n\n<!-- This line is managed by context-curator. Do not edit manually. -->\n';
+    const marker = '<!-- This line is managed by context-curator';
+    if (content.includes(marker)) {
+      content = content.replace(marker, `${newImportLine}\n\n${marker}`);
+    } else {
+      content = content.trim() + '\n\n## Task-Specific Context\n\n' + newImportLine + 
+        '\n\n<!-- This line is managed by context-curator. Do not edit manually. -->\n';
+    }
   }
   
   await fs.writeFile(claudeMdPath, content);
   
   console.log(`✓ Task context: ${taskId}`);
+  console.log(`  Location: ${taskLocation === 'golden' ? 'project (golden)' : 'personal'}`);
 }
 
+async function listAvailableTasks(cwd: string, projectId: string): Promise<void> {
+  const goldenTasks: string[] = [];
+  const personalTasks: string[] = [];
+  
+  // Check golden tasks
+  const goldenTasksDir = path.join(cwd, '.claude/tasks');
+  try {
+    const entries = await fs.readdir(goldenTasksDir);
+    for (const entry of entries) {
+      const taskPath = path.join(goldenTasksDir, entry, 'CLAUDE.md');
+      try {
+        await fs.access(taskPath);
+        goldenTasks.push(entry);
+      } catch {
+        // Not a valid task
+      }
+    }
+  } catch {
+    // No golden tasks directory
+  }
+  
+  // Check personal tasks
+  const personalTasksDir = path.join(process.env.HOME!, '.claude/projects', projectId, 'tasks');
+  try {
+    const entries = await fs.readdir(personalTasksDir);
+    for (const entry of entries) {
+      const taskPath = path.join(personalTasksDir, entry, 'CLAUDE.md');
+      try {
+        await fs.access(taskPath);
+        // Only add if not already in golden
+        if (!goldenTasks.includes(entry)) {
+          personalTasks.push(entry);
+        }
+      } catch {
+        // Not a valid task
+      }
+    }
+  } catch {
+    // No personal tasks directory
+  }
+  
+  if (goldenTasks.length === 0 && personalTasks.length === 0) {
+    console.error('No tasks found. Create one with /task <task-id>');
+    return;
+  }
+  
+  console.error('Available tasks:');
+  
+  if (goldenTasks.length > 0) {
+    console.error('  Golden (shared):');
+    goldenTasks.forEach(t => console.error(`    - ${t} ⭐`));
+  }
+  
+  if (personalTasks.length > 0) {
+    console.error('  Personal:');
+    personalTasks.forEach(t => console.error(`    - ${t}`));
+  }
+}
+
+// Main
 const taskId = process.argv[2];
+
 if (!taskId) {
   console.error('Usage: update-import <task-id>');
   process.exit(1);
 }
 
+// Validate task ID format
+if (!/^[a-z0-9-]+$/.test(taskId)) {
+  console.error('❌ Invalid task ID');
+  console.error('   Use lowercase letters, numbers, and hyphens only');
+  process.exit(1);
+}
+
 updateImport(taskId).catch((err) => {
-  console.error('Error updating import:', err.message);
+  console.error('Error:', err.message);
   process.exit(1);
 });
