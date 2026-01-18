@@ -567,57 +567,37 @@ Secret scan patterns:
 ```
 You: /context-list oauth-refactor
 
-# Contexts: oauth-refactor
+# Context List
 
-## Active Sessions
+**Project:** /Users/dev/my-project
+**Task:** oauth-refactor
 
-### 8e14f625-bd1a-4e79-a382-2d6c0649df97 ← current
-**23 messages** • Just now
-Working on OAuth token validation
+Sessions:
+  8e14f625... (current)  23 msgs   ~6k - just now
+  a1b2c3d4...            45 msgs  ~11k - 2 hours ago
 
-### a1b2c3d4-e5f6-7890-abcd-ef1234567890
-**45 messages** • 2 hours ago
+Personal contexts:
+  my-progress           15 msgs - yesterday [oauth-refactor]
+  edge-cases             8 msgs - 2 days ago [oauth-refactor]
 
-## Personal contexts
-
-### my-progress
-**15 messages** • 2025-01-16
-
-**Summary:** Working through OAuth token validation edge cases,
-focusing on mobile app authentication flow and session timeout handling.
-
-### edge-cases
-**8 messages** • 2025-01-15
-
-**Summary:** Explored boundary conditions in session token generation,
-including concurrent request handling and Redis cache failures.
-
-## Golden contexts (team shared)
-
-### oauth-deep-dive ⭐
-**47 messages** • 2025-01-15 • by: alice
-
-**Summary:** Complete analysis of legacy OAuth implementation including
-custom token format (v2.{sessionId}.{hmac}), three-tier session storage
-(Redis/PostgreSQL/cookies), and rate limiting bypass issue in middleware.
-Includes mobile app auth flow fixes and debugging approaches.
-
-### warmed-up ⭐
-**32 messages** • 2025-01-14 • by: bob
-
-**Summary:** Deep dive into session state management across distributed
-systems, covering Redis cluster failover scenarios and PostgreSQL backup
-synchronization patterns.
+Golden contexts:
+  oauth-deep-dive       47 msgs - 2 days ago [oauth-refactor] ⭐
+  warmed-up             32 msgs - 3 days ago [oauth-refactor] ⭐
 
 ---
-
-**Load a context:** `/task oauth-refactor` then select from menu
+Save: `/context-save <name>` | Load: `/task oauth-refactor`
 ```
+
+**Output Format:**
+- Compact single-line format for each context
+- Sorted newest first within each section
+- Task shown in brackets `[task-id]`
+- Golden contexts marked with ⭐
 
 **Active Sessions:**
 - Located in `~/.claude/projects/<project-id>/` as UUID-named `.jsonl` files
-- The most recently modified session is marked as "current"
-- Shows message count and relative time since last activity
+- The most recently modified session is marked as "(current)"
+- Shows message count, tokens, and relative time
 
 **Implementation:**
 

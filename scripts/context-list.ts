@@ -113,46 +113,52 @@ async function main() {
   // Get saved contexts
   const contexts = await listContexts(taskId, cwd);
   
-  // Display active sessions
+  // Separate saved contexts by location and sort newest first
+  const golden = contexts.filter(c => c.location === 'golden')
+    .sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
+  const personal = contexts.filter(c => c.location === 'personal')
+    .sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
+
+  // Display active sessions (compact single-line format)
   if (sessions.length > 0) {
-    console.error('Active sessions (from ~/.claude/projects/):');
+    console.error('Sessions:');
     for (const sess of sessions) {
-      const currentMarker = sess.isCurrent ? ' (current)' : '';
+      const currentMarker = sess.isCurrent ? '(current)' : '        ';
       const shortId = sess.id.slice(0, 8) + '...';
-      console.error(`  - ${shortId}${currentMarker} (${sess.messages} msgs, ~${Math.round(sess.tokens / 1000)}k tokens) - ${formatDate(sess.lastModified)}`);
+      const tokens = `~${Math.round(sess.tokens / 1000)}k`;
+      const time = formatDate(sess.lastModified);
+      console.error(`  ${shortId} ${currentMarker} ${String(sess.messages).padStart(3)} msgs ${tokens.padStart(5)} - ${time}`);
     }
     console.error('');
   }
-  
-  // Separate saved contexts by location
-  const golden = contexts.filter(c => c.location === 'golden');
-  const personal = contexts.filter(c => c.location === 'personal');
-  
-  // Display saved contexts
+
+  // Display personal contexts (compact single-line format, newest first)
   if (personal.length > 0) {
-    console.error('Saved personal contexts:');
+    console.error('Personal contexts:');
     for (const ctx of personal) {
-      console.error(`  - ${ctx.name} (${ctx.messages} msgs) - ${formatDate(ctx.lastModified)}`);
+      const name = ctx.name.padEnd(20).slice(0, 20);
+      const time = formatDate(ctx.lastModified);
+      console.error(`  ${name} ${String(ctx.messages).padStart(3)} msgs - ${time} [${taskId}]`);
     }
     console.error('');
   }
-  
+
+  // Display golden contexts (compact single-line format, newest first)
   if (golden.length > 0) {
-    console.error('Saved golden contexts (shared):');
+    console.error('Golden contexts:');
     for (const ctx of golden) {
-      console.error(`  - ${ctx.name} ⭐ (${ctx.messages} msgs) - ${formatDate(ctx.lastModified)}`);
+      const name = ctx.name.padEnd(20).slice(0, 20);
+      const time = formatDate(ctx.lastModified);
+      console.error(`  ${name} ${String(ctx.messages).padStart(3)} msgs - ${time} [${taskId}] ⭐`);
     }
     console.error('');
   }
-  
+
   if (sessions.length === 0 && contexts.length === 0) {
     console.error('No sessions or contexts found.');
-    console.error('');
     console.error('Save your current session with: /context-save <name>');
-  } else {
-    console.error(`Total: ${sessions.length} session(s), ${contexts.length} saved context(s)`);
+    console.error('');
   }
-  console.error('');
   
   // Output JSON to stdout (for machine reading)
   const output = {

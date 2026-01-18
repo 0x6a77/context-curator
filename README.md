@@ -163,23 +163,19 @@ Choice: 1
 
 ### /context-list [task-id]
 
-List contexts with AI-generated summaries.
+List contexts and sessions in compact format (newest first).
 
 ```bash
 /context-list oauth-refactor
 
-## Personal contexts
+Sessions:
+  8e14f625... (current)  23 msgs   ~6k - just now
 
-### my-progress
-**15 messages** • Today
-Summary: OAuth token validation edge cases, mobile auth flow
+Personal contexts:
+  my-progress           15 msgs - today [oauth-refactor]
 
-## Golden contexts ⭐
-
-### oauth-deep-dive
-**47 messages** • Yesterday • by: alice
-Summary: Complete OAuth analysis including token format,
-session storage, and rate limiting bypass fix
+Golden contexts:
+  oauth-deep-dive       47 msgs - yesterday [oauth-refactor] ⭐
 ```
 
 ### /context-manage

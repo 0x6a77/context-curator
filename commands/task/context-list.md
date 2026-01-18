@@ -56,56 +56,27 @@ Based on the content, generate a 1-2 sentence summary that captures:
 
 ## Step 4: Display Results
 
-Format the output clearly:
+Format the output in compact single-line format (newest first):
 
 ```markdown
 # Context List
 
 **Project:** /Users/dev/my-project
-**Project ID:** -Users-dev-my-project
-**Current task:** oauth-refactor
+**Task:** oauth-refactor
 
-## Active Sessions
+Sessions:
+  8e14f625... (current)  47 msgs  ~12k - just now
+  a3b2c1d0...            23 msgs   ~6k - 2 hours ago
 
-### 8e14f625... (current)
-**47 messages** • ~12k tokens • just now
+Personal contexts:
+  my-progress           15 msgs - 2 days ago [oauth-refactor]
+  edge-cases             8 msgs - 5 days ago [oauth-refactor]
 
-**Summary:** Currently working on OAuth token validation,
-exploring the three-tier session storage architecture.
-
-### a3b2c1d0...
-**23 messages** • ~6k tokens • 2 hours ago
-
-**Summary:** Earlier session investigating rate limiting
-bypass issue in middleware.
-
-## Saved Personal Contexts
-
-### my-progress
-**15 messages** • 2 days ago
-
-**Summary:** Working through OAuth token validation edge cases,
-focusing on mobile app authentication flow.
-
-### edge-cases
-**8 messages** • 5 days ago
-
-**Summary:** Explored boundary conditions in session token generation,
-including concurrent request handling.
-
-## Saved Golden Contexts (team shared)
-
-### oauth-deep-dive ⭐
-**47 messages** • 1 week ago • by: alice
-
-**Summary:** Complete analysis of legacy OAuth implementation including
-custom token format and rate limiting bypass fix.
+Golden contexts:
+  oauth-deep-dive       47 msgs - 1 week ago [oauth-refactor] ⭐
 
 ---
-
-**Save current session:** `/context-save <name>`
-**Load a context:** `/task oauth-refactor` then select from menu
-**Resume a session:** `/resume <session-id>`
+Save: `/context-save <name>` | Load: `/task oauth-refactor`
 ```
 
 ## Important Notes
@@ -139,36 +110,20 @@ User: /context-list
 Claude: # Context List
 
 **Project:** /Users/dev/my-project
-**Current task:** oauth-refactor
+**Task:** oauth-refactor
 
-## Active Sessions
+Sessions:
+  8e14f625... (current)  47 msgs  ~12k - just now
+  a3b2c1d0...            23 msgs   ~6k - 2 hours ago
 
-### 8e14f625... (current)
-**47 messages** • ~12k tokens • just now
+Personal contexts:
+  my-progress           15 msgs - 2 days ago [oauth-refactor]
 
-**Summary:** Deep dive into OAuth token validation, discovered
-the custom v2.{sessionId}.{hmac} format and three storage tiers.
-
-## Saved Personal Contexts
-
-### my-progress
-**15 messages** • 2 days ago
-
-**Summary:** Initial exploration of auth flow, documented key
-entry points in src/auth/.
-
-## Saved Golden Contexts ⭐
-
-### oauth-deep-dive
-**62 messages** • 5 days ago
-
-**Summary:** Comprehensive walkthrough with Alice covering token
-format, session management, and rate limiting fix.
+Golden contexts:
+  oauth-deep-dive       62 msgs - 5 days ago [oauth-refactor] ⭐
 
 ---
-
-Save current session: `/context-save <name>`
-Resume a session: `/resume <session-id>`
+Save: `/context-save <name>` | Resume: `/resume <session-id>`
 ```
 
 ### Listing specific task's contexts:
@@ -179,21 +134,14 @@ User: /context-list payment-integration
 Claude: # Context List
 
 **Project:** /Users/dev/my-project
-**Current task:** payment-integration
+**Task:** payment-integration
 
-## Active Sessions
+Sessions:
+  (none)
 
-(No active sessions for this task)
-
-## Saved Golden Contexts ⭐
-
-### stripe-complete
-**62 messages** • 1 week ago
-
-**Summary:** Full Stripe integration walkthrough including webhook
-handling and the retry logic for failed charges.
+Golden contexts:
+  stripe-complete       62 msgs - 1 week ago [payment-integration] ⭐
 
 ---
-
-Load a context: `/task payment-integration` then select
+Load: `/task payment-integration` then select
 ```
