@@ -9,6 +9,6 @@ Add your project-wide guidelines here:
 
 ## Task-Specific Context
 
-@import .context-curator/tasks/default/CLAUDE.md
+@import .context-curator/tasks/vibing/CLAUDE.md
 
 <!-- This line is managed by context-curator. Do not edit manually. -->
