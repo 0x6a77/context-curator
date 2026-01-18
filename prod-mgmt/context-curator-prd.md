@@ -549,27 +549,57 @@ Secret scan patterns:
 
 ### `/context-list [task-id]`
 
-**Purpose:** List all contexts with AI-generated summaries
+**Purpose:** List active sessions and saved contexts with AI-generated summaries
 
 **Execution:** Forked context (can read files and generate summaries)
 
 **Behavior:**
 
-1. List personal contexts from `~/.claude/projects/.../`
-2. List golden contexts from `./.claude/tasks/.../contexts/`
-3. For each context:
+1. List active sessions from `~/.claude/projects/<project-id>/` (UUID-named .jsonl files)
+2. List saved personal contexts from `~/.claude/projects/<project-id>/tasks/<task-id>/contexts/`
+3. List saved golden contexts from `./.claude/tasks/<task-id>/contexts/`
+4. For each session/context:
    - Read sample of messages
    - Generate 1-2 sentence summary
-   - Show metadata (size, date, author for golden)
+   - Show metadata (size, date, current marker for sessions, author for golden)
+
+**Session Storage:**
+
+Active sessions are stored as UUID-named files:
+```
+~/.claude/projects/<project-id>/<uuid>.jsonl
+```
+
+Where `<project-id>` is the project path with `/` replaced by `-`:
+```
+/Users/dev/my-project → -Users-dev-my-project
+```
 
 **Example:**
 
 ```
 You: /context-list oauth-refactor
 
-# Contexts: oauth-refactor
+# Context List
 
-## Personal contexts
+**Project:** /Users/dev/my-project
+**Project ID:** -Users-dev-my-project
+**Current task:** oauth-refactor
+
+## Active Sessions
+
+### 8e14f625... (current)
+**47 messages** • ~12k tokens • just now
+
+**Summary:** Deep dive into OAuth token validation, discovered
+the custom v2.{sessionId}.{hmac} format and three storage tiers.
+
+### a3b2c1d0...
+**23 messages** • ~6k tokens • 2 hours ago
+
+**Summary:** Earlier session investigating rate limiting bypass issue.
+
+## Saved Personal Contexts
 
 ### my-progress
 **15 messages** • 2025-01-16
@@ -583,7 +613,7 @@ focusing on mobile app authentication flow and session timeout handling.
 **Summary:** Explored boundary conditions in session token generation,
 including concurrent request handling and Redis cache failures.
 
-## Golden contexts (team shared)
+## Saved Golden Contexts (team shared)
 
 ### oauth-deep-dive ⭐
 **47 messages** • 2025-01-15 • by: alice
@@ -591,35 +621,46 @@ including concurrent request handling and Redis cache failures.
 **Summary:** Complete analysis of legacy OAuth implementation including
 custom token format (v2.{sessionId}.{hmac}), three-tier session storage
 (Redis/PostgreSQL/cookies), and rate limiting bypass issue in middleware.
-Includes mobile app auth flow fixes and debugging approaches.
 
 ### warmed-up ⭐
 **32 messages** • 2025-01-14 • by: bob
 
 **Summary:** Deep dive into session state management across distributed
-systems, covering Redis cluster failover scenarios and PostgreSQL backup
-synchronization patterns.
+systems, covering Redis cluster failover scenarios.
 
 ---
 
+**Save current session:** `/context-save <name>`
 **Load a context:** `/task oauth-refactor` then select from menu
+**Resume a session:** `/resume <session-id>`
 ```
 
 **Implementation:**
 
 ```markdown
 ---
-description: List contexts with AI-generated summaries
+description: List active sessions and saved contexts with summaries
 context: fork
 allowed-tools: Bash, Read
 ---
 
 # Context Listing with Summaries
 
-You can read context files and generate intelligent summaries.
+You can read session and context files and generate intelligent summaries.
 
-## For each context:
+## Step 1: List Active Sessions
 
+Scan `~/.claude/projects/<project-id>/` for UUID-named .jsonl files.
+Mark the most recently modified as "(current)".
+
+## Step 2: List Saved Contexts
+
+Read personal contexts from `~/.claude/projects/<project-id>/tasks/<task-id>/contexts/`.
+Read golden contexts from `./.claude/tasks/<task-id>/contexts/`.
+
+## Step 3: Generate Summaries
+
+For each session/context:
 1. Read the .jsonl file
 2. Extract sample messages (first 10, last 10)
 3. Analyze conversation flow
