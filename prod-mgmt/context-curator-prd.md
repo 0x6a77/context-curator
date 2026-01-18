@@ -1061,6 +1061,347 @@ CLAUDE.md
 
 ---
 
+## Testing
+
+### Testing Philosophy
+
+Context Curator prioritizes **integration tests** over unit tests. Integration tests validate that features work correctly from the user's perspective, testing task appropriateness rather than code structure. This approach:
+
+- **Proves real-world functionality**: Tests confirm actual user workflows work end-to-end
+- **Reduces technical debt**: No brittle tests tied to implementation details
+- **Enables refactoring**: Code structure can change without breaking tests
+- **Finds real bugs**: Tests catch issues users would actually encounter
+
+**Test Criteria:**
+- All tests must be **deterministic** and **repeatable**
+- Slow or flaky tests indicate design problems, not test problems
+- Each test must have **clear success/failure criteria**
+- Tests should be **isolated** (no dependencies between tests)
+
+### Feature Behaviors & Test Coverage
+
+#### 1. Project Initialization (`/task-init`)
+
+**Expected Behaviors:**
+- Creates `.claude/` directory if it doesn't exist
+- Creates `.claude/.gitignore` with `CLAUDE.md` entry
+- Creates `.claude/tasks/default/CLAUDE.md` as copy of root `CLAUDE.md`
+- Backs up original `CLAUDE.md` to `~/.claude/projects/{sanitized-path}/.stash/original-CLAUDE.md`
+- Idempotent: running twice doesn't break anything
+- Works in projects with and without existing `CLAUDE.md`
+- Preserves existing `.claude/` content if directory exists
+
+**Test Scenarios:**
+1. Fresh project without `CLAUDE.md`
+2. Project with existing `CLAUDE.md`
+3. Project with existing `.claude/` directory
+4. Running `/task-init` twice in same project
+5. Multiple projects in different directories
+
+#### 2. Task Creation (`/task <new-task-id>`)
+
+**Expected Behaviors:**
+- Prompts user for task focus/description
+- Creates `.claude/tasks/{task-id}/` directory structure
+- Creates task-specific `CLAUDE.md` based on description
+- Generates `.claude/tasks/{task-id}/README.md` with task metadata
+- Modifies `.claude/CLAUDE.md` to import task's `CLAUDE.md`
+- Provides `/resume sess-{id}` instruction
+- Task ID validation (alphanumeric + hyphens only)
+- Creates both project and personal task directories
+
+**Test Scenarios:**
+1. Create new task in initialized project
+2. Invalid task ID (spaces, special chars, uppercase)
+3. Task creation with multi-line description
+4. Task creation with no description
+5. Verify `.claude/CLAUDE.md` contains correct `@import` directive
+6. Verify task `CLAUDE.md` contains user's description
+
+#### 3. Task Switching (`/task <existing-task-id>`)
+
+**Expected Behaviors:**
+- Lists available contexts (personal + golden) for task
+- Displays context metadata: name, message count, date, author (for golden)
+- Displays context summaries
+- Prompts user to select context (or default/new)
+- Modifies `.claude/CLAUDE.md` to import selected task's `CLAUDE.md`
+- If context selected: copies context to session location
+- Provides `/resume sess-{id}` instruction
+- Handles task with no contexts (offers to start fresh)
+
+**Test Scenarios:**
+1. Switch to task with personal contexts only
+2. Switch to task with golden contexts only
+3. Switch to task with both personal and golden contexts
+4. Switch to task with no contexts
+5. Switch to `default` task (return to vanilla)
+6. Switch between tasks multiple times
+7. Verify `.claude/CLAUDE.md` updates correctly on each switch
+
+#### 4. Context Saving (`/context-save <n>`)
+
+**Expected Behaviors:**
+- Saves current session to personal context by default
+- Prompts: "Save as golden (team-shared) context? (y/n)"
+- Personal: saves to `~/.claude/projects/{project}/tasks/{task}/contexts/{name}.jsonl`
+- Golden: saves to `./.claude/tasks/{task}/contexts/{name}.jsonl`
+- Generates AI summary of context content
+- Stores metadata: timestamp, message count, author
+- Validates context name (alphanumeric + hyphens + underscores)
+- Prevents overwriting without confirmation
+
+**Test Scenarios:**
+1. Save personal context with valid name
+2. Save golden context with secret detection passing
+3. Attempt to save with invalid name
+4. Attempt to overwrite existing context
+5. Save context with varying message counts (empty, small, large)
+6. Verify `.jsonl` format is valid
+7. Verify summary is generated and stored
+8. Context saved without active task (should error or prompt)
+
+#### 5. Context Listing (`/context-list [task-id]`)
+
+**Expected Behaviors:**
+- Lists contexts for current task if no task-id specified
+- Lists contexts for specified task if task-id provided
+- Shows personal contexts with "(personal)" indicator
+- Shows golden contexts with author and "⭐" indicator
+- Displays: name, message count, date, summary
+- Groups by type: personal first, then golden
+- Handles tasks with no contexts gracefully
+- Shows context file sizes
+
+**Test Scenarios:**
+1. List contexts for current task
+2. List contexts for different task
+3. List contexts when none exist
+4. List contexts with mix of personal and golden
+5. Verify summary display is truncated/formatted properly
+6. List contexts for non-existent task (should error)
+
+#### 6. Context Management (`/context-manage`)
+
+**Expected Behaviors:**
+- Scans all tasks for contexts
+- Reports total count across tasks
+- Identifies stale contexts (old, unused)
+- Identifies duplicate contexts (similar content)
+- Suggests cleanup actions
+- Interactive prompts: clean, review, cancel
+- Provides dry-run/preview before deletion
+- Respects user confirmation for destructive actions
+- Preserves golden contexts (warns before deletion)
+
+**Test Scenarios:**
+1. Manage when no contexts exist
+2. Manage with multiple stale contexts
+3. Manage with duplicate contexts
+4. Review mode: shows details before action
+5. Clean mode: confirms then deletes
+6. Cancel: exits without changes
+7. Verify no golden contexts deleted without explicit confirmation
+8. Verify personal contexts can be cleaned
+
+#### 7. Context Promotion (`/context-promote <context-name>`)
+
+**Expected Behaviors:**
+- Finds personal context by name in current task
+- Scans for secrets using multiple detection methods
+- Lists detected secrets with context
+- Offers redaction options for each secret
+- Prompts for confirmation before promotion
+- Copies from `~/.claude/projects/.../contexts/` to `./.claude/tasks/.../contexts/`
+- Preserves original personal context
+- Updates metadata to mark as golden
+- Fails if secrets detected and not handled
+
+**Test Scenarios:**
+1. Promote clean context (no secrets)
+2. Promote context with API keys
+3. Promote context with multiple secret types
+4. Redact secrets before promotion
+5. Cancel promotion when secrets detected
+6. Promote non-existent context (should error)
+7. Promote already-golden context (should error or warn)
+8. Verify promoted context file is identical (minus secrets)
+
+#### 8. Two-File CLAUDE.md System
+
+**Expected Behaviors:**
+- Root `CLAUDE.md` never modified by context-curator
+- `.claude/CLAUDE.md` auto-generated with `@import` directives
+- `.claude/CLAUDE.md` git-ignored (in `.claude/.gitignore`)
+- Each task switch updates `.claude/CLAUDE.md` import path
+- `/resume` reads `.claude/CLAUDE.md` (or `CLAUDE.md` if no `.claude/` exists)
+- Import path format: `@import ./tasks/{task-id}/CLAUDE.md`
+
+**Test Scenarios:**
+1. Verify root `CLAUDE.md` unchanged after task operations
+2. Verify `.claude/CLAUDE.md` created correctly
+3. Verify `.claude/CLAUDE.md` updates on task switch
+4. Verify git status shows `.claude/CLAUDE.md` as ignored
+5. Task switch followed by `/resume` loads correct task instructions
+6. Multiple developers on same project have different `.claude/CLAUDE.md`
+
+#### 9. Secret Detection
+
+**Expected Behaviors:**
+- Detects common secret patterns: API keys, passwords, tokens, private keys
+- Recognizes service-specific formats (AWS, Stripe, GitHub, etc.)
+- Scans entire context content (all messages)
+- Reports line numbers and context for each detection
+- Offers redaction options: mask, remove, replace
+- Validates redaction doesn't break context structure
+- Re-scans after redaction to confirm clean
+
+**Test Scenarios:**
+1. Detect AWS access keys
+2. Detect Stripe API keys
+3. Detect GitHub tokens
+4. Detect private keys (SSH, GPG)
+5. Detect generic passwords/credentials
+6. False positives (API key-like strings that aren't secrets)
+7. Multiple secrets in single message
+8. Secrets in different message types (user, assistant, tool)
+9. Verify redaction produces valid `.jsonl`
+
+#### 10. AI-Generated Summaries
+
+**Expected Behaviors:**
+- Generates summary when context is saved
+- Summary includes: key topics, accomplishments, decisions
+- Summary stored in context metadata
+- Summary length: 2-3 sentences (concise)
+- Summary uses forked context (doesn't pollute main session)
+- Summary quality sufficient for context selection
+- Handles empty contexts gracefully
+
+**Test Scenarios:**
+1. Generate summary for small context (5 messages)
+2. Generate summary for medium context (50 messages)
+3. Generate summary for large context (200+ messages)
+4. Generate summary for context with code-heavy content
+5. Generate summary for context with minimal content
+6. Verify summary stored in context metadata
+7. Verify summary displayed in `/context-list`
+
+#### 11. Git Integration
+
+**Expected Behaviors:**
+- `.claude/.gitignore` prevents `.claude/CLAUDE.md` from being committed
+- Task `CLAUDE.md` files are committed
+- Golden contexts are committed
+- Personal storage (`~/.claude/`) never committed
+- No git conflicts from context-curator operations
+- Team can pull golden contexts via `git pull`
+- Multiple developers can work on same task without conflicts
+
+**Test Scenarios:**
+1. Initialize project and verify `.gitignore` setup
+2. Create task and verify files are staged correctly
+3. Save golden context and verify it's tracked by git
+4. Multiple developers initialize same project independently
+5. Developer pulls golden context and loads it
+6. Verify `.claude/CLAUDE.md` not in `git status`
+7. Verify no merge conflicts from simultaneous task work
+
+#### 12. Cross-Platform Compatibility
+
+**Expected Behaviors:**
+- Works on macOS, Linux, Windows
+- Path sanitization handles platform differences
+- File permissions set correctly
+- Line endings handled properly (LF vs CRLF)
+- Tilde expansion works (`~/.claude/`)
+- Handles spaces in project paths
+- Handles special characters in paths
+
+**Test Scenarios:**
+1. Initialize on macOS
+2. Initialize on Linux
+3. Initialize on Windows (WSL and native)
+4. Project path with spaces
+5. Project path with special characters
+6. Verify contexts are cross-platform compatible
+7. Verify `.jsonl` files use consistent line endings
+
+#### 13. Error Handling & Edge Cases
+
+**Expected Behaviors:**
+- Graceful degradation when directories don't exist
+- Clear error messages for user mistakes
+- No data loss on errors
+- Atomic operations where possible
+- Rollback on failure
+- Validates inputs before destructive operations
+- Handles interrupted operations (Ctrl+C)
+
+**Test Scenarios:**
+1. Run `/task` without initialization
+2. Delete `.claude/` directory mid-operation
+3. Corrupt `.jsonl` context file
+4. Fill disk during context save
+5. Invalid JSON in context metadata
+6. Permission denied errors
+7. Network interruption during git operations
+8. Concurrent operations (multiple Claude sessions)
+
+### Test Validation Methods
+
+**How to Prove Tests Are Valid:**
+
+1. **File System Verification**
+   - Check files exist at expected paths
+   - Verify file contents match expected format
+   - Confirm permissions and ownership
+   - Validate directory structures
+
+2. **Git State Verification**
+   - Run `git status` and verify tracked/untracked files
+   - Verify `.gitignore` rules are working
+   - Confirm no uncommitted changes to root `CLAUDE.md`
+   - Test cross-developer scenarios with real git operations
+
+3. **JSONL Format Validation**
+   - Parse `.jsonl` files with JSON parser
+   - Verify each line is valid JSON
+   - Confirm message structure matches Claude Code format
+   - Check for required fields (role, content, timestamp)
+
+4. **Secret Detection Validation**
+   - Use known secret patterns in test data
+   - Verify detection with both true positives and false positives
+   - Confirm redaction produces clean contexts
+   - Re-scan redacted content to ensure secrets removed
+
+5. **Import Directive Validation**
+   - Parse `.claude/CLAUDE.md` for `@import` syntax
+   - Verify import paths resolve correctly
+   - Confirm imported files exist
+   - Test with Claude Code `/resume` to ensure loading works
+
+6. **Summary Quality Validation**
+   - Human review of sample summaries
+   - Verify summaries are unique (not generic)
+   - Confirm summaries reflect actual context content
+   - Check summary length constraints
+
+7. **Cross-Platform Validation**
+   - Run same tests on macOS, Linux, Windows
+   - Verify file paths work on all platforms
+   - Confirm line endings are handled correctly
+   - Test with Docker containers for consistency
+
+8. **Integration Validation**
+   - Full workflow tests: init → create task → save context → switch tasks → load context
+   - Multi-user scenarios: create golden → commit → another user pulls → loads golden
+   - Verify `/resume` actually loads task-specific instructions
+   - Confirm Claude Code recognizes updated `CLAUDE.md`
+
+---
+
 ## Future Enhancements
 
 ### Context Analytics
