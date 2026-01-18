@@ -85,6 +85,227 @@ Run: /resume sess-xyz789
 # Claude is INSTANTLY warmed up! ✨
 ```
 
+## Tutorial
+
+This step-by-step tutorial walks you through a complete workflow with Context Curator.
+
+### Scenario
+
+You're working on a complex legacy codebase. The authentication system uses a mix of OAuth 2.0, session tokens, and API keys scattered across multiple files. You need to refactor it, but first you need Claude to understand all the quirks.
+
+### Step 1: Initialize Your Project
+
+First, set up Context Curator for your project:
+
+```bash
+cd ~/my-legacy-app
+claude
+
+You: /task-init
+```
+
+This creates the two-file CLAUDE.md system. Your project now has:
+- `./CLAUDE.md` — Your canonical project docs (unchanged)
+- `./.claude/CLAUDE.md` — Auto-generated, git-ignored, swapped at task-switch time
+
+### Step 2: Create Your First Task
+
+Create a task for the auth refactor:
+
+```bash
+You: /task auth-refactor
+
+Claude: What should this task focus on?
+
+You: Refactoring the legacy authentication system. It has OAuth 2.0
+     in src/auth/oauth.js, session tokens in lib/sessions/, and
+     API keys scattered throughout. Need to consolidate into a
+     single auth service.
+
+Claude: ✓ Created task: auth-refactor
+        Task instructions saved.
+
+        To start: /resume <session-id>
+```
+
+### Step 3: Build Up Understanding
+
+Now work with Claude to understand the codebase. This is where the magic happens:
+
+```bash
+You: Let's start by mapping out all the authentication entry points.
+
+Claude: [Explores codebase, finds OAuth flow, session handling, API key validation]
+
+You: What about the refresh token logic? It seems broken.
+
+Claude: [Deep dives into token refresh, finds edge cases, explains the bug]
+
+You: Walk me through the session invalidation flow.
+
+Claude: [Traces through lib/sessions/, understands the race condition]
+```
+
+After a few hours, Claude has deep understanding of your auth system — the patterns, the bugs, the gotchas, the tribal knowledge that's nowhere in the docs.
+
+### Step 4: Save Your Hard-Won Context
+
+Before auto-compact destroys this understanding, save it:
+
+```bash
+You: /context-save auth-deep-understanding
+
+Claude: Scanning for secrets... ✓ None found
+
+        Save as:
+        1. Personal (only you)
+        2. Golden (shared via git)
+
+You: 1
+
+Claude: ✓ Saved as 'auth-deep-understanding'
+        47 messages, ~12k tokens
+```
+
+### Step 5: Handle Interruptions Gracefully
+
+An urgent bug comes in. You need to context-switch:
+
+```bash
+You: /context-save pre-interruption
+
+Claude: ✓ Saved as 'pre-interruption'
+
+You: /task urgent-bug
+
+Claude: What should this task focus on?
+
+You: Payment webhook failing in production
+
+Claude: ✓ Created task: urgent-bug
+```
+
+Fix the bug, then return exactly where you left off:
+
+```bash
+You: /task auth-refactor
+
+Claude: Which context?
+        Personal:
+          1. auth-deep-understanding (47 msgs)
+          2. pre-interruption (52 msgs)
+
+You: 2
+
+Claude: Loading context...
+        Run: /resume sess-abc123
+```
+
+After `/resume`, Claude remembers everything — the OAuth quirks, the session race condition, exactly where you stopped.
+
+### Step 6: Share Valuable Knowledge
+
+You've figured out the complete auth flow. Share it with your team:
+
+```bash
+You: /context-promote auth-deep-understanding
+
+Claude: Scanning for secrets...
+        ✓ None found
+
+        ✓ Promoted to golden context
+
+        Next steps:
+        git add .claude/tasks/auth-refactor/contexts/auth-deep-understanding.jsonl
+        git commit -m "Share auth system understanding"
+        git push
+```
+
+Now when teammates run `/task auth-refactor`, they'll see your golden context:
+
+```bash
+# On Bob's machine, after git pull
+Bob: /task auth-refactor
+
+Claude: Which context?
+        Golden:
+          1. auth-deep-understanding (47 msgs) ⭐ by: alice
+
+Bob: 1
+
+# Bob now has Alice's full understanding of the auth system
+```
+
+### Step 7: List and Manage Contexts
+
+See what contexts you have:
+
+```bash
+You: /context-list auth-refactor
+
+Claude: Sessions:
+          8e14f625... (current)  23 msgs  ~6k - just now
+
+        Personal contexts:
+          pre-interruption       52 msgs - today [auth-refactor]
+
+        Golden contexts:
+          auth-deep-understanding  47 msgs - today [auth-refactor] ⭐
+```
+
+Manage contexts interactively:
+
+```bash
+You: /context-manage
+
+Claude: Available actions:
+        - rename, delete, merge
+        - promote (personal → golden)
+        - demote (golden → personal)
+        - view, diff, secrets, clean
+
+        Which action?
+```
+
+### Putting It All Together
+
+Here's the complete workflow in practice:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Day 1 Morning                                                  │
+│  /task auth-refactor                                            │
+│  ... 3 hours of exploration, Claude gets warmed up ...          │
+│  /context-save morning-progress                                 │
+├─────────────────────────────────────────────────────────────────┤
+│  Day 1 Afternoon                                                │
+│  /task auth-refactor → load: morning-progress                   │
+│  /resume sess-xxx                                               │
+│  ... continue exactly where you left off ...                    │
+│  /context-save found-the-bug                                    │
+├─────────────────────────────────────────────────────────────────┤
+│  Day 2                                                          │
+│  /task auth-refactor → load: found-the-bug                      │
+│  ... implement the fix with full context ...                    │
+│  /context-save refactor-complete                                │
+│  /context-promote refactor-complete → share with team           │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Tips for Success
+
+1. **Save early, save often** — Don't wait for auto-compact. Save whenever Claude reaches peak understanding.
+
+2. **Use descriptive names** — `auth-token-edge-cases` beats `work-tuesday`.
+
+3. **Keep tasks focused** — One subsystem per task. `auth-refactor` not `backend-stuff`.
+
+4. **Promote thoughtfully** — Only share contexts that would genuinely help teammates.
+
+5. **Resume, don't continue** — Always use `/resume` after switching tasks to reload CLAUDE.md from disk.
+
+---
+
 ## Core Concepts
 
 ### Tasks
@@ -426,7 +647,7 @@ Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-MIT
+BSD-3-Clause. See [LICENSE](LICENSE).
 
 ## Credits
 
