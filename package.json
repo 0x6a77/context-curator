@@ -6,14 +6,29 @@
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
-    "rebuild": "npm run clean && npm run build"
+    "rebuild": "npm run clean && npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:init": "vitest run tests/integration/initialization.test.ts",
+    "test:task": "vitest run tests/integration/task-operations.test.ts",
+    "test:context": "vitest run tests/integration/context-operations.test.ts",
+    "test:claudemd": "vitest run tests/integration/claude-md-system.test.ts",
+    "test:secrets": "vitest run tests/integration/secret-detection.test.ts",
+    "test:git": "vitest run tests/integration/git-integration.test.ts",
+    "test:errors": "vitest run tests/integration/error-handling.test.ts"
   },
-  "keywords": ["claude", "context", "session-manager", "task-management"],
+  "keywords": [
+    "claude",
+    "context",
+    "session-manager",
+    "task-management"
+  ],
   "author": "",
   "license": "MIT",
-  "dependencies": {},
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "typescript": "^5.7.0"
+    "@types/node": "^22.19.7",
+    "typescript": "^5.7.0",
+    "vitest": "^4.0.17"
   }
 }
