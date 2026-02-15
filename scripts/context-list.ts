@@ -13,11 +13,12 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import { 
-  listContexts, 
-  formatDate, 
-  getCurrentTask, 
+import {
+  listContexts,
+  formatDate,
+  getCurrentTask,
   getProjectId,
+  getPersonalProjectDir,
   getSessionStats,
   fileExists
 } from '../src/utils.js';
@@ -35,8 +36,7 @@ interface SessionInfo {
  * List active sessions from ~/.claude/projects/<project-id>/
  */
 async function listActiveSessions(cwd: string = process.cwd()): Promise<SessionInfo[]> {
-  const projectId = getProjectId(cwd);
-  const sessionsDir = path.join(process.env.HOME!, '.claude/projects', projectId);
+  const sessionsDir = getPersonalProjectDir(cwd);
   
   const sessions: SessionInfo[] = [];
   

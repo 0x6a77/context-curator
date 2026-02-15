@@ -57,12 +57,13 @@ describe('Secret Detection Tests (Group 9)', () => {
 
   describe('Test 9.1: Detect AWS Access Keys', () => {
     it('should detect AWS access key pattern', async () => {
-      createTestContext(AWS_KEY_CONTEXT);
+      const contextPath = createTestContext(AWS_KEY_CONTEXT);
 
       const result = await runScript(
         'scan-secrets',
-        ['secret-test', 'test-ctx'],
-        ctx.projectDir
+        [contextPath],
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
       );
 
       const output = result.stdout.toLowerCase();
@@ -76,12 +77,13 @@ describe('Secret Detection Tests (Group 9)', () => {
     });
 
     it('should identify AWS secret key pattern', async () => {
-      createTestContext(AWS_KEY_CONTEXT);
+      const contextPath = createTestContext(AWS_KEY_CONTEXT);
 
       const result = await runScript(
         'scan-secrets',
-        ['secret-test', 'test-ctx'],
-        ctx.projectDir
+        [contextPath],
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
       );
 
       // Should find both access key and secret key
@@ -96,12 +98,13 @@ describe('Secret Detection Tests (Group 9)', () => {
 
   describe('Test 9.2: Detect Stripe API Keys', () => {
     it('should detect Stripe live key pattern', async () => {
-      createTestContext(STRIPE_KEY_CONTEXT);
+      const contextPath = createTestContext(STRIPE_KEY_CONTEXT);
 
       const result = await runScript(
         'scan-secrets',
-        ['secret-test', 'test-ctx'],
-        ctx.projectDir
+        [contextPath],
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
       );
 
       const output = result.stdout.toLowerCase();
@@ -115,12 +118,13 @@ describe('Secret Detection Tests (Group 9)', () => {
     });
 
     it('should detect both test and live keys', async () => {
-      createTestContext(STRIPE_KEY_CONTEXT);
+      const contextPath = createTestContext(STRIPE_KEY_CONTEXT);
 
       const result = await runScript(
         'scan-secrets',
-        ['secret-test', 'test-ctx'],
-        ctx.projectDir
+        [contextPath],
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
       );
 
       // Should detect multiple secrets
@@ -132,12 +136,13 @@ describe('Secret Detection Tests (Group 9)', () => {
 
   describe('Test 9.3: Detect GitHub Tokens', () => {
     it('should detect GitHub personal access token', async () => {
-      createTestContext(GITHUB_TOKEN_CONTEXT);
+      const contextPath = createTestContext(GITHUB_TOKEN_CONTEXT);
 
       const result = await runScript(
         'scan-secrets',
-        ['secret-test', 'test-ctx'],
-        ctx.projectDir
+        [contextPath],
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
       );
 
       const output = result.stdout.toLowerCase();
@@ -152,12 +157,13 @@ describe('Secret Detection Tests (Group 9)', () => {
 
   describe('Test 9.4: Detect Private Keys', () => {
     it('should detect RSA private key header', async () => {
-      createTestContext(PRIVATE_KEY_CONTEXT);
+      const contextPath = createTestContext(PRIVATE_KEY_CONTEXT);
 
       const result = await runScript(
         'scan-secrets',
-        ['secret-test', 'test-ctx'],
-        ctx.projectDir
+        [contextPath],
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
       );
 
       const output = result.stdout.toLowerCase();
@@ -172,12 +178,13 @@ describe('Secret Detection Tests (Group 9)', () => {
 
   describe('Test 9.5: Detect Generic Passwords', () => {
     it('should detect password assignment patterns', async () => {
-      createTestContext(PASSWORD_CONTEXT);
+      const contextPath = createTestContext(PASSWORD_CONTEXT);
 
       const result = await runScript(
         'scan-secrets',
-        ['secret-test', 'test-ctx'],
-        ctx.projectDir
+        [contextPath],
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
       );
 
       const output = result.stdout.toLowerCase();
@@ -191,12 +198,13 @@ describe('Secret Detection Tests (Group 9)', () => {
 
   describe('Test 9.6: False Positives', () => {
     it('should handle placeholder text gracefully', async () => {
-      createTestContext(FALSE_POSITIVES_CONTEXT);
+      const contextPath = createTestContext(FALSE_POSITIVES_CONTEXT);
 
       const result = await runScript(
         'scan-secrets',
-        ['secret-test', 'test-ctx'],
-        ctx.projectDir
+        [contextPath],
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
       );
 
       // False positives may or may not be detected
@@ -205,12 +213,13 @@ describe('Secret Detection Tests (Group 9)', () => {
     });
 
     it('should not block on obvious placeholders', async () => {
-      createTestContext(FALSE_POSITIVES_CONTEXT);
+      const contextPath = createTestContext(FALSE_POSITIVES_CONTEXT);
 
       const result = await runScript(
         'scan-secrets',
-        ['secret-test', 'test-ctx'],
-        ctx.projectDir
+        [contextPath],
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
       );
 
       // Should complete and potentially mark as low-confidence
@@ -220,12 +229,13 @@ describe('Secret Detection Tests (Group 9)', () => {
 
   describe('Test 9.7: Multiple Secrets in Single Message', () => {
     it('should detect multiple secrets', async () => {
-      createTestContext(MULTIPLE_SECRETS_CONTEXT);
+      const contextPath = createTestContext(MULTIPLE_SECRETS_CONTEXT);
 
       const result = await runScript(
         'scan-secrets',
-        ['secret-test', 'test-ctx'],
-        ctx.projectDir
+        [contextPath],
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
       );
 
       const output = result.stdout.toLowerCase();
@@ -246,12 +256,13 @@ describe('Secret Detection Tests (Group 9)', () => {
         { type: 'assistant', message: { role: 'assistant', content: 'Using: sk_live_abc123' }, timestamp: '2026-01-18T10:00:05.000Z' },
         { type: 'tool_result', content: 'ghp_abcdefghijklmnopqrstuvwxyz123456', timestamp: '2026-01-18T10:00:10.000Z' },
       ];
-      createTestContext(mixedMessages);
+      const contextPath = createTestContext(mixedMessages);
 
       const result = await runScript(
         'scan-secrets',
-        ['secret-test', 'test-ctx'],
-        ctx.projectDir
+        [contextPath],
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
       );
 
       const output = result.stdout.toLowerCase();
@@ -268,11 +279,12 @@ describe('Secret Detection Tests (Group 9)', () => {
     it('should produce valid JSONL after redaction', async () => {
       const contextPath = createTestContext(STRIPE_KEY_CONTEXT);
 
-      // Run redaction
+      // Run redaction - redact-secrets expects context path
       const result = await runScript(
         'redact-secrets',
-        ['secret-test', 'test-ctx'],
-        ctx.projectDir
+        [contextPath],
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
       );
 
       // Check if redacted file is valid JSONL
@@ -283,12 +295,13 @@ describe('Secret Detection Tests (Group 9)', () => {
     });
 
     it('should remove or mask secrets in output', async () => {
-      createTestContext(STRIPE_KEY_CONTEXT);
+      const contextPath = createTestContext(STRIPE_KEY_CONTEXT);
 
       const result = await runScript(
         'redact-secrets',
-        ['secret-test', 'test-ctx'],
-        ctx.projectDir
+        [contextPath],
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
       );
 
       const redactedPath = join(ctx.personalDir, 'tasks', 'secret-test', 'contexts', 'test-ctx.redacted.jsonl');
@@ -308,12 +321,13 @@ describe('Secret Detection Tests (Group 9)', () => {
 
   describe('Test: Clean Context Detection', () => {
     it('should report clean when no secrets found', async () => {
-      createTestContext(CLEAN_CONTEXT);
+      const contextPath = createTestContext(CLEAN_CONTEXT);
 
       const result = await runScript(
         'scan-secrets',
-        ['secret-test', 'test-ctx'],
-        ctx.projectDir
+        [contextPath],
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
       );
 
       const output = result.stdout.toLowerCase();

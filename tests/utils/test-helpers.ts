@@ -20,6 +20,7 @@ const execAsync = promisify(exec);
 export interface TestContext {
   projectDir: string;
   personalDir: string;
+  personalBase: string;  // Root of personal storage (pass as CLAUDE_HOME)
   cleanup: () => void;
 }
 
@@ -53,6 +54,7 @@ export function createTestEnvironment(name: string = 'test'): TestContext {
   return {
     projectDir,
     personalDir,
+    personalBase,
     cleanup: () => {
       try {
         rmSync(projectDir, { recursive: true, force: true });

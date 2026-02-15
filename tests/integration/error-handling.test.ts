@@ -98,7 +98,7 @@ describe('Error Handling Tests (Group 13)', () => {
       writeFileSync(join(contextDir, 'corrupt.jsonl'), 'not valid json\n{"also": broken');
 
       // Try to list or load context
-      const result = await runScript('context-list', ['task-1'], ctx.projectDir);
+      const result = await runScript('context-list', ['task-1'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       // Should handle gracefully (might skip or warn)
       expect(result.exitCode).toBeDefined();
@@ -107,9 +107,11 @@ describe('Error Handling Tests (Group 13)', () => {
     it('should not crash on invalid JSON in context', async () => {
       const contextDir = join(ctx.personalDir, 'tasks', 'task-1', 'contexts');
       mkdirSync(contextDir, { recursive: true });
-      writeFileSync(join(contextDir, 'bad.jsonl'), '{"incomplete":');
+      const badPath = join(contextDir, 'bad.jsonl');
+      writeFileSync(badPath, '{"incomplete":');
 
-      const result = await runScript('scan-secrets', ['task-1', 'bad'], ctx.projectDir);
+      // scan-secrets expects a file path
+      const result = await runScript('scan-secrets', [badPath], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       // Should complete without crash
       expect(typeof result.exitCode).toBe('number');
@@ -129,7 +131,7 @@ describe('Error Handling Tests (Group 13)', () => {
       createJsonl(join(contextDir, 'ctx-1.jsonl'), SMALL_CONTEXT);
       writeFileSync(join(contextDir, 'ctx-1.meta.json'), 'not json');
 
-      const result = await runScript('context-list', ['task-1'], ctx.projectDir);
+      const result = await runScript('context-list', ['task-1'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       // Should handle gracefully, maybe skip broken metadata
       expect(typeof result.exitCode).toBe('number');
@@ -229,7 +231,7 @@ describe('Error Handling Tests (Group 13)', () => {
     it('should provide helpful error for non-existent task', async () => {
       await runScript('init-project', [], ctx.projectDir);
 
-      const result = await runScript('context-list', ['nonexistent-task'], ctx.projectDir);
+      const result = await runScript('context-list', ['nonexistent-task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const output = result.stdout.toLowerCase() + result.stderr.toLowerCase();
       expect(
@@ -242,9 +244,9 @@ describe('Error Handling Tests (Group 13)', () => {
 
     it('should provide helpful error for non-existent context', async () => {
       await runScript('init-project', [], ctx.projectDir);
-      await runScript('task-create', ['task-1', 'Task'], ctx.projectDir);
+      await runScript('task-create', ['task-1', 'Task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
-      const result = await runScript('promote-context', ['task-1', 'nonexistent'], ctx.projectDir);
+      const result = await runScript('promote-context', ['task-1', 'nonexistent'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const output = result.stdout.toLowerCase() + result.stderr.toLowerCase();
       expect(
@@ -285,16 +287,14 @@ describe('Cross-Platform Compatibility Tests (Group 12)', () => {
   describe('Test 12.6: Context File Format Consistency', () => {
     beforeEach(async () => {
       await runScript('init-project', [], ctx.projectDir);
-      await runScript('task-create', ['task-1', 'Task'], ctx.projectDir);
+      await runScript('task-create', ['task-1', 'Task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
     });
 
     it('should create JSONL with consistent line endings', async () => {
-      // Create session and save context
-      const sessionDir = join(ctx.projectDir, '.claude', 'sessions');
-      mkdirSync(sessionDir, { recursive: true });
-      createJsonl(join(sessionDir, 'current.jsonl'), SMALL_CONTEXT);
+      // Create session in personal storage (where save-context looks for it)
+      createJsonl(join(ctx.personalDir, 'current-session.jsonl'), SMALL_CONTEXT);
 
-      await runScript('save-context', ['task-1', 'test-ctx', 'personal'], ctx.projectDir);
+      await runScript('save-context', ['task-1', 'test-ctx', 'personal'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       // Check personal context directory for files
       const personalDir = join(ctx.personalDir, 'tasks', 'task-1', 'contexts');
@@ -314,7 +314,7 @@ describe('Cross-Platform Compatibility Tests (Group 12)', () => {
   describe('Test 12.7: Consistent Line Endings in Generated Files', () => {
     it('should use LF line endings in generated files', async () => {
       await runScript('init-project', [], ctx.projectDir);
-      await runScript('task-create', ['task-1', 'Task'], ctx.projectDir);
+      await runScript('task-create', ['task-1', '--golden', 'Task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const filesToCheck = [
         '.claude/.gitignore',

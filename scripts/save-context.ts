@@ -15,6 +15,7 @@ import {
   getProjectId,
   getGoldenTasksDir,
   getPersonalTasksDir,
+  getPersonalProjectDir,
   getSessionStats,
   ensureDir,
   fileExists,
@@ -24,10 +25,9 @@ import {
 
 async function saveContext(taskId: string, contextName: string, isGolden: boolean) {
   const cwd = process.cwd();
-  const projectId = getProjectId(cwd);
-  
+
   // Find the most recent session file
-  const sessionDir = path.join(process.env.HOME!, '.claude/projects', projectId);
+  const sessionDir = getPersonalProjectDir(cwd);
   
   let sessionPath: string | null = null;
   let mostRecentMtime: Date | null = null;

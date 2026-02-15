@@ -14,6 +14,13 @@ import path from 'path';
 // ============================================================================
 
 /**
+ * Get the Claude home directory (respects CLAUDE_HOME env var for testing)
+ */
+export function getClaudeHome(): string {
+  return process.env.CLAUDE_HOME || path.join(process.env.HOME!, '.claude');
+}
+
+/**
  * Compute the project directory encoding used by Claude Code
  * /Users/dev/my-project → -Users-dev-my-project
  */
@@ -26,7 +33,7 @@ export function getProjectId(cwd: string = process.cwd()): string {
  */
 export function getPersonalProjectDir(cwd: string = process.cwd()): string {
   const projectId = getProjectId(cwd);
-  return path.join(process.env.HOME!, '.claude/projects', projectId);
+  return path.join(getClaudeHome(), 'projects', projectId);
 }
 
 /**

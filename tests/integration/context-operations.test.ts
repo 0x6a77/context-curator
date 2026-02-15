@@ -25,8 +25,8 @@ import {
   createSampleMessages,
   sanitizePath,
 } from '../utils/test-helpers';
-import { SMALL_CONTEXT, createMediumContext, CLEAN_CONTEXT } from '../fixtures/sample-contexts';
-import { AWS_KEY_CONTEXT, STRIPE_KEY_CONTEXT, MULTIPLE_SECRETS_CONTEXT } from '../fixtures/sample-secrets';
+import { SMALL_CONTEXT, createMediumContext } from '../fixtures/sample-contexts';
+import { AWS_KEY_CONTEXT, STRIPE_KEY_CONTEXT, MULTIPLE_SECRETS_CONTEXT, CLEAN_CONTEXT } from '../fixtures/sample-secrets';
 
 describe('Context Saving Tests (Group 4)', () => {
   let ctx: TestContext;
@@ -44,15 +44,14 @@ describe('Context Saving Tests (Group 4)', () => {
 
   describe('Test 4.1: Save Personal Context with Valid Name', () => {
     it('should save context to personal storage', async () => {
-      // Create a mock session file to save
-      const sessionDir = join(ctx.projectDir, '.claude', 'sessions');
-      mkdirSync(sessionDir, { recursive: true });
-      createJsonl(join(sessionDir, 'current.jsonl'), SMALL_CONTEXT);
+      // Create a mock session file in personal storage (where save-context looks for it)
+      createJsonl(join(ctx.personalDir, 'current-session.jsonl'), SMALL_CONTEXT);
 
       const result = await runScript(
         'save-context',
         ['save-test', 'my-work', 'personal'],
-        ctx.projectDir
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
       );
 
       // Verify context saved
@@ -60,11 +59,14 @@ describe('Context Saving Tests (Group 4)', () => {
     });
 
     it('should create valid JSONL file', async () => {
-      const sessionDir = join(ctx.projectDir, '.claude', 'sessions');
-      mkdirSync(sessionDir, { recursive: true });
-      createJsonl(join(sessionDir, 'current.jsonl'), SMALL_CONTEXT);
+      createJsonl(join(ctx.personalDir, 'current-session.jsonl'), SMALL_CONTEXT);
 
-      await runScript('save-context', ['save-test', 'my-work', 'personal'], ctx.projectDir);
+      await runScript(
+        'save-context',
+        ['save-test', 'my-work', 'personal'],
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
+      );
 
       // Check if personal context exists and is valid JSONL
       const personalDir = join(ctx.personalDir, 'tasks', 'save-test', 'contexts');
@@ -78,11 +80,14 @@ describe('Context Saving Tests (Group 4)', () => {
     });
 
     it('should not save to project .claude/ directory for personal', async () => {
-      const sessionDir = join(ctx.projectDir, '.claude', 'sessions');
-      mkdirSync(sessionDir, { recursive: true });
-      createJsonl(join(sessionDir, 'current.jsonl'), SMALL_CONTEXT);
+      createJsonl(join(ctx.personalDir, 'current-session.jsonl'), SMALL_CONTEXT);
 
-      await runScript('save-context', ['save-test', 'my-work', 'personal'], ctx.projectDir);
+      await runScript(
+        'save-context',
+        ['save-test', 'my-work', 'personal'],
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
+      );
 
       // Verify NOT in project directory golden location
       const projectContextPath = join(ctx.projectDir, '.claude', 'tasks', 'save-test', 'contexts', 'my-work.jsonl');
@@ -92,14 +97,13 @@ describe('Context Saving Tests (Group 4)', () => {
 
   describe('Test 4.2: Save Golden Context (After Secret Scan)', () => {
     it('should save context to project directory for golden', async () => {
-      const sessionDir = join(ctx.projectDir, '.claude', 'sessions');
-      mkdirSync(sessionDir, { recursive: true });
-      createJsonl(join(sessionDir, 'current.jsonl'), CLEAN_CONTEXT);
+      createJsonl(join(ctx.personalDir, 'current-session.jsonl'), CLEAN_CONTEXT);
 
       const result = await runScript(
         'save-context',
         ['save-test', 'team-knowledge', 'golden'],
-        ctx.projectDir
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
       );
 
       // Verify saved to project .claude/ directory
@@ -108,14 +112,13 @@ describe('Context Saving Tests (Group 4)', () => {
     });
 
     it('should run secret scan before saving golden', async () => {
-      const sessionDir = join(ctx.projectDir, '.claude', 'sessions');
-      mkdirSync(sessionDir, { recursive: true });
-      createJsonl(join(sessionDir, 'current.jsonl'), CLEAN_CONTEXT);
+      createJsonl(join(ctx.personalDir, 'current-session.jsonl'), CLEAN_CONTEXT);
 
       const result = await runScript(
         'save-context',
         ['save-test', 'clean-ctx', 'golden'],
-        ctx.projectDir
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
       );
 
       // Output should mention scanning or secrets
@@ -143,14 +146,13 @@ describe('Context Saving Tests (Group 4)', () => {
 
   describe('Test 4.5: Save with Varying Message Counts', () => {
     it('should handle empty context', async () => {
-      const sessionDir = join(ctx.projectDir, '.claude', 'sessions');
-      mkdirSync(sessionDir, { recursive: true });
-      createJsonl(join(sessionDir, 'current.jsonl'), []);
+      createJsonl(join(ctx.personalDir, 'empty-session.jsonl'), []);
 
       const result = await runScript(
         'save-context',
         ['save-test', 'empty-ctx', 'personal'],
-        ctx.projectDir
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
       );
 
       // Should handle gracefully (might succeed or fail with meaningful message)
@@ -158,17 +160,15 @@ describe('Context Saving Tests (Group 4)', () => {
     });
 
     it('should handle large context', async () => {
-      const sessionDir = join(ctx.projectDir, '.claude', 'sessions');
-      mkdirSync(sessionDir, { recursive: true });
-      
       // Create large context (200+ messages)
       const largeMessages = createSampleMessages(250, 'large-context');
-      createJsonl(join(sessionDir, 'current.jsonl'), largeMessages);
+      createJsonl(join(ctx.personalDir, 'large-session.jsonl'), largeMessages);
 
       const result = await runScript(
         'save-context',
         ['save-test', 'large-ctx', 'personal'],
-        ctx.projectDir
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
       );
 
       expect(result.exitCode).toBe(0);
@@ -200,7 +200,7 @@ describe('Context Listing Tests (Group 5)', () => {
     });
 
     it('should list all contexts for task', async () => {
-      const result = await runScript('context-list', ['list-test'], ctx.projectDir);
+      const result = await runScript('context-list', ['list-test'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const output = result.stdout.toLowerCase();
       expect(
@@ -211,7 +211,7 @@ describe('Context Listing Tests (Group 5)', () => {
     });
 
     it('should show message counts', async () => {
-      const result = await runScript('context-list', ['list-test'], ctx.projectDir);
+      const result = await runScript('context-list', ['list-test'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const output = result.stdout.toLowerCase();
       expect(
@@ -224,9 +224,9 @@ describe('Context Listing Tests (Group 5)', () => {
 
   describe('Test 5.3: List When No Contexts Exist', () => {
     it('should indicate no contexts found', async () => {
-      await runScript('task-create', ['no-contexts', 'Empty task'], ctx.projectDir);
-      
-      const result = await runScript('context-list', ['no-contexts'], ctx.projectDir);
+      await runScript('task-create', ['no-contexts', 'Empty task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+
+      const result = await runScript('context-list', ['no-contexts'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const output = result.stdout.toLowerCase();
       expect(
@@ -252,7 +252,7 @@ describe('Context Listing Tests (Group 5)', () => {
     });
 
     it('should show both personal and golden sections', async () => {
-      const result = await runScript('context-list', ['list-test'], ctx.projectDir);
+      const result = await runScript('context-list', ['list-test'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const output = result.stdout.toLowerCase();
       // Should differentiate between types
@@ -266,7 +266,7 @@ describe('Context Listing Tests (Group 5)', () => {
 
   describe('Test 5.5: List Non-existent Task', () => {
     it('should error for non-existent task', async () => {
-      const result = await runScript('context-list', ['nonexistent-task'], ctx.projectDir);
+      const result = await runScript('context-list', ['nonexistent-task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const output = result.stdout.toLowerCase() + result.stderr.toLowerCase();
       expect(
@@ -294,7 +294,7 @@ describe('Context Management Tests (Group 6)', () => {
 
   describe('Test 6.1: Manage When No Contexts Exist', () => {
     it('should report zero contexts', async () => {
-      const result = await runScript('list-all-contexts', [], ctx.projectDir);
+      const result = await runScript('list-all-contexts', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const output = result.stdout.toLowerCase();
       expect(
@@ -308,8 +308,8 @@ describe('Context Management Tests (Group 6)', () => {
 
   describe('Test 6.6: Preserve Golden Contexts', () => {
     beforeEach(async () => {
-      await runScript('task-create', ['task-1', 'Test task'], ctx.projectDir);
-      
+      await runScript('task-create', ['task-1', '--golden', 'Test task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+
       // Create golden context
       const goldenDir = join(ctx.projectDir, '.claude', 'tasks', 'task-1', 'contexts');
       mkdirSync(goldenDir, { recursive: true });
@@ -317,7 +317,7 @@ describe('Context Management Tests (Group 6)', () => {
     });
 
     it('should list golden context with special indicator', async () => {
-      const result = await runScript('list-all-contexts', [], ctx.projectDir);
+      const result = await runScript('list-all-contexts', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const output = result.stdout;
       expect(
@@ -355,7 +355,8 @@ describe('Context Promotion Tests (Group 7)', () => {
       const result = await runScript(
         'promote-context',
         ['promote-test', 'clean-ctx'],
-        ctx.projectDir
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
       );
 
       // Should succeed
@@ -363,14 +364,14 @@ describe('Context Promotion Tests (Group 7)', () => {
     });
 
     it('should copy to project golden directory', async () => {
-      await runScript('promote-context', ['promote-test', 'clean-ctx'], ctx.projectDir);
+      await runScript('promote-context', ['promote-test', 'clean-ctx'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const goldenPath = join(ctx.projectDir, '.claude', 'tasks', 'promote-test', 'contexts', 'clean-ctx.jsonl');
       expect(fileExists(goldenPath)).toBe(true);
     });
 
     it('should preserve original personal context', async () => {
-      await runScript('promote-context', ['promote-test', 'clean-ctx'], ctx.projectDir);
+      await runScript('promote-context', ['promote-test', 'clean-ctx'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const personalPath = join(ctx.personalDir, 'tasks', 'promote-test', 'contexts', 'clean-ctx.jsonl');
       expect(fileExists(personalPath)).toBe(true);
@@ -388,7 +389,8 @@ describe('Context Promotion Tests (Group 7)', () => {
       const result = await runScript(
         'promote-context',
         ['promote-test', 'secret-ctx'],
-        ctx.projectDir
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
       );
 
       const output = result.stdout.toLowerCase() + result.stderr.toLowerCase();
@@ -410,10 +412,13 @@ describe('Context Promotion Tests (Group 7)', () => {
     });
 
     it('should offer redaction option', async () => {
+      // scan-secrets expects a file path
+      const contextPath = join(ctx.personalDir, 'tasks', 'promote-test', 'contexts', 'stripe-ctx.jsonl');
       const result = await runScript(
         'scan-secrets',
-        ['promote-test', 'stripe-ctx'],
-        ctx.projectDir
+        [contextPath],
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
       );
 
       const output = result.stdout.toLowerCase();
@@ -430,11 +435,12 @@ describe('Context Promotion Tests (Group 7)', () => {
       const result = await runScript(
         'promote-context',
         ['promote-test', 'nonexistent'],
-        ctx.projectDir
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
       );
 
       expect(result.exitCode).not.toBe(0);
-      
+
       const output = result.stdout.toLowerCase() + result.stderr.toLowerCase();
       expect(
         output.includes('not found') ||
@@ -456,7 +462,8 @@ describe('Context Promotion Tests (Group 7)', () => {
       const result = await runScript(
         'promote-context',
         ['promote-test', 'already-golden'],
-        ctx.projectDir
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
       );
 
       const output = result.stdout.toLowerCase() + result.stderr.toLowerCase();
