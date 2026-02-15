@@ -31,22 +31,141 @@ Context Curator lets you:
 ### Installation
 
 ```bash
-# Create directories
-mkdir -p ~/.claude/commands
+# Clone the repository
+git clone https://github.com/yourusername/context-curator.git
+cd context-curator
 
-# Download commands
-cd ~/.claude/commands
-curl -O <repo-url>/commands/task.md
-curl -O <repo-url>/commands/context-save.md
-curl -O <repo-url>/commands/context-list.md
-curl -O <repo-url>/commands/context-manage.md
-curl -O <repo-url>/commands/context-promote.md
-
-# Verify
-ls ~/.claude/commands/*.md
+# Run the installer
+./install.sh
 ```
 
+The installer compiles the TypeScript source and copies everything into place:
+- Scripts: `~/.claude/context-curator/dist/`
+- Slash commands: `~/.claude/commands/task/`
+
 ### Per-Project Setup
+
+To add Context Curator to a new git project, you need to set up three things:
+1. Claude Code project configuration (`.claude/` directory)
+2. Container-use for sandboxed development (optional but recommended)
+3. Git commit message conventions
+
+#### 1. Claude Code Configuration
+
+Create the `.claude/` directory and config files in your project root:
+
+```bash
+cd ~/my-project
+mkdir -p .claude
+```
+
+**`.claude/settings.json`** — Project-level Claude Code settings:
+
+```json
+{
+  "env": {
+    "INHERIT_FROM_SHELL": "true"
+  },
+  "sandbox": {
+    "enabled": true
+  }
+}
+```
+
+The `sandbox.enabled: true` setting turns on Claude Code's built-in sandboxing, which restricts file system writes to the project directory and a few safe locations. This prevents Claude from accidentally modifying files outside your project.
+
+**`.claude/CLAUDE.md`** — Auto-generated file for task switching (git-ignored):
+
+```markdown
+# Project: my-project
+
+## Universal Instructions
+
+Add your project-wide guidelines here:
+- Coding standards
+- Common commands
+- Shared practices
+
+## Task-Specific Context
+
+<!-- This line is managed by context-curator. Do not edit manually. -->
+```
+
+This file gets modified when you switch tasks — the `@import` line is updated to point at the active task's CLAUDE.md. Since each developer has their own active task, this file must be git-ignored.
+
+**`.claude/.gitignore`** — Prevent per-developer files from being committed:
+
+```
+CLAUDE.md
+settings.local.json
+```
+
+The `settings.local.json` file holds per-developer permission grants (auto-populated as you approve tool use). It should never be committed.
+
+#### 2. Root CLAUDE.md
+
+Your project root should have a `CLAUDE.md` with project-wide instructions. Context Curator never modifies this file. Add whatever project context helps Claude:
+
+```markdown
+# My Project
+
+## Build & Test
+- `npm test` to run tests
+- `npm run build` to compile
+
+## Code Style
+- TypeScript strict mode
+- ESM modules
+```
+
+#### 3. Container-Use Setup (Recommended)
+
+[Container-use](https://github.com/anthropics/container-use) runs Claude's file and shell operations inside containers, giving you an extra layer of isolation and reproducible environments.
+
+To enable container-use with Claude Code, add these instructions to your global `~/.claude/CLAUDE.md`:
+
+```markdown
+## container use
+
+ALWAYS use ONLY Environments for ANY and ALL file, code, or shell operations—NO EXCEPTIONS—even for simple or generic requests.
+
+DO NOT install or use the git cli with the environment_run_cmd tool. All environment tools will handle git operations for you. Changing ".git" yourself will compromise the integrity of your environment.
+
+You MUST inform the user how to view your work using `container-use log <env_id>` AND `container-use checkout <env_id>`. Failure to do this will make your work inaccessible to others.
+```
+
+With container-use enabled, Claude creates isolated environments for each piece of work. You review and merge changes with:
+
+```bash
+container-use log <env_id>     # View what Claude did
+container-use checkout <env_id> # Apply changes to your working tree
+```
+
+#### 4. Git Commit Message Instructions
+
+To get consistent commit messages from Claude, add this to your global `~/.claude/CLAUDE.md`:
+
+```markdown
+## Git Commits
+
+For every prompt YOU MUST suggest a commit message of the form: first line fits into 50 characters that summarizes the prompt and ends in "(claude 4)", followed by a blank line, followed by the prompt.
+```
+
+This produces commits like:
+
+```
+Update README with install docs (claude 4)
+
+please update the readme to include information about how to install
+context-curator into a new git project. include the initial claude-code
+setup along with container-use and claude sandboxing.
+```
+
+The `(claude 4)` suffix makes it easy to identify AI-assisted commits in your git log.
+
+#### 5. Initialize Context Curator
+
+Start Claude Code in your project and initialize:
 
 ```bash
 cd ~/my-project
@@ -55,6 +174,30 @@ You: /task-init
 ```
 
 This creates the two-file CLAUDE.md system (see [How It Works](#how-it-works)).
+
+#### Summary of Files
+
+After setup, your project should have:
+
+```
+my-project/
+├── CLAUDE.md                    # Project instructions (committed)
+├── .claude/
+│   ├── CLAUDE.md                # Task switcher (git-ignored)
+│   ├── settings.json            # Sandbox + env config (committed)
+│   ├── settings.local.json      # Personal permissions (git-ignored)
+│   └── .gitignore               # Ignores CLAUDE.md, settings.local.json
+└── .gitignore                   # Your normal project gitignore
+```
+
+And globally:
+
+```
+~/.claude/
+├── CLAUDE.md                    # Global instructions (commit msgs, container-use)
+├── commands/task/               # Context Curator slash commands
+└── context-curator/dist/        # Compiled scripts
+```
 
 ### Basic Usage
 

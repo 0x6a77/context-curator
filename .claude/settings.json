@@ -4,5 +4,8 @@
   },
   "sandbox": {
     "enabled": true
+  },
+  "enabledPlugins": {
+    "ralph-loop@claude-plugins-official": true
   }
 }
