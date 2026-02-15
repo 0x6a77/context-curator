@@ -104,19 +104,17 @@ The `settings.local.json` file holds per-developer permission grants (auto-popul
 
 #### 2. Root CLAUDE.md
 
-Your project root should have a `CLAUDE.md` with project-wide instructions. Context Curator never modifies this file. Add whatever project context helps Claude:
+Your project root should have a `CLAUDE.md` with project-wide instructions. Context Curator never modifies this file. The easiest way to create one is with Claude's built-in `/init` command:
 
-```markdown
-# My Project
-
-## Build & Test
-- `npm test` to run tests
-- `npm run build` to compile
-
-## Code Style
-- TypeScript strict mode
-- ESM modules
+```bash
+cd ~/my-project
+claude
+You: /init
 ```
+
+Claude will analyze your project and generate a `CLAUDE.md` with relevant build commands, code style conventions, and project structure. You can then edit it to add any additional context.
+
+For tips on writing effective CLAUDE.md files, see the [Claude Code best practices](https://code.claude.com/docs/en/best-practices).
 
 #### 3. Container-Use Setup (Recommended)
 
