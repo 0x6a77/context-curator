@@ -16,24 +16,35 @@ Save the current session as a named context snapshot. This preserves your hard-w
 
 The name must be provided and use only lowercase letters, numbers, and hyphens.
 
-```bash
-NAME="$1"
+**IMPORTANT:** This skill runs in a forked context. To find the NAME, scan the conversation history from the **most recent message backwards** until you find a user message that contains this skill's invocation. Use this exact regex to extract the name:
 
-if [ -z "$NAME" ]; then
-  echo "Usage: /context-save <name>"
-  echo ""
-  echo "Examples:"
-  echo "  /context-save oauth-deep-dive"
-  echo "  /context-save edge-cases"
-  echo "  /context-save pre-refactor"
-  exit 1
-fi
+```
+/(?:\/task:context-save|\/context-save)\s+([a-z0-9][a-z0-9-]*)/i
+```
 
-if ! echo "$NAME" | grep -qE '^[a-z0-9-]+$'; then
-  echo "❌ Invalid context name"
-  echo "   Use lowercase letters, numbers, and hyphens only"
-  exit 1
-fi
+The first capture group is the NAME. Examples:
+- `/task:context-save integration-tests` → NAME is `integration-tests`
+- `/context-save oauth-deep-dive` → NAME is `oauth-deep-dive`
+- `/task:context-save my-feature` → NAME is `my-feature`
+
+**Scan all user messages** — the invocation may not be the last message. Do NOT stop after checking only the most recent message. Check every user message from newest to oldest.
+
+If no matching invocation with a name is found in the entire conversation history, prompt the user:
+```
+Usage: /context-save <name>
+
+Examples:
+  /context-save oauth-deep-dive
+  /context-save edge-cases
+  /context-save pre-refactor
+
+Please provide a context name (lowercase letters, numbers, hyphens only):
+```
+
+Once you have the NAME, validate it matches `^[a-z0-9-]+$`. If invalid:
+```
+❌ Invalid context name: <name>
+   Use lowercase letters, numbers, and hyphens only
 ```
 
 ## Step 2: Determine Current Task
