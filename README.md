@@ -32,7 +32,7 @@ Context Curator lets you:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/context-curator.git
+git clone https://github.com/0x6a77/context-curator.git
 cd context-curator
 
 # Run the installer
