@@ -67,12 +67,17 @@ mkdir -p .claude
     "INHERIT_FROM_SHELL": "true"
   },
   "sandbox": {
-    "enabled": true
+    "enabled": true,
+    "excludedCommands": [
+      "node ~/.claude/context-curator/dist/scripts/"
+    ]
   }
 }
 ```
 
 The `sandbox.enabled: true` setting turns on Claude Code's built-in sandboxing, which restricts file system writes to the project directory and a few safe locations. This prevents Claude from accidentally modifying files outside your project.
+
+The `excludedCommands` entry is required when using sandboxing with Context Curator. Context Curator stores task and context data in `~/.claude/projects/`, which is outside the sandbox's default write allowlist. Without this exemption, commands like `/task` will fail with `EPERM: operation not permitted`. The exemption is scoped to Context Curator's compiled scripts only — Claude's code changes remain fully sandboxed.
 
 **`.claude/CLAUDE.md`** — Auto-generated file for task switching (git-ignored):
 
@@ -765,6 +770,25 @@ Only promote contexts that would help teammates:
 2. Check `.claude/.gitignore` contains `CLAUDE.md`
 3. Only `tasks/*/` contents should be committed
 
+### EPERM error when using sandbox + container-use
+
+If you see `EPERM: operation not permitted, mkdir '~/.claude/projects/...'` when running `/task`, the sandbox is blocking Context Curator from writing outside the project directory.
+
+Add `excludedCommands` to your `.claude/settings.json`:
+
+```json
+{
+  "sandbox": {
+    "enabled": true,
+    "excludedCommands": [
+      "node ~/.claude/context-curator/dist/scripts/"
+    ]
+  }
+}
+```
+
+This lets Context Curator scripts write to `~/.claude/projects/` while keeping all other sandbox restrictions in place.
+
 ## Technical Details
 
 **Requirements:** Claude Code (that's it!)
@@ -779,6 +803,7 @@ Only promote contexts that would help teammates:
 
 ## Version History
 
+- **v13.1** (2026-02-21): Document excludedCommands requirement for sandbox + container-use
 - **v13.0** (2026-01-17): Two-file CLAUDE.md system, golden contexts, secret detection
 - **v10.0** (2026-01-10): Task-based architecture with @-import mechanism
 

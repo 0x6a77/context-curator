@@ -3,7 +3,10 @@
     "INHERIT_FROM_SHELL": "true"
   },
   "sandbox": {
-    "enabled": true
+    "enabled": true,
+    "excludedCommands": [
+      "node ~/.claude/context-curator/dist/scripts/*"
+    ]
   },
   "enabledPlugins": {
     "ralph-loop@claude-plugins-official": true
