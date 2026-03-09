@@ -208,12 +208,11 @@ describe('Secret Detection Tests (Group 9)', () => {
 
       expect(result.exitCode).not.toBe(0);
       const output = result.stdout + result.stderr;
-      // All three message sources must be scanned — verify by count or by output mentioning 3 findings
-      // Don't assume JSON output format; just verify non-zero exit and count >= 3 implied by output
-      expect(result.exitCode).not.toBe(0);
-      // The output should report at least 3 secrets (one per message type)
-      const countMatch = output.match(/\b([3-9]|\d{2,})\b/);
-      expect(countMatch).not.toBeNull();
+      // T-SEC-4: verify each of the 3 message types produced a distinct detection
+      // If any type is skipped, the corresponding pattern won't appear in output
+      expect(output.toLowerCase()).toMatch(/akia|aws/);        // user message: AWS key
+      expect(output.toLowerCase()).toMatch(/sk_test|stripe/);  // assistant message: Stripe key
+      expect(output.toLowerCase()).toMatch(/ghp_|github/);     // tool_result message: GitHub token
     });
   });
 

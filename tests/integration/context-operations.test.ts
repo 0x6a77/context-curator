@@ -26,7 +26,7 @@ import {
   sanitizePath,
 } from '../utils/test-helpers';
 import { SMALL_CONTEXT, createMediumContext } from '../fixtures/sample-contexts';
-import { AWS_KEY_CONTEXT, STRIPE_KEY_CONTEXT, MULTIPLE_SECRETS_CONTEXT, CLEAN_CONTEXT } from '../fixtures/sample-secrets';
+import { AWS_KEY_CONTEXT, STRIPE_KEY_CONTEXT, MULTIPLE_SECRETS_CONTEXT, CLEAN_CONTEXT, GITHUB_TOKEN_CONTEXT } from '../fixtures/sample-secrets';
 
 describe('Context Saving Tests (Group 4)', () => {
   let ctx: TestContext;
@@ -320,6 +320,33 @@ describe('Context Listing Tests (Group 5)', () => {
   });
 });
 
+  // T-LIST-4: AI-generated summary display
+  describe('Test 5.6: AI-Generated Summary Display (T-LIST-4)', () => {
+    beforeEach(() => {
+      const personalDir = join(ctx.personalDir, 'tasks', 'list-test', 'contexts');
+      mkdirSync(personalDir, { recursive: true });
+      createJsonl(join(personalDir, 'summary-ctx.jsonl'), SMALL_CONTEXT);
+    });
+
+    it('should display a non-empty non-metadata string after context name', async () => {
+      const result = await runScript('context-list', ['list-test'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+
+      expect(result.exitCode).toBe(0);
+      const output = result.stdout;
+      // Context name must appear
+      expect(output).toContain('summary-ctx');
+      // Find the line containing the context name
+      const contextLine = output.split('\n').find(line => line.includes('summary-ctx'));
+      expect(contextLine).toBeDefined();
+      // After the context name there should be content that is not purely numeric/date metadata
+      const nameIdx = contextLine!.indexOf('summary-ctx');
+      const afterName = contextLine!.slice(nameIdx + 'summary-ctx'.length).trim();
+      expect(afterName.length).toBeGreaterThan(0);
+      // Must contain alphabetic characters (a summary string, not just a timestamp or number)
+      expect(afterName).toMatch(/[a-zA-Z]{3,}/);
+    });
+  });
+
 describe('Context Management Tests (Group 6)', () => {
   let ctx: TestContext;
 
@@ -468,11 +495,12 @@ describe('Context Promotion Tests (Group 7)', () => {
     });
   });
 
-  describe('Test 7.2: Promote Context with API Keys', () => {
+  describe('Test 7.2: Promote Context with API Keys (T-PROM-2)', () => {
     beforeEach(() => {
       const personalDir = join(ctx.personalDir, 'tasks', 'promote-test', 'contexts');
       mkdirSync(personalDir, { recursive: true });
-      createJsonl(join(personalDir, 'secret-ctx.jsonl'), AWS_KEY_CONTEXT);
+      // T-PROM-2 DoD: ghp_ + 36 alphanumeric chars (GitHub token type identification)
+      createJsonl(join(personalDir, 'secret-ctx.jsonl'), GITHUB_TOKEN_CONTEXT);
     });
 
     // T-PROM-2: require specific type identification
@@ -487,7 +515,8 @@ describe('Context Promotion Tests (Group 7)', () => {
       // FIX 17: require specific type identification, no generic 'found' escape
       expect(result.exitCode).not.toBe(0);
       const output = (result.stdout + result.stderr).toLowerCase();
-      expect(output).toMatch(/aws|akia|access key|secret key/);
+      // T-PROM-2: output must identify GitHub token type specifically
+      expect(output).toMatch(/github|ghp_/i);
     });
   });
 
@@ -558,5 +587,78 @@ describe('Context Promotion Tests (Group 7)', () => {
       const output = result.stdout.toLowerCase() + result.stderr.toLowerCase();
       expect(output).toMatch(/already.*golden|already exists/i);
     });
+  });
+});
+
+describe('MEMORY.md Update After Save (T-MEM-1)', () => {
+  let ctx: TestContext;
+
+  beforeEach(async () => {
+    ctx = createTestEnvironment('memory');
+    writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test Project\n');
+    await runScript('init-project', [], ctx.projectDir);
+    await runScript('task-create', ['mem-task', 'Memory test task'], ctx.projectDir);
+  });
+
+  afterEach(() => {
+    ctx.cleanup();
+  });
+
+  it('should update MEMORY.md with task-id and context-name after save', async () => {
+    createJsonl(join(ctx.personalDir, 'current-session.jsonl'), SMALL_CONTEXT);
+
+    const result = await runScript(
+      'save-context',
+      ['mem-task', 'mem-check-ctx', '--personal'],
+      ctx.projectDir,
+      { CLAUDE_HOME: ctx.personalBase }
+    );
+
+    expect(result.exitCode).toBe(0);
+
+    // T-MEM-1: MEMORY.md at personal memory path must contain task-id and context-name
+    const memoryPath = join(ctx.personalBase, 'memory', 'MEMORY.md');
+    expect(fileExists(memoryPath)).toBe(true);
+    const memoryContent = readFile(memoryPath);
+    expect(memoryContent).toContain('mem-task');
+    expect(memoryContent).toContain('mem-check-ctx');
+  });
+});
+
+describe('PreCompact Hook Auto-Save (T-HOOK-1)', () => {
+  let ctx: TestContext;
+
+  beforeEach(async () => {
+    ctx = createTestEnvironment('hook');
+    writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test Project\n');
+    await runScript('init-project', [], ctx.projectDir);
+  });
+
+  afterEach(() => {
+    ctx.cleanup();
+  });
+
+  it('should save context to timestamped path when called with session_id payload', async () => {
+    const sessionId = 'test-session-abc123';
+    // T-HOOK-1: auto-save-context receives a mock stdin payload with session_id
+    // and must create a valid JSONL file at a timestamped path
+    const result = await runScript(
+      'auto-save-context',
+      ['--session-id', sessionId],
+      ctx.projectDir,
+      { CLAUDE_HOME: ctx.personalBase }
+    );
+
+    expect(result.exitCode).toBe(0);
+
+    // A file must exist at the auto-saves directory containing the session reference
+    const autoSaveDir = join(ctx.personalBase, 'auto-saves');
+    expect(fileExists(autoSaveDir)).toBe(true);
+    const files: string[] = readdirSync(autoSaveDir);
+    // At least one file must reference the session or be a timestamped save
+    const savedFile = files.find((f: string) => f.endsWith('.jsonl'));
+    expect(savedFile).toBeDefined();
+    const savedPath = join(autoSaveDir, savedFile!);
+    expect(isValidJsonl(savedPath)).toBe(true);
   });
 });

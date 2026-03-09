@@ -211,9 +211,10 @@ describe('Project Initialization Tests', () => {
       expect(output).toMatch(/already\s*(initialized|exists)/i);
     });
 
-    // T-INIT-4: Second run exits 0 and produces identical file contents
+    // T-INIT-4: Both runs exit 0 and produce identical file contents
     it('should produce identical files on second run', async () => {
-      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      const result1 = await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      expect(result1.exitCode).toBe(0);
       const contentAfterFirst = readFile(join(ctx.projectDir, '.claude', 'CLAUDE.md'));
 
       const result2 = await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });

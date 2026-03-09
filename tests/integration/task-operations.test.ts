@@ -339,27 +339,28 @@ describe('Task Switching Tests (Group 3)', () => {
     it('should update .claude/CLAUDE.md on each switch', async () => {
       const workingMdPath = join(ctx.projectDir, '.claude', 'CLAUDE.md');
 
-      await runScript('update-import', ['task-a'], ctx.projectDir);
-      if (fileExists(workingMdPath)) {
-        expect(fileContains(workingMdPath, 'task-a')).toBe(true);
-      }
+      // FIX T2: Remove all if-guards; unconditionally assert file exists then assert contents
+      const r1 = await runScript('update-import', ['task-a'], ctx.projectDir);
+      expect(r1.exitCode).toBe(0);
+      expect(fileExists(workingMdPath)).toBe(true);
+      expect(fileContains(workingMdPath, 'task-a')).toBe(true);
 
-      await runScript('update-import', ['task-b'], ctx.projectDir);
-      if (fileExists(workingMdPath)) {
-        expect(fileContains(workingMdPath, 'task-b')).toBe(true);
-        expect(fileContains(workingMdPath, 'task-a')).toBe(false);
-      }
+      const r2 = await runScript('update-import', ['task-b'], ctx.projectDir);
+      expect(r2.exitCode).toBe(0);
+      expect(fileExists(workingMdPath)).toBe(true);
+      expect(fileContains(workingMdPath, 'task-b')).toBe(true);
+      expect(fileContains(workingMdPath, 'task-a')).toBe(false);
 
-      await runScript('update-import', ['task-c'], ctx.projectDir);
-      if (fileExists(workingMdPath)) {
-        expect(fileContains(workingMdPath, 'task-c')).toBe(true);
-      }
+      const r3 = await runScript('update-import', ['task-c'], ctx.projectDir);
+      expect(r3.exitCode).toBe(0);
+      expect(fileExists(workingMdPath)).toBe(true);
+      expect(fileContains(workingMdPath, 'task-c')).toBe(true);
 
       // Switch back to task-a
-      await runScript('update-import', ['task-a'], ctx.projectDir);
-      if (fileExists(workingMdPath)) {
-        expect(fileContains(workingMdPath, 'task-a')).toBe(true);
-      }
+      const r4 = await runScript('update-import', ['task-a'], ctx.projectDir);
+      expect(r4.exitCode).toBe(0);
+      expect(fileExists(workingMdPath)).toBe(true);
+      expect(fileContains(workingMdPath, 'task-a')).toBe(true);
     });
   });
 });
