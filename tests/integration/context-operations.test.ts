@@ -10,7 +10,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { join } from 'path';
-import { mkdirSync, writeFileSync } from 'fs';
+import { mkdirSync, writeFileSync, statSync, readdirSync } from 'fs';
 import {
   createTestEnvironment,
   TestContext,
@@ -54,9 +54,12 @@ describe('Context Saving Tests (Group 4)', () => {
         { CLAUDE_HOME: ctx.personalBase }
       );
 
+      // FIX 1: assert exit code
       expect(result.exitCode).toBe(0);
       const expectedPath = join(ctx.personalDir, 'tasks', 'save-test', 'contexts', 'my-work.jsonl');
       expect(fileExists(expectedPath)).toBe(true);
+      // FIX 2: unconditional JSONL validation
+      expect(isValidJsonl(expectedPath)).toBe(true);
     });
 
     // T-CTX-2: unconditional JSONL validation
@@ -106,6 +109,8 @@ describe('Context Saving Tests (Group 4)', () => {
       const goldenPath = join(ctx.projectDir, '.claude', 'tasks', 'save-test', 'contexts', 'team-knowledge.jsonl');
       expect(result.exitCode).toBe(0);
       expect(fileExists(goldenPath)).toBe(true);
+      // FIX 3: JSONL validation
+      expect(isValidJsonl(goldenPath)).toBe(true);
     });
 
     // T-CTX-3: remove escape hatch, require scan-related output
@@ -122,6 +127,22 @@ describe('Context Saving Tests (Group 4)', () => {
       const output = result.stdout.toLowerCase();
       expect(output.includes('scan') || output.includes('secret') || output.includes('clean')).toBe(true);
     });
+
+    // FIX 4: T-CTX-3: secret scan blocks golden save
+    it('should block golden save when session contains a real AWS key', async () => {
+      createJsonl(join(ctx.personalDir, 'current-session.jsonl'), AWS_KEY_CONTEXT);
+
+      const result = await runScript(
+        'save-context',
+        ['save-test', 'secret-golden', '--golden'],
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
+      );
+
+      expect(result.exitCode).not.toBe(0);
+      const output = (result.stdout + result.stderr).toLowerCase();
+      expect(output).toMatch(/aws|akia/);
+    });
   });
 
   describe('Test 4.3: Save with Invalid Name', () => {
@@ -133,6 +154,9 @@ describe('Context Saving Tests (Group 4)', () => {
       );
 
       expect(result.exitCode).not.toBe(0);
+      // FIX 5: verify no file was created for the invalid name
+      const invalidPath = join(ctx.personalDir, 'tasks', 'save-test', 'contexts', 'my work!.jsonl');
+      expect(fileExists(invalidPath)).toBe(false);
     });
   });
 
@@ -148,18 +172,21 @@ describe('Context Saving Tests (Group 4)', () => {
         { CLAUDE_HOME: ctx.personalBase }
       );
 
-      // Empty context: script may succeed or fail, but must not crash with unhandled exception
-      expect(result.exitCode === 0 || result.exitCode === 1).toBe(true);
+      // FIX 6: Empty context must be rejected
+      expect(result.exitCode).not.toBe(0);
       // Must not produce a Node.js stack trace
       expect(result.stderr).not.toContain('at Object.<anonymous>');
     });
 
     // T-CTX-4: golden-save size cap test
     it('should reject golden save when context exceeds 100KB', async () => {
-      // Create a session file larger than 100KB
+      // FIX 7: verify the file is actually large before running the script
       const largeMessage = { type: 'user', message: { role: 'user', content: 'x'.repeat(1000) }, timestamp: new Date().toISOString() };
       const messages = Array.from({ length: 150 }, () => largeMessage);
-      createJsonl(join(ctx.personalDir, 'large-session.jsonl'), messages);
+      const filePath = join(ctx.personalDir, 'large-session.jsonl');
+      createJsonl(filePath, messages);
+      const fileSize = statSync(filePath).size;
+      expect(fileSize).toBeGreaterThan(100 * 1024);
 
       const result = await runScript(
         'save-context',
@@ -170,7 +197,29 @@ describe('Context Saving Tests (Group 4)', () => {
 
       expect(result.exitCode).not.toBe(0);
       const output = result.stdout.toLowerCase() + result.stderr.toLowerCase();
-      expect(output.includes('100kb') || output.includes('too large') || output.includes('size')).toBe(true);
+      // FIX 7: specific pattern match
+      expect(output).toMatch(/100KB|too large/i);
+    });
+  });
+
+  // FIX 22: T-CTX-6: Overwrite protection
+  describe('T-CTX-6: Overwrite protection', () => {
+    it('should create a backup file when saving to an existing name', async () => {
+      createJsonl(join(ctx.personalDir, 'current-session.jsonl'), SMALL_CONTEXT);
+
+      const result1 = await runScript('save-context', ['save-test', 'dup-ctx', '--personal'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      expect(result1.exitCode).toBe(0);
+
+      const contextsDir = join(ctx.personalDir, 'tasks', 'save-test', 'contexts');
+      const originalContent = readFile(join(contextsDir, 'dup-ctx.jsonl'));
+
+      const result2 = await runScript('save-context', ['save-test', 'dup-ctx', '--personal'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      expect(result2.exitCode).toBe(0);
+
+      const files = readdirSync(contextsDir);
+      const backupFiles = files.filter((f: string) => f.includes('dup-ctx') && f.includes('.backup-'));
+      expect(backupFiles.length).toBeGreaterThanOrEqual(1);
+      expect(readFile(join(contextsDir, backupFiles[0]))).toBe(originalContent);
     });
   });
 });
@@ -209,13 +258,15 @@ describe('Context Listing Tests (Group 5)', () => {
     });
 
     // T-LIST-2: word-boundary regex for message counts
+    // FIX 8: SMALL_CONTEXT has 5 messages, createMediumContext() returns 30 messages
     it('should show message counts', async () => {
       const result = await runScript('context-list', ['list-test'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       expect(result.exitCode).toBe(0);
       const output = result.stdout;
-      // Should show message counts as numbers with word boundaries
-      expect(/\b\d+\s*(msg|message)/i.test(output)).toBe(true);
+      // Should show the exact message counts with word boundaries
+      expect(output).toMatch(new RegExp(`\\b5\\b`));
+      expect(output).toMatch(new RegExp(`\\b30\\b`));
     });
   });
 
@@ -226,12 +277,8 @@ describe('Context Listing Tests (Group 5)', () => {
       const result = await runScript('context-list', ['no-contexts'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const output = result.stdout.toLowerCase();
-      expect(
-        output.includes('no context') ||
-        output.includes('none') ||
-        output.includes('0 context') ||
-        output.includes('empty')
-      ).toBe(true);
+      // FIX 9: specific pattern match
+      expect(output).toMatch(/no contexts|empty/i);
     });
   });
 
@@ -265,13 +312,10 @@ describe('Context Listing Tests (Group 5)', () => {
     it('should error for non-existent task', async () => {
       const result = await runScript('context-list', ['nonexistent-task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
+      // FIX 10: specific assertions, no vacuous OR
+      expect(result.exitCode).not.toBe(0);
       const output = result.stdout.toLowerCase() + result.stderr.toLowerCase();
-      expect(
-        result.exitCode !== 0 ||
-        output.includes('not found') ||
-        output.includes('does not exist') ||
-        output.includes('error')
-      ).toBe(true);
+      expect(output).toMatch(/not found|does not exist/i);
     });
   });
 });
@@ -293,19 +337,17 @@ describe('Context Management Tests (Group 6)', () => {
     it('should report zero contexts', async () => {
       const result = await runScript('list-all-contexts', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
+      // FIX 11: specific assertions
+      expect(result.exitCode).toBe(0);
       const output = result.stdout.toLowerCase();
-      expect(
-        output.includes('0 context') ||
-        output.includes('no context') ||
-        output.includes('none') ||
-        output.includes('nothing')
-      ).toBe(true);
+      expect(output).toMatch(/no contexts|empty/i);
     });
   });
 
   describe('Test 6.6: Preserve Golden Contexts', () => {
     beforeEach(async () => {
-      await runScript('task-create', ['task-1', '--golden', 'Test task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      // FIX 13: correct task-create call (no --golden as description)
+      await runScript('task-create', ['task-1', 'Test task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       // Create golden context
       const goldenDir = join(ctx.projectDir, '.claude', 'tasks', 'task-1', 'contexts');
@@ -316,17 +358,18 @@ describe('Context Management Tests (Group 6)', () => {
     it('should list golden context with special indicator', async () => {
       const result = await runScript('list-all-contexts', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
+      // FIX 12: drop 'team' branch
+      expect(result.exitCode).toBe(0);
       const output = result.stdout;
-      expect(
-        output.includes('⭐') ||
-        output.toLowerCase().includes('golden') ||
-        output.toLowerCase().includes('team')
-      ).toBe(true);
+      expect(output.includes('⭐') || output.toLowerCase().includes('golden')).toBe(true);
     });
 
     // T-CTX-7: deletion protection test
     it('should prevent golden context deletion without confirmation', async () => {
       const goldenPath = join(ctx.projectDir, '.claude', 'tasks', 'task-1', 'contexts', 'golden-ctx.jsonl');
+
+      // FIX 13: assert golden file exists before attempting delete
+      expect(fileExists(goldenPath)).toBe(true);
 
       const result = await runScript(
         'delete-context',
@@ -373,8 +416,13 @@ describe('Context Promotion Tests (Group 7)', () => {
         { CLAUDE_HOME: ctx.personalBase }
       );
 
-      // Should succeed
+      // FIX 14: verify both copies exist and are identical
       expect(result.exitCode).toBe(0);
+      const goldenPath = join(ctx.projectDir, '.claude', 'tasks', 'promote-test', 'contexts', 'clean-ctx.jsonl');
+      const personalPath = join(ctx.personalDir, 'tasks', 'promote-test', 'contexts', 'clean-ctx.jsonl');
+      expect(fileExists(goldenPath)).toBe(true);
+      expect(fileExists(personalPath)).toBe(true);
+      expect(readFile(goldenPath)).toBe(readFile(personalPath));
     });
 
     it('should copy to project golden directory', async () => {
@@ -382,13 +430,41 @@ describe('Context Promotion Tests (Group 7)', () => {
 
       const goldenPath = join(ctx.projectDir, '.claude', 'tasks', 'promote-test', 'contexts', 'clean-ctx.jsonl');
       expect(fileExists(goldenPath)).toBe(true);
+      // FIX 15: JSONL validation
+      expect(isValidJsonl(goldenPath)).toBe(true);
     });
 
     it('should preserve original personal context', async () => {
+      const personalPath = join(ctx.personalDir, 'tasks', 'promote-test', 'contexts', 'clean-ctx.jsonl');
+      // FIX 16: capture content before promote and verify byte-equality after
+      const originalContent = readFile(personalPath);
+
       await runScript('promote-context', ['promote-test', 'clean-ctx'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
-      const personalPath = join(ctx.personalDir, 'tasks', 'promote-test', 'contexts', 'clean-ctx.jsonl');
       expect(fileExists(personalPath)).toBe(true);
+      expect(readFile(personalPath)).toBe(originalContent);
+    });
+  });
+
+  // FIX 21: T-CTX-5: Promote blocks context over 100KB
+  describe('T-CTX-5: Promote blocks context over 100KB', () => {
+    it('should reject promote when personal context exceeds 100KB', async () => {
+      const personalDir = join(ctx.personalDir, 'tasks', 'promote-test', 'contexts');
+      mkdirSync(personalDir, { recursive: true });
+      const largeMessage = { type: 'user', message: { role: 'user', content: 'x'.repeat(1000) }, timestamp: new Date().toISOString() };
+      const messages = Array.from({ length: 150 }, () => largeMessage);
+      createJsonl(join(personalDir, 'big-ctx.jsonl'), messages);
+
+      const result = await runScript(
+        'promote-context',
+        ['promote-test', 'big-ctx'],
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
+      );
+
+      expect(result.exitCode).not.toBe(0);
+      const output = (result.stdout + result.stderr).toLowerCase();
+      expect(output).toMatch(/100kb|too large/i);
     });
   });
 
@@ -408,12 +484,10 @@ describe('Context Promotion Tests (Group 7)', () => {
         { CLAUDE_HOME: ctx.personalBase }
       );
 
-      const output = result.stdout.toLowerCase() + result.stderr.toLowerCase();
-      // Must name a specific secret type, not just say 'found'
-      const namesSpecificType = output.includes('aws') || output.includes('akia') || output.includes('secret key') || output.includes('access key');
-      const blocksPromotion = result.exitCode !== 0;
-      expect(namesSpecificType || blocksPromotion).toBe(true);
-      expect(namesSpecificType).toBe(true); // Type identification is required
+      // FIX 17: require specific type identification, no generic 'found' escape
+      expect(result.exitCode).not.toBe(0);
+      const output = (result.stdout + result.stderr).toLowerCase();
+      expect(output).toMatch(/aws|akia|access key|secret key/);
     });
   });
 
@@ -434,12 +508,10 @@ describe('Context Promotion Tests (Group 7)', () => {
         { CLAUDE_HOME: ctx.personalBase }
       );
 
-      const output = result.stdout.toLowerCase();
-      expect(
-        output.includes('secret') ||
-        output.includes('stripe') ||
-        output.includes('sk_')
-      ).toBe(true);
+      // FIX 18: require non-zero exit code and specific Stripe identification
+      expect(result.exitCode).not.toBe(0);
+      const output = (result.stdout + result.stderr).toLowerCase();
+      expect(output).toMatch(/stripe|sk_/i);
     });
   });
 
@@ -452,14 +524,10 @@ describe('Context Promotion Tests (Group 7)', () => {
         { CLAUDE_HOME: ctx.personalBase }
       );
 
+      // FIX 19: specific assertions
       expect(result.exitCode).not.toBe(0);
-
       const output = result.stdout.toLowerCase() + result.stderr.toLowerCase();
-      expect(
-        output.includes('not found') ||
-        output.includes('does not exist') ||
-        output.includes('error')
-      ).toBe(true);
+      expect(output).toMatch(/not found|does not exist/i);
     });
   });
 
@@ -485,12 +553,10 @@ describe('Context Promotion Tests (Group 7)', () => {
         { CLAUDE_HOME: ctx.personalBase }
       );
 
+      // FIX 20: specific pattern match
+      expect(result.exitCode).not.toBe(0);
       const output = result.stdout.toLowerCase() + result.stderr.toLowerCase();
-      expect(
-        output.includes('already') ||
-        output.includes('golden') ||
-        output.includes('exists')
-      ).toBe(true);
+      expect(output).toMatch(/already.*golden|already exists/i);
     });
   });
 });

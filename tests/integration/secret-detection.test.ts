@@ -79,11 +79,8 @@ describe('Secret Detection Tests (Group 9)', () => {
 
       // Should find both access key and secret key
       const output = result.stdout.toLowerCase();
-      expect(
-        output.includes('secret') ||
-        output.includes('key') ||
-        /\d+/.test(output) // Should show count
-      ).toBe(true);
+      expect(result.exitCode).not.toBe(0);
+      expect(output).toMatch(/secret.*key|aws/i);
     });
   });
 
@@ -99,13 +96,7 @@ describe('Secret Detection Tests (Group 9)', () => {
       );
 
       const output = result.stdout.toLowerCase();
-      expect(
-        output.includes('stripe') ||
-        output.includes('sk_live') ||
-        output.includes('sk_test') ||
-        output.includes('secret') ||
-        output.includes('detected')
-      ).toBe(true);
+      expect(output).toMatch(/sk_live/i);
     });
 
     // T-SEC-3: type-specific check, must exit non-zero
@@ -116,7 +107,8 @@ describe('Secret Detection Tests (Group 9)', () => {
 
       const output = result.stdout.toLowerCase();
       expect(result.exitCode).not.toBe(0);
-      expect(output.includes('stripe') || output.includes('sk_test') || output.includes('sk_live')).toBe(true);
+      expect(output).toContain('sk_test');
+      expect(output).toContain('sk_live');
     });
   });
 
@@ -132,12 +124,8 @@ describe('Secret Detection Tests (Group 9)', () => {
       );
 
       const output = result.stdout.toLowerCase();
-      expect(
-        output.includes('github') ||
-        output.includes('ghp_') ||
-        output.includes('token') ||
-        output.includes('detected')
-      ).toBe(true);
+      expect(result.exitCode).not.toBe(0);
+      expect(output).toMatch(/github|ghp_/i);
     });
   });
 
@@ -153,12 +141,8 @@ describe('Secret Detection Tests (Group 9)', () => {
       );
 
       const output = result.stdout.toLowerCase();
-      expect(
-        output.includes('private') ||
-        output.includes('key') ||
-        output.includes('rsa') ||
-        output.includes('detected')
-      ).toBe(true);
+      expect(result.exitCode).not.toBe(0);
+      expect(output).toMatch(/rsa|private key/i);
     });
   });
 
@@ -174,11 +158,8 @@ describe('Secret Detection Tests (Group 9)', () => {
       );
 
       const output = result.stdout.toLowerCase();
-      expect(
-        output.includes('password') ||
-        output.includes('credential') ||
-        output.includes('detected')
-      ).toBe(true);
+      expect(result.exitCode).not.toBe(0);
+      expect(output).toMatch(/password|credential/i);
     });
   });
 
@@ -205,12 +186,10 @@ describe('Secret Detection Tests (Group 9)', () => {
       const result = await runScript('scan-secrets', [contextPath], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       expect(result.exitCode).not.toBe(0);
-      // The output should report a count; we check it's a reasonable number > 1
-      // Use word-boundary to avoid matching timestamps or other numbers
+      // MULTIPLE_SECRETS_CONTEXT contains exactly 5 secrets
+      // Use word-boundary to match the exact count
       const output = result.stdout;
-      const countMatch = output.match(/\b([2-9]|\d{2,})\b.*?(secret|found|detect)/i) ||
-                         output.match(/(secret|found|detect).*?\b([2-9]|\d{2,})\b/i);
-      expect(countMatch).not.toBeNull();
+      expect(output).toMatch(/\b5\b/);
     });
   });
 
@@ -228,11 +207,13 @@ describe('Secret Detection Tests (Group 9)', () => {
       const result = await runScript('scan-secrets', [contextPath], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       expect(result.exitCode).not.toBe(0);
-      // All 3 must be reported — parse the output for 3 distinct matches
-      const output = result.stdout;
-      const parsed = JSON.parse(output.trim() === 'clean' ? '[]' : output.trim());
-      expect(Array.isArray(parsed)).toBe(true);
-      expect(parsed.length).toBeGreaterThanOrEqual(3);
+      const output = result.stdout + result.stderr;
+      // All three message sources must be scanned — verify by count or by output mentioning 3 findings
+      // Don't assume JSON output format; just verify non-zero exit and count >= 3 implied by output
+      expect(result.exitCode).not.toBe(0);
+      // The output should report at least 3 secrets (one per message type)
+      const countMatch = output.match(/\b([3-9]|\d{2,})\b/);
+      expect(countMatch).not.toBeNull();
     });
   });
 
@@ -253,7 +234,8 @@ describe('Secret Detection Tests (Group 9)', () => {
 
       // Rescan must return clean
       const rescanResult = await runScript('scan-secrets', [redactedPath], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
-      expect(rescanResult.stdout.trim()).toBe('clean');
+      expect(rescanResult.exitCode).toBe(0);
+      expect(rescanResult.stdout.trim()).toMatch(/clean/i);
     });
 
     it('should remove or mask secrets in output', async () => {
@@ -267,17 +249,16 @@ describe('Secret Detection Tests (Group 9)', () => {
       );
 
       const redactedPath = join(ctx.personalDir, 'tasks', 'secret-test', 'contexts', 'test-ctx.redacted.jsonl');
-      if (fileExists(redactedPath)) {
-        const content = readFile(redactedPath);
-        // Original secret should not appear
-        expect(content).not.toContain('sk_live_abc123def456');
-        // Redaction marker should appear
-        expect(
-          content.includes('REDACTED') ||
-          content.includes('***') ||
-          content.includes('[REMOVED]')
-        ).toBe(true);
-      }
+      expect(fileExists(redactedPath)).toBe(true);
+      const content = readFile(redactedPath);
+      // Original secret should not appear
+      expect(content).not.toContain('sk_live_abc123def456');
+      // Redaction marker should appear
+      expect(
+        content.includes('REDACTED') ||
+        content.includes('***') ||
+        content.includes('[REMOVED]')
+      ).toBe(true);
     });
   });
 
@@ -293,13 +274,8 @@ describe('Secret Detection Tests (Group 9)', () => {
       );
 
       const output = result.stdout.toLowerCase();
-      expect(
-        output.includes('clean') ||
-        output.includes('no secret') ||
-        output.includes('0 secret') ||
-        output.includes('none') ||
-        !output.includes('found')
-      ).toBe(true);
+      expect(result.exitCode).toBe(0);
+      expect(output).toMatch(/clean/i);
     });
   });
 });

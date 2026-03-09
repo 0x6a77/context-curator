@@ -41,21 +41,18 @@ describe('Error Handling Tests (Group 13)', () => {
       expect(result.exitCode).not.toBe(0);
       const output = result.stdout.toLowerCase() + result.stderr.toLowerCase();
       // Must suggest initialization — 'init' is specific enough
-      expect(output.includes('init') || output.includes('not initialized')).toBe(true);
+      expect(output).toMatch(/init|not initialized/i);
       // Must NOT be a raw Node.js stack trace
       expect(result.stderr).not.toContain('at Object.<anonymous>');
+      expect(result.stderr).not.toMatch(/at\s+\w+\s+\(/);
     });
 
     it('should suggest running init', async () => {
       const result = await runScript('update-import', ['some-task'], ctx.projectDir);
 
       const output = result.stdout.toLowerCase() + result.stderr.toLowerCase();
-      expect(
-        output.includes('init') ||
-        output.includes('first') ||
-        output.includes('not found') ||
-        result.exitCode !== 0
-      ).toBe(true);
+      expect(result.exitCode).not.toBe(0);
+      expect(output).toMatch(/init/i);
     });
   });
 
@@ -75,11 +72,8 @@ describe('Error Handling Tests (Group 13)', () => {
       const result = await runScript('task-list', ['task-1'], ctx.projectDir);
 
       // Should handle gracefully
-      expect(
-        result.exitCode !== 0 ||
-        result.stdout.toLowerCase().includes('not found') ||
-        result.stderr.toLowerCase().includes('error')
-      ).toBe(true);
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stdout.toLowerCase() + result.stderr.toLowerCase()).toMatch(/not.*initialized|run init/i);
     });
   });
 
@@ -90,16 +84,15 @@ describe('Error Handling Tests (Group 13)', () => {
     });
 
     it('should detect corrupt JSONL', async () => {
-      // Create corrupt context
       const contextDir = join(ctx.personalDir, 'tasks', 'task-1', 'contexts');
       mkdirSync(contextDir, { recursive: true });
-      writeFileSync(join(contextDir, 'corrupt.jsonl'), 'not valid json\n{"also": broken');
+      const badPath = join(contextDir, 'corrupt.jsonl');
+      writeFileSync(badPath, 'not valid json\n{"also": broken');
 
-      // Try to list or load context
-      const result = await runScript('context-list', ['task-1'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      const result = await runScript('scan-secrets', [badPath], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
-      // Should handle gracefully (might skip or warn)
-      expect(result.exitCode).toBeDefined();
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).not.toContain('at Object.<anonymous>');
     });
 
     it('should not crash on invalid JSON in context', async () => {
@@ -132,10 +125,10 @@ describe('Error Handling Tests (Group 13)', () => {
 
       const result = await runScript('context-list', ['task-1'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
-      // Should either succeed (skip bad metadata) or exit non-zero (report error)
-      // Must not crash with unhandled exception
-      expect(result.exitCode === 0 || result.exitCode === 1).toBe(true);
-      expect(result.stderr).not.toContain('at Object.<anonymous>');
+      // context-list skips non-jsonl files; invalid .meta.json is silently ignored
+      expect(result.exitCode).toBe(0);
+      // Should NOT crash with unhandled stack trace regardless of exit code
+      expect(result.stderr).not.toMatch(/at\s+\w+\s+\(/);
     });
   });
 
@@ -159,12 +152,8 @@ describe('Error Handling Tests (Group 13)', () => {
         const result = await runScript('task-create', ['new-task', 'desc'], ctx.projectDir);
 
         const output = result.stdout.toLowerCase() + result.stderr.toLowerCase();
-        expect(
-          result.exitCode !== 0 ||
-          output.includes('permission') ||
-          output.includes('access') ||
-          output.includes('error')
-        ).toBe(true);
+        expect(result.exitCode).not.toBe(0);
+        expect(output).toMatch(/permission|access|denied/i);
       } finally {
         // Restore permissions
         try {
@@ -194,12 +183,9 @@ describe('Error Handling Tests (Group 13)', () => {
       for (const id of invalidIds) {
         const result = await runScript('task-create', [id, 'desc'], ctx.projectDir);
         
-        // Should reject or handle invalid IDs
-        expect(
-          result.exitCode !== 0 ||
-          result.stdout.toLowerCase().includes('invalid') ||
-          result.stdout.toLowerCase().includes('error')
-        ).toBe(true);
+        // Should reject invalid IDs
+        expect(result.exitCode).not.toBe(0);
+        expect(result.stdout.toLowerCase() + result.stderr.toLowerCase()).toMatch(/invalid.*(name|task|id)|uppercase|lowercase/i);
       }
     });
 
@@ -219,11 +205,8 @@ describe('Error Handling Tests (Group 13)', () => {
           ctx.projectDir
         );
         
-        expect(
-          result.exitCode !== 0 ||
-          result.stdout.toLowerCase().includes('invalid') ||
-          result.stderr.toLowerCase().includes('error')
-        ).toBe(true);
+        expect(result.exitCode).not.toBe(0);
+        expect(result.stdout.toLowerCase() + result.stderr.toLowerCase()).toMatch(/invalid.*(name|task|id)|uppercase|lowercase/i);
       }
     });
   });
@@ -235,12 +218,8 @@ describe('Error Handling Tests (Group 13)', () => {
       const result = await runScript('context-list', ['nonexistent-task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const output = result.stdout.toLowerCase() + result.stderr.toLowerCase();
-      expect(
-        output.includes('not found') ||
-        output.includes('does not exist') ||
-        output.includes('no such task') ||
-        output.includes('available') // Should suggest available tasks
-      ).toBe(true);
+      expect(result.exitCode).not.toBe(0);
+      expect(output).toMatch(/not found|does not exist/i);
     });
 
     it('should provide helpful error for non-existent context', async () => {
@@ -250,11 +229,8 @@ describe('Error Handling Tests (Group 13)', () => {
       const result = await runScript('promote-context', ['task-1', 'nonexistent'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const output = result.stdout.toLowerCase() + result.stderr.toLowerCase();
-      expect(
-        output.includes('not found') ||
-        output.includes('does not exist') ||
-        result.exitCode !== 0
-      ).toBe(true);
+      expect(result.exitCode).not.toBe(0);
+      expect(output).toMatch(/not found|does not exist/i);
     });
   });
 });
@@ -281,6 +257,11 @@ describe('Cross-Platform Compatibility Tests (Group 12)', () => {
 
       expect(result.exitCode).toBe(0);
       expect(fileExists(join(spacePath, '.claude', 'CLAUDE.md'))).toBe(true);
+
+      // Also run task-create in the space path
+      const initResult = await runScript('init-project', [], spacePath, { CLAUDE_HOME: ctx.personalBase });
+      expect(initResult.exitCode).toBe(0);
+      expect(fileExists(join(spacePath, '.claude', 'CLAUDE.md'))).toBe(true);
     });
   });
 
@@ -298,14 +279,13 @@ describe('Cross-Platform Compatibility Tests (Group 12)', () => {
 
       // Check personal context directory for files
       const personalDir = join(ctx.personalDir, 'tasks', 'task-1', 'contexts');
-      if (existsSync(personalDir)) {
-        const files = require('fs').readdirSync(personalDir);
-        for (const file of files) {
-          if (file.endsWith('.jsonl')) {
-            const content = readFile(join(personalDir, file));
-            // Should not have CRLF (Windows line endings)
-            expect(content).not.toContain('\r\n');
-          }
+      expect(existsSync(personalDir)).toBe(true);
+      const files = require('fs').readdirSync(personalDir);
+      for (const file of files) {
+        if (file.endsWith('.jsonl')) {
+          const fileContent = readFile(join(personalDir, file));
+          // Should not have CRLF (Windows line endings)
+          expect(fileContent).not.toContain('\r\n');
         }
       }
     });
@@ -322,12 +302,11 @@ describe('Cross-Platform Compatibility Tests (Group 12)', () => {
       ];
 
       for (const file of filesToCheck) {
-        const path = join(ctx.projectDir, file);
-        if (fileExists(path)) {
-          const content = readFile(path);
-          // Should not contain CRLF
-          expect(content).not.toMatch(/\r\n/);
-        }
+        const filePath = join(ctx.projectDir, file);
+        expect(fileExists(filePath)).toBe(true);
+        const fileContent = readFile(filePath);
+        // Should not contain CRLF
+        expect(fileContent).not.toMatch(/\r\n/);
       }
     });
   });

@@ -46,26 +46,40 @@ describe('Project Initialization Tests', () => {
       // Execute: Run init-project script
       const result = await runScript('init-project', [], ctx.projectDir);
 
+      // FIX 1: Verify script exited successfully
+      expect(result.exitCode).toBe(0);
+
       // Validation: Verify directory structure
       expect(fileExists(join(ctx.projectDir, '.claude'))).toBe(true);
       expect(fileExists(join(ctx.projectDir, '.claude', '.gitignore'))).toBe(true);
       expect(fileExists(join(ctx.projectDir, '.claude', 'tasks', 'default', 'CLAUDE.md'))).toBe(true);
 
-      // T-INIT-1: Also assert that .claude/CLAUDE.md contains an @import line
+      // FIX 2: Assert that .claude/CLAUDE.md contains a properly-formed @import line
       const claudeMdContent = readFile(join(ctx.projectDir, '.claude', 'CLAUDE.md'));
-      expect(claudeMdContent).toMatch(/@import/);
+      expect(claudeMdContent).toMatch(/@import\s+\S+CLAUDE\.md/);
+      const importMatch = claudeMdContent.match(/@import\s+(\S+CLAUDE\.md)/);
+      expect(importMatch).not.toBeNull();
+      const importedPath = join(ctx.projectDir, importMatch![1]);
+      expect(fileExists(importedPath)).toBe(true);
     });
 
     it('should create .gitignore with CLAUDE.md entry', async () => {
-      await runScript('init-project', [], ctx.projectDir);
+      const result = await runScript('init-project', [], ctx.projectDir);
 
-      // Verify .gitignore content
+      // FIX 3: Verify script exited successfully
+      expect(result.exitCode).toBe(0);
+
+      // FIX 4: Verify .gitignore content with exact line match
       const gitignorePath = join(ctx.projectDir, '.claude', '.gitignore');
-      expect(fileContains(gitignorePath, 'CLAUDE.md')).toBe(true);
+      const gitignoreContent = readFile(gitignorePath);
+      expect(gitignoreContent).toMatch(/^CLAUDE\.md$/m);
     });
 
     it('should not create backup when no original CLAUDE.md exists', async () => {
-      await runScript('init-project', [], ctx.projectDir);
+      const result = await runScript('init-project', [], ctx.projectDir);
+
+      // FIX 5: Verify script exited successfully
+      expect(result.exitCode).toBe(0);
 
       // Verify no backup created
       const stashPath = join(ctx.personalDir, '.stash', 'original-CLAUDE.md');
@@ -76,7 +90,10 @@ describe('Project Initialization Tests', () => {
       // Initialize git first
       initGit(ctx.projectDir);
 
-      await runScript('init-project', [], ctx.projectDir);
+      const result = await runScript('init-project', [], ctx.projectDir);
+
+      // FIX 6: Verify script exited successfully
+      expect(result.exitCode).toBe(0);
 
       // Verify .claude/CLAUDE.md is git-ignored
       expect(isGitIgnored(ctx.projectDir, '.claude/CLAUDE.md')).toBe(true);
@@ -101,19 +118,32 @@ describe('Project Initialization Tests', () => {
 
     // T-INIT-2: Remove self-fulfilling backup setup; assert the script creates the backup
     it('should create backup of original CLAUDE.md', async () => {
-      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      const backupPath = join(ctx.personalDir, '.stash', 'original-CLAUDE.md');
 
-      const stashPath = join(ctx.personalDir, '.stash', 'original-CLAUDE.md');
-      expect(fileExists(stashPath)).toBe(true);
-      const backupContent = readFile(stashPath);
+      // FIX 7: Pre-condition — backup must not exist before running the script
+      expect(fileExists(backupPath)).toBe(false);
+
+      const result = await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+
+      // FIX 7: Verify script exited successfully
+      expect(result.exitCode).toBe(0);
+
+      expect(fileExists(backupPath)).toBe(true);
+      const backupContent = readFile(backupPath);
       expect(backupContent).toBe(originalContent);
     });
 
     // T-INIT-3: Default task should contain the original content, not just be non-empty
     it('should create default task with copy of original CLAUDE.md', async () => {
-      await runScript('init-project', [], ctx.projectDir);
-
+      // FIX 8: Pre-condition — default task CLAUDE.md must not exist before running
       const defaultTaskPath = join(ctx.projectDir, '.claude', 'tasks', 'default', 'CLAUDE.md');
+      expect(fileExists(defaultTaskPath)).toBe(false);
+
+      const result = await runScript('init-project', [], ctx.projectDir);
+
+      // FIX 8: Verify script exited successfully
+      expect(result.exitCode).toBe(0);
+
       expect(fileExists(defaultTaskPath)).toBe(true);
       
       const defaultContent = readFile(defaultTaskPath);
@@ -122,12 +152,22 @@ describe('Project Initialization Tests', () => {
 
     // T-INIT-1 (variant): Unconditionally assert @import format in .claude/CLAUDE.md
     it('should create .claude/CLAUDE.md with @import directive', async () => {
-      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      // FIX 9: Pre-condition — .claude/CLAUDE.md must not exist before running
+      const claudeMdWorkingPath = join(ctx.projectDir, '.claude', 'CLAUDE.md');
+      expect(fileExists(claudeMdWorkingPath)).toBe(false);
 
-      const workingPath = join(ctx.projectDir, '.claude', 'CLAUDE.md');
-      expect(fileExists(workingPath)).toBe(true);
-      const workingContent = readFile(workingPath);
-      expect(workingContent).toMatch(/@import\s+\S+CLAUDE\.md/);
+      const result = await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+
+      // FIX 9: Verify script exited successfully
+      expect(result.exitCode).toBe(0);
+
+      expect(fileExists(claudeMdWorkingPath)).toBe(true);
+      const content = readFile(claudeMdWorkingPath);
+      expect(content).toMatch(/@import\s+\S+CLAUDE\.md/);
+      const importMatch = content.match(/@import\s+(\S+CLAUDE\.md)/);
+      expect(importMatch).not.toBeNull();
+      const importedPath = join(ctx.projectDir, importMatch![1]);
+      expect(fileExists(importedPath)).toBe(true);
     });
   });
 
@@ -150,6 +190,9 @@ describe('Project Initialization Tests', () => {
       await runScript('init-project', [], ctx.projectDir);
       await runScript('init-project', [], ctx.projectDir);
 
+      // FIX 11: Pre-condition — .claude/CLAUDE.md must exist after second run
+      expect(fileExists(join(ctx.projectDir, '.claude', 'CLAUDE.md'))).toBe(true);
+
       // Verify only one default task
       const tasksDir = join(ctx.projectDir, '.claude', 'tasks');
       const tasks = readdirSync(tasksDir);
@@ -158,15 +201,14 @@ describe('Project Initialization Tests', () => {
 
     it('should indicate already initialized on second run', async () => {
       await runScript('init-project', [], ctx.projectDir);
-      const result2 = await runScript('init-project', [], ctx.projectDir);
+      const secondResult = await runScript('init-project', [], ctx.projectDir);
 
-      // Check for indication of existing initialization
-      const output = result2.stdout.toLowerCase();
-      expect(
-        output.includes('already') ||
-        output.includes('exists') ||
-        output.includes('initialized')
-      ).toBe(true);
+      // FIX 10: Verify script exited successfully on second run
+      expect(secondResult.exitCode).toBe(0);
+
+      // FIX 10: Check for indication of existing initialization with specific pattern
+      const output = secondResult.stdout.toLowerCase();
+      expect(output).toMatch(/already\s*(initialized|exists)/i);
     });
 
     // T-INIT-4: Second run exits 0 and produces identical file contents
