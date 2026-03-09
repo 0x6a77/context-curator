@@ -10,5 +10,12 @@
   },
   "enabledPlugins": {
     "ralph-loop@claude-plugins-official": true
+  },
+  "hooks": {
+    "PreCompact": [
+      {
+        "command": "node ~/.claude/context-curator/dist/scripts/auto-save-context.js"
+      }
+    ]
   }
 }

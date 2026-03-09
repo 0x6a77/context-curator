@@ -49,7 +49,7 @@ TASK_ID=$(node ~/.claude/context-curator/dist/scripts/get-current-task.js)
 Always run the secret scan regardless of save type:
 
 ```bash
-node ~/.claude/context-curator/dist/scripts/scan-secrets.js
+node ~/.claude/context-curator/dist/scripts/scan-secrets.js --session-id "${CLAUDE_SESSION_ID}"
 ```
 
 If secrets are found:
@@ -71,9 +71,9 @@ If secrets are found:
 ## Step 4: Save
 
 ```bash
-node ~/.claude/context-curator/dist/scripts/save-context.js "$TASK_ID" "$NAME" --personal
+node ~/.claude/context-curator/dist/scripts/save-context.js "$TASK_ID" "$NAME" --personal --session-id "${CLAUDE_SESSION_ID}"
 # or with --golden flag:
-node ~/.claude/context-curator/dist/scripts/save-context.js "$TASK_ID" "$NAME" --golden
+node ~/.claude/context-curator/dist/scripts/save-context.js "$TASK_ID" "$NAME" --golden --session-id "${CLAUDE_SESSION_ID}"
 ```
 
 Display the script output verbatim.

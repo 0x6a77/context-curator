@@ -147,3 +147,16 @@ Don't forget to commit golden context changes:
 - **Golden changes require git** - remind user to commit
 - **Preserve data** - always backup before destructive operations
 - **Smart suggestions** - provide intelligent recommendations based on analysis
+
+---
+
+## Native Claude Code Alternatives
+
+For lighter-weight needs, Claude Code has built-in tools:
+
+- **`/fork [name]`** — Branch current conversation (no install needed)
+- **`/rewind`** — Roll back to a previous checkpoint (`Esc+Esc` shortcut)
+- **`/rename [name]`** — Name the current session for easy `/resume` later
+- **`/export`** — Export conversation as plain text
+
+Context Curator adds on top of these: named snapshots, task organization, team sharing via golden contexts, and secret scanning.

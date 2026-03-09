@@ -231,6 +231,25 @@ Run: /resume sess-xyz789
 # Claude is INSTANTLY warmed up! ✨
 ```
 
+## Native Claude Code Tools
+
+Claude Code ships several built-in commands that complement Context Curator:
+
+| Command | What it does |
+|---------|-------------|
+| `/fork [name]` | Fork the current conversation at this point — great for exploring alternatives without losing your main thread |
+| `/rewind` | Roll back to a previous checkpoint (restores code and/or conversation). Use `Esc+Esc` as shortcut |
+| `/rename [name]` | Give the current session a memorable name so it's easy to find with `/resume` |
+| `/compact [instructions]` | Manually compact conversation with optional focus instructions (Context Curator auto-saves before this fires) |
+| `/context` | Visualize current token usage as a colored grid |
+| `/export [filename]` | Export the conversation as plain text |
+
+**How these work with Context Curator:**
+- Use `/rename` to give sessions meaningful names, then `/resume <name>` to come back to them
+- Use `/fork` to branch explorations — save the branch with `/context-save` if it works out
+- Context Curator's `PreCompact` hook fires automatically before `/compact`, so your context is always saved before compaction
+- `/rewind` works at the code/file level; Context Curator works at the conversation level — they complement each other
+
 ## Tutorial
 
 This step-by-step tutorial walks you through a complete workflow with Context Curator.
