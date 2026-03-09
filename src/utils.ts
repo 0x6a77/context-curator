@@ -453,3 +453,25 @@ export function redactSecrets(content: string): string {
   
   return result;
 }
+
+// ============================================================================
+// Context Size Validation
+// ============================================================================
+
+export const MAX_GOLDEN_SIZE_BYTES = 100 * 1024; // 100KB
+
+/**
+ * Check if a file is within the golden context size limit.
+ * Returns { ok: true } or { ok: false, sizeBytes: number }
+ */
+export async function checkGoldenContextSize(filePath: string): Promise<{ ok: boolean; sizeBytes?: number }> {
+  try {
+    const stats = await fs.stat(filePath);
+    if (stats.size > MAX_GOLDEN_SIZE_BYTES) {
+      return { ok: false, sizeBytes: stats.size };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: true }; // file doesn't exist yet, no size issue
+  }
+}

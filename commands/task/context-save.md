@@ -44,20 +44,29 @@ Validate NAME matches `^[a-z0-9-]+$`. If invalid:
 TASK_ID=$(node ~/.claude/context-curator/dist/scripts/get-current-task.js)
 ```
 
-## Step 3: For Golden Saves — Scan for Secrets First
+## Step 3: Scan for Secrets
 
-Skip this step for personal saves.
+Always run the secret scan regardless of save type:
 
-For `--golden` only:
 ```bash
 node ~/.claude/context-curator/dist/scripts/scan-secrets.js
 ```
 
-If secrets found, warn the user and ask to confirm before proceeding:
-```
-⚠️  Potential secrets detected — this context will be shared via git.
-Proceed anyway? (yes/no):
-```
+If secrets are found:
+
+- **Personal save**: Show a warning listing the detected secrets, then ask:
+  ```
+  ⚠️  Potential secrets detected in this context.
+  Save anyway? (yes/no):
+  ```
+  If the user answers **no**, abort the save. If **yes**, proceed to Step 4.
+
+- **Golden save**: Show a warning listing the detected secrets, then ask:
+  ```
+  ⚠️  Potential secrets detected — this context will be shared via git.
+  Proceed anyway? (yes/no):
+  ```
+  If the user answers **no**, abort the save. If **yes**, proceed to Step 4.
 
 ## Step 4: Save
 

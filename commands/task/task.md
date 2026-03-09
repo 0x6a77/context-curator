@@ -177,7 +177,7 @@ User: Refactoring the legacy OAuth implementation in src/auth/. Focus on the tok
 Claude: ✓ Created task: oauth-refactor
 ✓ Location: personal storage
 
-Run: /resume sess-abc123
+Run: /resume 8e14f625-bd1a-4e79-a382-2d6c0649df97
 
 Your focus:
   Refactoring the legacy OAuth implementation in src/auth/
@@ -203,7 +203,7 @@ User: 2
 Claude: ✓ Task: oauth-refactor
 ✓ Context: oauth-deep-dive (47 msgs)
 
-Run: /resume sess-xyz789
+Run: /resume a3f2c891-57bd-4e12-b8a6-1d9c0e5f7320
 
 Your focus:
   Refactoring the legacy OAuth implementation in src/auth/

@@ -17,7 +17,8 @@ import {
   getPersonalTasksDir,
   getSessionStats,
   ensureDir,
-  fileExists
+  fileExists,
+  checkGoldenContextSize
 } from '../src/utils.js';
 
 async function main() {
@@ -46,6 +47,17 @@ async function main() {
   // Verify source exists
   if (!await fileExists(sourcePath)) {
     console.error(`❌ Source not found: ${sourcePath}`);
+    process.exit(1);
+  }
+
+  // Enforce size limit for golden contexts
+  const sizeCheck = await checkGoldenContextSize(sourcePath);
+  if (!sizeCheck.ok) {
+    const sizeKB = Math.round(sizeCheck.sizeBytes! / 1024);
+    console.error(`❌ Context too large to promote (${sizeKB}KB, max 100KB)`);
+    console.error('');
+    console.error('Golden contexts are committed to git and must stay under 100KB.');
+    console.error('Use /context-manage to trim the context first, then try again.');
     process.exit(1);
   }
   

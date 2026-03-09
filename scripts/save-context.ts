@@ -20,7 +20,9 @@ import {
   ensureDir,
   fileExists,
   validateName,
-  formatDate
+  formatDate,
+  checkGoldenContextSize,
+  MAX_GOLDEN_SIZE_BYTES
 } from '../src/utils.js';
 
 async function saveContext(taskId: string, contextName: string, isGolden: boolean) {
@@ -54,6 +56,21 @@ async function saveContext(taskId: string, contextName: string, isGolden: boolea
     console.error('❌ No session file found');
     console.error(`   Directory: ${sessionDir}`);
     process.exit(1);
+  }
+
+  // Enforce size limit for golden contexts
+  if (isGolden) {
+    const sizeCheck = await checkGoldenContextSize(sessionPath);
+    if (!sizeCheck.ok) {
+      const sizeKB = Math.round(sizeCheck.sizeBytes! / 1024);
+      console.error(`❌ Context too large for golden save (${sizeKB}KB, max 100KB)`);
+      console.error('');
+      console.error('Golden contexts are committed to git and must stay under 100KB.');
+      console.error('Options:');
+      console.error('  1. Save as personal instead (no size limit)');
+      console.error('  2. Use /context-manage to trim the session first');
+      process.exit(1);
+    }
   }
   
   // Determine target directory
