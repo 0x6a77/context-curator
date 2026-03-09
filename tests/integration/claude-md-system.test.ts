@@ -74,9 +74,12 @@ describe('Two-File CLAUDE.md System Tests (Group 8)', () => {
       await runScript('update-import', ['task-1'], ctx.projectDir);
 
       const gitStatus = getGitStatus(ctx.projectDir);
-      // Root CLAUDE.md should not appear in git status
-      expect(gitStatus.includes('CLAUDE.md') && !gitStatus.includes('.claude/CLAUDE.md'))
-        .toBe(false);
+      // Root CLAUDE.md must NOT appear in git status (it was committed, not modified)
+      // .claude/CLAUDE.md is git-ignored so won't appear either
+      const rootModified = gitStatus.split('\n').some(line => 
+        line.trim().endsWith('CLAUDE.md') && !line.includes('.claude/')
+      );
+      expect(rootModified).toBe(false);
     });
   });
 
@@ -97,6 +100,23 @@ describe('Two-File CLAUDE.md System Tests (Group 8)', () => {
 
       await runScript('update-import', ['task-1'], ctx.projectDir);
       expect(fileContains(workingMdPath, 'task-1')).toBe(true);
+    });
+
+    it('should contain exactly one @import after multiple switches', async () => {
+      await runScript('task-create', ['task-1', 'Task 1'], ctx.projectDir);
+      await runScript('task-create', ['task-2', 'Task 2'], ctx.projectDir);
+
+      await runScript('update-import', ['task-1'], ctx.projectDir);
+      await runScript('update-import', ['task-2'], ctx.projectDir);
+
+      const workingMdPath = join(ctx.projectDir, '.claude', 'CLAUDE.md');
+      const content = readFile(workingMdPath);
+
+      // Must contain exactly one @import line (no appending)
+      const importLines = content.split('\n').filter(line => line.trim().startsWith('@import'));
+      expect(importLines.length).toBe(1);
+      expect(importLines[0]).toContain('task-2');
+      expect(importLines[0]).not.toContain('task-1');
     });
   });
 
@@ -161,24 +181,26 @@ describe('Two-File CLAUDE.md System Tests (Group 8)', () => {
     });
   });
 
-  describe('Test 8.5: /resume Loads Task Instructions', () => {
-    it('should create task CLAUDE.md with custom instructions', async () => {
-      await runScript('task-create', ['oauth-work', 'Focus on src/auth/ directory'], ctx.projectDir);
-
-      const taskMdPath = join(ctx.projectDir, '.claude', 'tasks', 'oauth-work', 'CLAUDE.md');
-      expect(fileExists(taskMdPath)).toBe(true);
-
-      const content = readFile(taskMdPath);
-      expect(content.length).toBeGreaterThan(0);
-    });
-
-    it('should reference task in .claude/CLAUDE.md', async () => {
+  describe('Test 8.5: /resume Structural Proxy (T-CLMD-2)', () => {
+    it('should set up the correct @import path for /resume to read', async () => {
+      // This is the automated structural proxy for the manual T-RESUME-MANUAL test.
+      // We verify OUR side of the contract: that .claude/CLAUDE.md has the correct
+      // @import path before /resume would fire. Claude Code's side (re-reading on resume)
+      // is covered by the manual smoke test T-RESUME-MANUAL.
       await runScript('task-create', ['oauth-work', 'OAuth focus'], ctx.projectDir);
       await runScript('update-import', ['oauth-work'], ctx.projectDir);
 
       const workingMdPath = join(ctx.projectDir, '.claude', 'CLAUDE.md');
+      expect(fileExists(workingMdPath)).toBe(true);
+
       const content = readFile(workingMdPath);
-      expect(content).toContain('oauth-work');
+      // Must contain a valid @import pointing to oauth-work's CLAUDE.md
+      expect(content).toMatch(/@import\s+\S+oauth-work\S+CLAUDE\.md/);
+
+      // The task CLAUDE.md itself must exist at the imported path
+      const taskMdPath = join(ctx.projectDir, '.claude', 'tasks', 'oauth-work', 'CLAUDE.md');
+      expect(fileExists(taskMdPath)).toBe(true);
+      expect(readFile(taskMdPath).length).toBeGreaterThan(0);
     });
   });
 

@@ -21,6 +21,7 @@ import {
   fileExists,
   fileContains,
   readFile,
+  writeFile,
   initGit,
   isGitIgnored,
   sanitizePath,
@@ -49,6 +50,10 @@ describe('Project Initialization Tests', () => {
       expect(fileExists(join(ctx.projectDir, '.claude'))).toBe(true);
       expect(fileExists(join(ctx.projectDir, '.claude', '.gitignore'))).toBe(true);
       expect(fileExists(join(ctx.projectDir, '.claude', 'tasks', 'default', 'CLAUDE.md'))).toBe(true);
+
+      // T-INIT-1: Also assert that .claude/CLAUDE.md contains an @import line
+      const claudeMdContent = readFile(join(ctx.projectDir, '.claude', 'CLAUDE.md'));
+      expect(claudeMdContent).toMatch(/@import/);
     });
 
     it('should create .gitignore with CLAUDE.md entry', async () => {
@@ -94,42 +99,35 @@ describe('Project Initialization Tests', () => {
       expect(rootContent).toBe(originalContent);
     });
 
+    // T-INIT-2: Remove self-fulfilling backup setup; assert the script creates the backup
     it('should create backup of original CLAUDE.md', async () => {
-      // Note: In a real scenario, the script would use the home directory
-      // For this test, we verify the backup logic exists in the init script
-      await runScript('init-project', [], ctx.projectDir);
+      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
-      // The backup should be created in personal storage
-      // Since we're using a mock personal dir, check the expected location
-      const stashDir = join(ctx.personalDir, '.stash');
-      // Create it for test purposes if the script doesn't have access
-      mkdirSync(stashDir, { recursive: true });
-      writeFileSync(join(stashDir, 'original-CLAUDE.md'), originalContent);
-      
-      expect(fileExists(join(stashDir, 'original-CLAUDE.md'))).toBe(true);
-      const backupContent = readFile(join(stashDir, 'original-CLAUDE.md'));
+      const stashPath = join(ctx.personalDir, '.stash', 'original-CLAUDE.md');
+      expect(fileExists(stashPath)).toBe(true);
+      const backupContent = readFile(stashPath);
       expect(backupContent).toBe(originalContent);
     });
 
+    // T-INIT-3: Default task should contain the original content, not just be non-empty
     it('should create default task with copy of original CLAUDE.md', async () => {
       await runScript('init-project', [], ctx.projectDir);
 
       const defaultTaskPath = join(ctx.projectDir, '.claude', 'tasks', 'default', 'CLAUDE.md');
       expect(fileExists(defaultTaskPath)).toBe(true);
       
-      // The default task CLAUDE.md should reference or copy the original
       const defaultContent = readFile(defaultTaskPath);
-      expect(defaultContent.length).toBeGreaterThan(0);
+      expect(defaultContent).toBe(originalContent);
     });
 
+    // T-INIT-1 (variant): Unconditionally assert @import format in .claude/CLAUDE.md
     it('should create .claude/CLAUDE.md with @import directive', async () => {
-      await runScript('init-project', [], ctx.projectDir);
+      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const workingPath = join(ctx.projectDir, '.claude', 'CLAUDE.md');
-      if (fileExists(workingPath)) {
-        const workingContent = readFile(workingPath);
-        expect(workingContent).toContain('@import');
-      }
+      expect(fileExists(workingPath)).toBe(true);
+      const workingContent = readFile(workingPath);
+      expect(workingContent).toMatch(/@import\s+\S+CLAUDE\.md/);
     });
   });
 
@@ -170,6 +168,17 @@ describe('Project Initialization Tests', () => {
         output.includes('initialized')
       ).toBe(true);
     });
+
+    // T-INIT-4: Second run exits 0 and produces identical file contents
+    it('should produce identical files on second run', async () => {
+      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      const contentAfterFirst = readFile(join(ctx.projectDir, '.claude', 'CLAUDE.md'));
+
+      const result2 = await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      expect(result2.exitCode).toBe(0);
+      const contentAfterSecond = readFile(join(ctx.projectDir, '.claude', 'CLAUDE.md'));
+      expect(contentAfterSecond).toBe(contentAfterFirst);
+    });
   });
 
   describe('Test 1.4: Initialize with Existing .claude/ Directory', () => {
@@ -207,8 +216,8 @@ describe('Project Initialization Tests', () => {
         writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Project 1\n');
         writeFileSync(join(ctx2.projectDir, 'CLAUDE.md'), '# Project 2\n');
 
-        await runScript('init-project', [], ctx.projectDir);
-        await runScript('init-project', [], ctx2.projectDir);
+        await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+        await runScript('init-project', [], ctx2.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
         // Verify both have independent .claude/ directories
         expect(fileExists(join(ctx.projectDir, '.claude', 'tasks', 'default'))).toBe(true);
@@ -218,6 +227,12 @@ describe('Project Initialization Tests', () => {
         const sanitized1 = sanitizePath(ctx.projectDir);
         const sanitized2 = sanitizePath(ctx2.projectDir);
         expect(sanitized1).not.toBe(sanitized2);
+
+        // T-INIT-5: Runtime isolation — a file in project 1 personal storage must not appear in project 2
+        const file1 = join(ctx.personalBase, 'projects', sanitizePath(ctx.projectDir), 'isolation-marker.txt');
+        writeFile(file1, 'project-1-only');
+        const file2 = join(ctx.personalBase, 'projects', sanitizePath(ctx2.projectDir), 'isolation-marker.txt');
+        expect(fileExists(file2)).toBe(false);
       } finally {
         ctx2.cleanup();
       }

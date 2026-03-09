@@ -129,13 +129,18 @@ describe('Git Integration Tests (Group 11)', () => {
       mkdirSync(personalDir, { recursive: true });
       createJsonl(join(personalDir, 'personal-ctx.jsonl'), SMALL_CONTEXT);
 
-      // Stage all project files
+      // Stage all project files (personal storage is outside the repo, can't be staged)
       gitAdd(ctx.projectDir, '.');
-
+      
       const status = getGitStatus(ctx.projectDir);
-      // Personal storage path should not be in git status
-      expect(status).not.toContain(ctx.personalDir);
+      // Personal storage paths must not appear in git status
       expect(status).not.toContain('personal-ctx');
+      // The staged files should only be project files
+      const stagedLines = status.split('\n').filter(l => l.trim());
+      stagedLines.forEach(line => {
+        // Each staged file must be within the project directory structure
+        expect(line).not.toContain(ctx.personalDir);
+      });
     });
   });
 
@@ -171,8 +176,15 @@ describe('Git Integration Tests (Group 11)', () => {
         gitCommit(ctx2.projectDir, 'Add different task and context');
 
         // Both should succeed without conflicts
-        // (In real scenario, they'd push/pull, but structure prevents conflicts)
-        expect(true).toBe(true);
+        // Verify no conflict markers in either project
+        const status1 = getGitStatus(ctx.projectDir);
+        const status2 = getGitStatus(ctx2.projectDir);
+        // Conflict markers appear as 'UU' in git status --porcelain
+        expect(status1).not.toMatch(/^UU /m);
+        expect(status2).not.toMatch(/^UU /m);
+        // Both projects should have their respective tasks committed
+        expect(fileExists(join(ctx.projectDir, '.claude', 'tasks', 'shared-task', 'CLAUDE.md'))).toBe(true);
+        expect(fileExists(join(ctx2.projectDir, '.claude', 'tasks', 'different-task', 'CLAUDE.md'))).toBe(true);
       } finally {
         ctx2.cleanup();
       }
@@ -185,20 +197,14 @@ describe('Git Integration Tests (Group 11)', () => {
     });
 
     it('should recognize golden contexts after they exist', async () => {
-      // Create task and golden context
       await runScript('task-create', ['shared-task', 'Shared work'], ctx.projectDir);
       const goldenDir = join(ctx.projectDir, '.claude', 'tasks', 'shared-task', 'contexts');
       createJsonl(join(goldenDir, 'shared-ctx.jsonl'), SMALL_CONTEXT);
 
-      // List should show golden context
-      const result = await runScript('context-list', ['shared-task'], ctx.projectDir);
+      const result = await runScript('context-list', ['shared-task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
-      const output = result.stdout.toLowerCase();
-      expect(
-        output.includes('shared-ctx') ||
-        output.includes('golden') ||
-        output.includes('context')
-      ).toBe(true);
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('shared-ctx');
     });
   });
 
@@ -224,9 +230,10 @@ describe('Git Integration Tests (Group 11)', () => {
     it('should be ignored by git check-ignore', async () => {
       await runScript('task-create', ['task-1', 'Task 1'], ctx.projectDir);
 
-      // Need to stage the .gitignore first
+      // Must commit the .gitignore for git check-ignore to activate
       gitAdd(ctx.projectDir, '.claude/.gitignore');
-      
+      gitCommit(ctx.projectDir, 'Add .claude/.gitignore');
+
       expect(isGitIgnored(ctx.projectDir, '.claude/CLAUDE.md')).toBe(true);
     });
   });

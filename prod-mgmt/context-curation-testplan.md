@@ -22,6 +22,64 @@ This test plan focuses on **integration tests** that validate real-world usage p
 - Shared test fixtures and utilities where appropriate
 - Clear documentation of test data requirements
 
+
+---
+
+## Test Quality Rules
+
+These rules are mandatory. A test that violates them is considered a failing test regardless of whether its assertions pass.
+
+### Banned Patterns
+
+The following patterns are banned from all test files:
+
+1. **Vacuous OR fallbacks** — `|| output.includes('context')`, `|| result.exitCode === 0`, `|| /\d+/.test(output)`, `|| typeof x === 'number'`. These convert meaningful checks into tautologies.
+
+2. **Conditional file-existence guards** — `if (fileExists(path)) { expect(...) }`. Replace with: `expect(fileExists(path)).toBe(true)` then assert contents.
+
+3. **Tautological type assertions** — `typeof x === 'number'` when x is always a number. Assert a specific value or range.
+
+4. **Placeholder assertions** — `expect(true).toBe(true)`. Delete them or replace with a real check.
+
+5. **Self-fulfilling setup** — Creating the file the test then checks for in `beforeEach`. The script under test must create it.
+
+6. **Broad digit regex** — `/\d+/.test(output)` when a specific count is known. Use `new RegExp(\`\\\\b${count}\\\\b\`).test(output)`.
+
+7. **Missing exit code assertion** — Success tests must assert `exitCode === 0`. Error tests must assert `exitCode !== 0`. Skipping is banned.
+
+### Fix Priority Tiers
+
+Fixes are prioritized by effort:
+
+**Tier 1 — Immediate (<1hr each, fix first):**
+- Replace `expect(true).toBe(true)` placeholders
+- Fix inverted boolean logic
+- Replace `typeof exitCode === 'number'` with specific values
+- Remove self-fulfilling backup creation from test setup
+
+**Tier 2 — Strengthen assertions (1-2hr each):**
+- Remove all OR escape hatches from existing assertions
+- Replace `if (fileExists)` guards with unconditional assertions
+- Replace broad regex (`/\d+/`) with specific patterns
+
+**Tier 3 — Add unconditional file existence checks:**
+- Any test that checks file contents must first assert the file exists unconditionally
+
+**Tier 4 — Add missing tests (new test cases):**
+- 100KB golden context size cap
+- Overwrite protection with backup verification
+- PreCompact hook auto-save
+- MEMORY.md update after save
+- Golden context deletion protection
+- No-contexts → fresh start offer
+- All 3 message types scanned for secrets
+- Redaction + rescan workflow
+- Exact secret count assertion
+
+**Tier 5 — Architectural (git integration tests):**
+- Use real git repo with bare remote for pull simulation
+- Use `git check-ignore` for gitignore verification
+
 ---
 
 ## Test Environment Setup
@@ -2857,3 +2915,32 @@ This test plan provides comprehensive coverage of context-curator functionality 
 ---
 
 **Built to ensure context-curator works reliably across all scenarios** ✨
+
+---
+
+## Manual Test Checklist
+
+### T-RESUME-MANUAL: /resume Smoke Test
+
+Run this test when Claude Code updates or when a new version of context-curator is released.
+
+**Frequency:** Once per Claude Code version update  
+**Time required:** ~5 minutes
+
+**Steps:**
+1. In a test project, run `/task test-smoke-task` and create a task with a unique phrase in the CLAUDE.md (e.g. "SMOKE-TEST-CANARY-PHRASE")
+2. Note the session ID returned
+3. Run `/resume <session-id>`
+4. Ask: "What are your current task instructions?"
+5. **PASS** if the response contains content from `.claude/tasks/test-smoke-task/CLAUDE.md`
+6. **FAIL** if the response is generic without task-specific content
+
+**Record:** Claude Code version, date tested, pass/fail result.
+
+---
+
+### T-SEC-5 Policy: AKIAIOSFODNN7EXAMPLE
+
+Amazon's documentation uses `AKIAIOSFODNN7EXAMPLE` as an example key. Our scanner **treats this as a true positive** — it matches `AKIA[A-Z0-9]{16}`. This is intentional: we prefer false positives over false negatives for secrets.
+
+This string must **not** appear in the `FALSE_POSITIVES_CONTEXT` fixture. It belongs in `AWS_KEY_CONTEXT` or a dedicated true-positive fixture.

@@ -38,14 +38,12 @@ describe('Error Handling Tests (Group 13)', () => {
       // Don't run init-project
       const result = await runScript('task-create', ['some-task', 'desc'], ctx.projectDir);
 
+      expect(result.exitCode).not.toBe(0);
       const output = result.stdout.toLowerCase() + result.stderr.toLowerCase();
-      expect(
-        output.includes('not initialized') ||
-        output.includes('run') ||
-        output.includes('init') ||
-        output.includes('error') ||
-        result.exitCode !== 0
-      ).toBe(true);
+      // Must suggest initialization — 'init' is specific enough
+      expect(output.includes('init') || output.includes('not initialized')).toBe(true);
+      // Must NOT be a raw Node.js stack trace
+      expect(result.stderr).not.toContain('at Object.<anonymous>');
     });
 
     it('should suggest running init', async () => {
@@ -110,11 +108,12 @@ describe('Error Handling Tests (Group 13)', () => {
       const badPath = join(contextDir, 'bad.jsonl');
       writeFileSync(badPath, '{"incomplete":');
 
-      // scan-secrets expects a file path
       const result = await runScript('scan-secrets', [badPath], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
-      // Should complete without crash
-      expect(typeof result.exitCode).toBe('number');
+      // Must exit non-zero for corrupt input
+      expect(result.exitCode).not.toBe(0);
+      // Must not produce an unhandled exception stack trace
+      expect(result.stderr).not.toContain('at Object.<anonymous>');
     });
   });
 
@@ -133,8 +132,10 @@ describe('Error Handling Tests (Group 13)', () => {
 
       const result = await runScript('context-list', ['task-1'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
-      // Should handle gracefully, maybe skip broken metadata
-      expect(typeof result.exitCode).toBe('number');
+      // Should either succeed (skip bad metadata) or exit non-zero (report error)
+      // Must not crash with unhandled exception
+      expect(result.exitCode === 0 || result.exitCode === 1).toBe(true);
+      expect(result.stderr).not.toContain('at Object.<anonymous>');
     });
   });
 
@@ -272,15 +273,14 @@ describe('Cross-Platform Compatibility Tests (Group 12)', () => {
 
   describe('Test 12.4: Project Path with Spaces', () => {
     it('should handle paths with spaces', async () => {
-      // Create project dir with spaces in temp location
       const spacePath = join(ctx.projectDir, 'my project');
       mkdirSync(spacePath, { recursive: true });
       writeFileSync(join(spacePath, 'CLAUDE.md'), '# Project with spaces\n');
 
-      const result = await runScript('init-project', [], spacePath);
+      const result = await runScript('init-project', [], spacePath, { CLAUDE_HOME: ctx.personalBase });
 
-      // Should succeed or handle gracefully
-      expect(typeof result.exitCode).toBe('number');
+      expect(result.exitCode).toBe(0);
+      expect(fileExists(join(spacePath, '.claude', 'CLAUDE.md'))).toBe(true);
     });
   });
 

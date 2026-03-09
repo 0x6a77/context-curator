@@ -56,24 +56,15 @@ describe('Secret Detection Tests (Group 9)', () => {
   }
 
   describe('Test 9.1: Detect AWS Access Keys', () => {
+    // T-SEC-2: specific AWS/AKIA match, must exit non-zero
     it('should detect AWS access key pattern', async () => {
       const contextPath = createTestContext(AWS_KEY_CONTEXT);
 
-      const result = await runScript(
-        'scan-secrets',
-        [contextPath],
-        ctx.projectDir,
-        { CLAUDE_HOME: ctx.personalBase }
-      );
+      const result = await runScript('scan-secrets', [contextPath], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const output = result.stdout.toLowerCase();
-      expect(
-        output.includes('aws') ||
-        output.includes('akia') ||
-        output.includes('secret') ||
-        output.includes('detected') ||
-        output.includes('found')
-      ).toBe(true);
+      expect(result.exitCode).not.toBe(0); // must exit non-zero when secrets found
+      expect(output.includes('aws') || output.includes('akia')).toBe(true);
     });
 
     it('should identify AWS secret key pattern', async () => {
@@ -117,20 +108,15 @@ describe('Secret Detection Tests (Group 9)', () => {
       ).toBe(true);
     });
 
+    // T-SEC-3: type-specific check, must exit non-zero
     it('should detect both test and live keys', async () => {
       const contextPath = createTestContext(STRIPE_KEY_CONTEXT);
 
-      const result = await runScript(
-        'scan-secrets',
-        [contextPath],
-        ctx.projectDir,
-        { CLAUDE_HOME: ctx.personalBase }
-      );
+      const result = await runScript('scan-secrets', [contextPath], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
-      // Should detect multiple secrets
-      const output = result.stdout;
-      const secretCount = (output.match(/secret|key|found|detected/gi) || []).length;
-      expect(secretCount).toBeGreaterThan(0);
+      const output = result.stdout.toLowerCase();
+      expect(result.exitCode).not.toBe(0);
+      expect(output.includes('stripe') || output.includes('sk_test') || output.includes('sk_live')).toBe(true);
     });
   });
 
@@ -196,102 +182,78 @@ describe('Secret Detection Tests (Group 9)', () => {
     });
   });
 
-  describe('Test 9.6: False Positives', () => {
-    it('should handle placeholder text gracefully', async () => {
-      const contextPath = createTestContext(FALSE_POSITIVES_CONTEXT);
+  // T-SEC-5: document true-positive policy for AKIAIOSFODNN7EXAMPLE
+  describe('Test 9.6: AKIAIOSFODNN7EXAMPLE Policy', () => {
+    it('should treat AKIAIOSFODNN7EXAMPLE as a true positive (policy: prefer FP over FN)', async () => {
+      // AWS documentation uses AKIAIOSFODNN7EXAMPLE as an example key.
+      // Our scanner INTENTIONALLY detects it — false positives are acceptable, false negatives are not.
+      const contextPath = createTestContext(AWS_KEY_CONTEXT); // AWS_KEY_CONTEXT contains this string
 
-      const result = await runScript(
-        'scan-secrets',
-        [contextPath],
-        ctx.projectDir,
-        { CLAUDE_HOME: ctx.personalBase }
-      );
+      const result = await runScript('scan-secrets', [contextPath], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
-      // False positives may or may not be detected
-      // The key is that the scan completes without error
-      expect(result.exitCode).toBe(0);
-    });
-
-    it('should not block on obvious placeholders', async () => {
-      const contextPath = createTestContext(FALSE_POSITIVES_CONTEXT);
-
-      const result = await runScript(
-        'scan-secrets',
-        [contextPath],
-        ctx.projectDir,
-        { CLAUDE_HOME: ctx.personalBase }
-      );
-
-      // Should complete and potentially mark as low-confidence
-      expect(typeof result.exitCode).toBe('number');
+      expect(result.exitCode).not.toBe(0);
+      const output = result.stdout.toLowerCase();
+      expect(output.includes('aws') || output.includes('akia')).toBe(true);
     });
   });
 
   describe('Test 9.7: Multiple Secrets in Single Message', () => {
-    it('should detect multiple secrets', async () => {
+    // T-SEC-7: word-boundary count, must be > 1
+    it('should report correct count of multiple secrets', async () => {
       const contextPath = createTestContext(MULTIPLE_SECRETS_CONTEXT);
 
-      const result = await runScript(
-        'scan-secrets',
-        [contextPath],
-        ctx.projectDir,
-        { CLAUDE_HOME: ctx.personalBase }
-      );
+      const result = await runScript('scan-secrets', [contextPath], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
-      const output = result.stdout.toLowerCase();
-      // Should detect multiple types
-      expect(
-        (output.includes('aws') || output.includes('stripe') || output.includes('github')) ||
-        output.includes('multiple') ||
-        output.includes('found') ||
-        /[3-5]/.test(output) // Should show count of 3+
-      ).toBe(true);
+      expect(result.exitCode).not.toBe(0);
+      // The output should report a count; we check it's a reasonable number > 1
+      // Use word-boundary to avoid matching timestamps or other numbers
+      const output = result.stdout;
+      const countMatch = output.match(/\b([2-9]|\d{2,})\b.*?(secret|found|detect)/i) ||
+                         output.match(/(secret|found|detect).*?\b([2-9]|\d{2,})\b/i);
+      expect(countMatch).not.toBeNull();
     });
   });
 
-  describe('Test 9.8: Secrets in Different Message Types', () => {
-    it('should scan all message types', async () => {
-      const mixedMessages = [
-        { type: 'user', message: { role: 'user', content: 'Key: AKIAIOSFODNN7EXAMPLE' }, timestamp: '2026-01-18T10:00:00.000Z' },
-        { type: 'assistant', message: { role: 'assistant', content: 'Using: sk_live_abc123' }, timestamp: '2026-01-18T10:00:05.000Z' },
-        { type: 'tool_result', content: 'ghp_abcdefghijklmnopqrstuvwxyz123456', timestamp: '2026-01-18T10:00:10.000Z' },
+  // T-SEC-4: all 3 message types, check JSON array length >= 3
+  describe('Test 9.8: All Message Types Scanned', () => {
+    it('should detect secrets in user, assistant, and tool_result messages', async () => {
+      // Create a context with one secret per message type
+      const mixedTypeContext = [
+        { type: 'user', message: { role: 'user', content: 'User secret: AKIAIOSFODNN7EXAMPLE123' }, timestamp: new Date().toISOString() },
+        { type: 'assistant', message: { role: 'assistant', content: 'Assistant secret: sk_test_4eC39HqLyjWDarjtT1zdp7dc' }, timestamp: new Date().toISOString() },
+        { type: 'tool_result', message: { role: 'tool', content: 'Tool secret: ghp_abcdefghijklmnopqrstuvwxyz123456' }, timestamp: new Date().toISOString() },
       ];
-      const contextPath = createTestContext(mixedMessages);
+      const contextPath = createTestContext(mixedTypeContext);
 
-      const result = await runScript(
-        'scan-secrets',
-        [contextPath],
-        ctx.projectDir,
-        { CLAUDE_HOME: ctx.personalBase }
-      );
+      const result = await runScript('scan-secrets', [contextPath], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
-      const output = result.stdout.toLowerCase();
-      // Should find secrets in multiple message types
-      expect(
-        output.includes('secret') ||
-        output.includes('detected') ||
-        output.includes('found')
-      ).toBe(true);
+      expect(result.exitCode).not.toBe(0);
+      // All 3 must be reported — parse the output for 3 distinct matches
+      const output = result.stdout;
+      const parsed = JSON.parse(output.trim() === 'clean' ? '[]' : output.trim());
+      expect(Array.isArray(parsed)).toBe(true);
+      expect(parsed.length).toBeGreaterThanOrEqual(3);
     });
   });
 
-  describe('Test 9.9: Redaction Produces Valid JSONL', () => {
-    it('should produce valid JSONL after redaction', async () => {
-      const contextPath = createTestContext(STRIPE_KEY_CONTEXT);
+  // T-SEC-6: unconditional rescan after redaction
+  describe('Test 9.9: Redaction Produces Valid JSONL and Passes Rescan', () => {
+    it('should produce clean valid JSONL after redaction', async () => {
+      const contextPath = createTestContext(AWS_KEY_CONTEXT);
+      const redactedPath = contextPath.replace('.jsonl', '-redacted.jsonl');
 
-      // Run redaction - redact-secrets expects context path
-      const result = await runScript(
-        'redact-secrets',
-        [contextPath],
-        ctx.projectDir,
-        { CLAUDE_HOME: ctx.personalBase }
-      );
+      const redactResult = await runScript('redact-secrets', [contextPath, redactedPath], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      expect(redactResult.exitCode).toBe(0);
 
-      // Check if redacted file is valid JSONL
-      const redactedPath = join(ctx.personalDir, 'tasks', 'secret-test', 'contexts', 'test-ctx.redacted.jsonl');
-      if (fileExists(redactedPath)) {
-        expect(isValidJsonl(redactedPath)).toBe(true);
-      }
+      // Redacted file must exist
+      expect(fileExists(redactedPath)).toBe(true);
+
+      // Must be valid JSONL
+      expect(isValidJsonl(redactedPath)).toBe(true);
+
+      // Rescan must return clean
+      const rescanResult = await runScript('scan-secrets', [redactedPath], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      expect(rescanResult.stdout.trim()).toBe('clean');
     });
 
     it('should remove or mask secrets in output', async () => {

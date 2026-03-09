@@ -992,19 +992,51 @@ Minimal footprint in project:
 
 ## Success Criteria
 
-### MVP Complete When
+### Definition of Done
 
-- [x] `/task` creates or switches to tasks
-- [x] Two-file CLAUDE.md system working (no git conflicts)
-- [x] `/resume` loads task-specific instructions
-- [x] Personal contexts save to `~/.claude/projects/`
-- [x] Golden contexts save to `./.claude/tasks/.../contexts/`
-- [x] Secret detection before golden promotion
-- [x] `/context-list` shows summaries (AI-generated)
-- [x] `/context-manage` provides interactive management
-- [x] `/context-promote` with secret scanning and redaction
-- [x] Documentation complete
-- [x] Team can share golden contexts via git
+Each feature is done when its acceptance criterion passes and its named test exists and is non-vacuous.
+
+| Feature | Acceptance Criterion | Test ID |
+|---------|---------------------|---------|
+| Project initialization | `init-project` creates `.claude/CLAUDE.md` containing an `@import` line; the file must not exist before the script runs | T-INIT-1 |
+| CLAUDE.md backup | `init-project` copies root `CLAUDE.md` byte-for-byte to the stash path; backup must not exist before script runs (not created in test setup) | T-INIT-2 |
+| Default task copy | `.claude/tasks/default/CLAUDE.md` content equals root `CLAUDE.md` character-for-character | T-INIT-3 |
+| Idempotent init | Running `init-project` twice exits 0 both times and produces identical file contents | T-INIT-4 |
+| Multi-project isolation | Writing a file to project A's personal dir does not make it visible in project B's personal dir | T-INIT-5 |
+| Task creation structure | `task-create` produces CLAUDE.md with all required sections: `# Task:`, `## Focus`, `## Key Areas`, `## Guidelines` | T-TASK-1 |
+| Task name validation | `task-create` with uppercase name exits non-zero AND creates no task directory | T-TASK-2 |
+| Multi-line description | `task-create` with multi-line description preserves all lines in the Focus section | T-TASK-3 |
+| Empty description handling | `task-create` with empty description exits non-zero and creates no task directory | T-TASK-4 |
+| Personal context save path | `save-context --personal` creates file at exactly `<personalDir>/tasks/<task-id>/contexts/<name>.jsonl` | T-CTX-1 |
+| Valid JSONL output | Saved context file parses as valid JSONL — asserted unconditionally, not inside an `if (fileExists)` guard | T-CTX-2 |
+| Secret scan blocks golden | `save-context --golden` on a session with a real AWS key exits non-zero or produces a prompt; exit 0 with no prompt is a failure | T-CTX-3 |
+| 100KB golden cap (save) | `save-context --golden` on a 150KB session exits non-zero with output containing "100KB" or "too large" | T-CTX-4 |
+| 100KB golden cap (promote) | `promote-context` on a 150KB personal context exits non-zero with output containing "100KB" or "too large" | T-CTX-5 |
+| Overwrite protection | `save-context` called twice with the same name creates a `.backup-` file; the backup contains the original content | T-CTX-6 |
+| Context list ordering | `context-list` output: indexOf("Personal") < indexOf("Golden") AND specific context names appear | T-LIST-1 |
+| Message count display | `context-list` shows exact message count matching `\b<N>\b` (word boundary, not `\d+`) | T-LIST-2 |
+| No-contexts fresh start | When no contexts exist, `context-list` output contains "fresh", "empty", or "no contexts" | T-LIST-3 |
+| AI-generated summary | `context-list` shows a non-empty description string after each context name, not just metadata | T-LIST-4 |
+| Golden deletion warning | `delete-context` on a golden context exits non-zero without `--confirm` flag; the file still exists after the failed attempt | T-CTX-7 |
+| Promote copies not moves | After `promote-context`, both personal original and golden copy exist; contents are byte-for-byte identical | T-PROM-1 |
+| Secret detection for promotion | `promote-context` on a context with `ghp_` + 36 alphanumeric chars: output names the specific secret type | T-PROM-2 |
+| Already-golden warns | `promote-context` when golden already exists exits non-zero or warns; setup must create personal context only | T-PROM-3 |
+| Root CLAUDE.md unchanged | After any task operation, root `CLAUDE.md` content equals its pre-operation content | T-CLMD-1 |
+| @import replaces not appends | After two task switches, `.claude/CLAUDE.md` contains exactly one `@import` line | T-CLMD-2 |
+| .claude/CLAUDE.md git-ignored | `git check-ignore .claude/CLAUDE.md` exits 0 in a real git repo after init | T-GIT-1 |
+| Personal storage never committed | After a full workflow in a real git repo, `git status --porcelain` does not list any path containing the personal storage prefix | T-GIT-2 |
+| AWS key detection | `scan-secrets` on a file with `AKIA` + 16 uppercase alphanumeric chars exits non-zero; output contains "AWS" or "AKIA" | T-SEC-2 |
+| Stripe key detection | `scan-secrets` detects both `sk_test_` and `sk_live_`; output names the specific key type | T-SEC-3 |
+| All message types scanned | A context with one secret in user, one in assistant, one in tool_result: all three reported | T-SEC-4 |
+| False positive policy | `AKIAIOSFODNN7EXAMPLE` is treated as a true positive (scanner prefers false positives over false negatives) | T-SEC-5 |
+| Redaction produces valid JSONL | After `redact-secrets`, every line parses as JSON; a second `scan-secrets` run returns "clean" | T-SEC-6 |
+| Multiple secrets exact count | `scan-secrets` on a context with exactly 4 secrets reports count matching `\b4\b` | T-SEC-7 |
+| Missing .claude/ graceful | Any script run without init exits non-zero with output containing "initialized" or "init" — not a stack trace | T-ERR-1 |
+| Corrupt JSONL handled | `scan-secrets` on malformed JSONL exits non-zero (not 0) | T-ERR-2 |
+| Paths with spaces | All operations work when project path contains a space; verified by exitCode === 0 AND output file existence | T-ERR-3 |
+| PreCompact auto-save | `auto-save-context` with a mock stdin payload creates a timestamped file at the expected personal context path | T-HOOK-1 |
+| MEMORY.md updated after save | After `save-context`, the personal memory MEMORY.md contains the task-id and context-name saved | T-MEM-1 |
+| /resume smoke test | MANUAL: After `/task <id>` + `/resume <session>`, Claude's response references task CLAUDE.md content | T-RESUME-MANUAL |
 
 ### Success Metrics
 
@@ -1022,13 +1054,31 @@ Minimal footprint in project:
 
 ## Implementation Notes
 
+### Test Contract
+
+All automated tests in this project must conform to the following rules. Violations are treated as test failures regardless of whether the underlying assertion passes.
+
+**T1 — No Vacuous OR Fallbacks.** Assertions must not use trailing OR clauses broad enough to always fire. Banned patterns: `|| output.includes('context')`, `|| result.exitCode === 0`, `|| /\d+/.test(output)`, `|| typeof x === 'number'`. Every assertion must be capable of failing on a buggy-but-conforming implementation.
+
+**T2 — No Conditional Assertions on File Existence.** The pattern `if (await fileExists(path)) { expect(...) }` is banned. Assert file existence unconditionally first: `expect(await fileExists(path)).toBe(true)`, then assert contents.
+
+**T3 — No Self-Fulfilling Setup.** Test setup must not create the artifact the test then verifies. If a script is supposed to create a backup, the test must not create the backup in `beforeEach`.
+
+**T4 — No Tautological Type Assertions.** `typeof x === 'number'` when `x` is always numeric is banned. Assert specific values or ranges.
+
+**T5 — Exit Codes Must Be Specific.** Error paths assert `exitCode !== 0`. Success paths assert `exitCode === 0`. Skipping the assertion is banned.
+
+**T6 — String Assertions Must Be Specific.** When asserting a specific value appears in output (e.g. a count, path, or label), the pattern must be specific enough to fail on unrelated content. Use `\b47\b` not `\d+` when 47 messages are expected.
+
 ### Claude Code Integration Points
 
 **Critical behavior we rely on:**
 
 1. `/resume` re-reads CLAUDE.md from disk
    - This enables task switching
-   - Documented in research: "Re-read CLAUDE.md from current directory"
+   - Observed behavior (not officially documented); treat as stable but monitor on Claude Code updates
+   - **Automated tests:** Cannot test this directly — requires a live Claude Code instance. Instead, test the structural proxy: verify `.claude/CLAUDE.md` contains the correct `@import` path before `/resume` would fire (T-CLMD-2).
+   - **Manual smoke test (T-RESUME-MANUAL):** Run once per Claude Code version update. See test plan for steps.
 
 2. `@import` directive works in CLAUDE.md
    - Official Claude Code feature
@@ -1068,6 +1118,14 @@ CLAUDE.md
 **What NOT to commit:**
 - `.claude/CLAUDE.md` - Auto-generated
 - Personal contexts (they live in `~/.claude/projects/`)
+
+### Context Size Policy
+
+Golden contexts committed to git are capped at **100KB per file**. This limit is enforced in two places:
+- `/context-save --golden`: rejects save if session exceeds 100KB
+- `/context-promote`: rejects promotion if personal context exceeds 100KB
+
+Both paths are independently tested (T-CTX-4, T-CTX-5). Personal contexts have no size limit.
 
 ---
 
