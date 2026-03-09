@@ -1,7 +1,7 @@
 # Product Requirements Document: Claude Code Context Curator
 
-**Version:** 13.0  
-**Last Updated:** January 17, 2026  
+**Version:** 14.0  
+**Last Updated:** March 9, 2026  
 **Status:** Ready for Implementation
 
 ---
@@ -95,7 +95,7 @@ This solves the git conflict problem: the committed file never changes, the work
 
 ### How /resume Re-reads CLAUDE.md
 
-When you run `/resume sess-xyz123`, Claude Code:
+When you run `/resume <uuid>`, Claude Code:
 
 1. Loads session from disk (conversation history, tool calls, state)
 2. **Re-reads CLAUDE.md from current directory** (fresh from disk!)
@@ -104,6 +104,10 @@ When you run `/resume sess-xyz123`, Claude Code:
 5. Resumes conversation
 
 This means we can modify `./.claude/CLAUDE.md` between sessions and the new instructions take effect on `/resume`.
+
+> **Known Risk:** This behavior (re-reading CLAUDE.md on `/resume`) is not officially documented by Anthropic. It is an observed behavior central to task-switching. If a future Claude Code update changes this behavior, task switching will break silently.
+>
+> **Mitigation:** The `@import` directive is a documented feature, so instruction-loading itself is stable. Add a smoke test: after a `/resume`, verify a known string from the task CLAUDE.md appears in Claude's system context. This catches breakage quickly.
 
 ---
 
@@ -230,14 +234,14 @@ If task doesn't exist:
 2. Create `CLAUDE.md` for task based on description
 3. Create default context (empty)
 4. Modify `.claude/CLAUDE.md` to import task's CLAUDE.md
-5. Output: "Run: /resume sess-xyz123"
+5. Output: "Run: /resume <uuid>"
 
 If task exists:
 1. List available contexts (personal + golden)
 2. Ask which context to load
 3. Modify `.claude/CLAUDE.md` to import task's CLAUDE.md
 4. Copy selected context to session file
-5. Output: "Run: /resume sess-xyz123"
+5. Output: "Run: /resume <uuid>"
 
 **Example:**
 
@@ -252,7 +256,7 @@ You: Refactoring the legacy OAuth implementation in src/auth/
 ✓ Created task: oauth-refactor
 ✓ Location: ./.claude/tasks/oauth-refactor/
 
-Run: /resume sess-abc123
+Run: /resume <uuid>
 
 Your focus:
   Refactoring the legacy OAuth implementation in src/auth/
@@ -272,7 +276,7 @@ Choice (or enter for default): 2
 ✓ Task: oauth-refactor  
 ✓ Context: oauth-deep-dive (47 msgs)
 
-Run: /resume sess-abc123
+Run: /resume <uuid>
 
 # Now /resume will read .claude/CLAUDE.md which imports oauth-refactor/CLAUDE.md
 ```
@@ -429,10 +433,12 @@ echo "✓ Updated .claude/CLAUDE.md → tasks/$TASK_ID"
 ## Step 6: Create session and output instructions
 
 ```bash
-SESSION_ID="sess-$(head /dev/urandom | tr -dc a-z0-9 | head -c 8)"
-SESSION_FILE=~/.claude/sessions/$SESSION_ID.jsonl
+SESSION_ID="$(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen 2>/dev/null || perl -e 'use POSIX; printf "%s
+", join("-", unpack("H8H4H4H4H12", pack("N4", map { int(rand(0xFFFFFFFF)) } 1..4)))')"| tr -dc a-z0-9 | head -c 8)"
+PROJECT_ID=$(pwd | sed 's|/|-|g')
+SESSION_FILE=~/.claude/projects/$PROJECT_ID/$SESSION_ID.jsonl
 
-mkdir -p ~/.claude/sessions
+mkdir -p ~/.claude/projects/$PROJECT_ID
 
 # Copy selected context to session (or create empty)
 if [ -f "$SELECTED_CONTEXT" ]; then
@@ -543,6 +549,8 @@ Secret scan patterns:
 - Generic API keys: api_key, apiKey patterns
 - Passwords: password=, pwd=
 - Private keys: -----BEGIN PRIVATE KEY-----
+
+> **Note:** Secrets are scanned at save time for ALL contexts (personal and golden). For personal saves, secrets trigger a warning with the option to redact before saving — they do not block the save. For golden promotion, secrets must be acknowledged and optionally redacted before proceeding.
 ```
 
 ---
@@ -837,10 +845,10 @@ Next steps:
 "Refactoring the legacy OAuth implementation in src/auth/"
 
 ✓ Created task
-Run: /resume sess-abc123
+Run: /resume <uuid>
 
 # 2. Resume with task context
-/resume sess-abc123
+/resume <uuid>
 
 # Claude now has task-specific instructions loaded
 # Work begins with fresh, focused context
@@ -891,7 +899,7 @@ git pull
 > Choice: 1
 
 ✓ Context: oauth-deep-dive (47 msgs)
-Run: /resume sess-xyz789
+Run: /resume <uuid>
 
 # /resume loads the golden context
 # Claude is INSTANTLY warmed up on OAuth subsystem! ✨
@@ -924,7 +932,7 @@ review
 ✓ Task: default
 ✓ Restored to vanilla project context
 
-Run: /resume sess-new123
+Run: /resume <uuid>
 
 # Back to general development mode
 ```
@@ -1052,8 +1060,10 @@ CLAUDE.md
 **What to commit:**
 - `.claude/tasks/*/CLAUDE.md` - Task knowledge
 - `.claude/tasks/*/README.md` - Task documentation
-- `.claude/tasks/*/contexts/*.jsonl` - Golden contexts
+- `.claude/tasks/*/contexts/*.jsonl` - Golden contexts (max 100KB each; warn and block if exceeded)
 - `.claude/.gitignore` - Ignore rules
+
+> **Context Size Limit:** Golden contexts committed to git are capped at **100KB**. Large contexts bloat the repository and slow clones over time. If a context exceeds this limit, `/context-save --golden` and `/context-promote` must warn the user and offer to trim the context before saving.
 
 **What NOT to commit:**
 - `.claude/CLAUDE.md` - Auto-generated
@@ -1309,11 +1319,12 @@ Context Curator prioritizes **integration tests** over unit tests. Integration t
 
 #### 12. Cross-Platform Compatibility
 
-**Expected Behaviors:**
-- Works on macOS, Linux, Windows
-- Path sanitization handles platform differences
+> **Scope:** Initial version targets **macOS and Linux only**. Windows native support is explicitly out of scope for v13.0. The path encoding (`cwd.replace(/\//g, '-')`) is POSIX-specific and the shell scripts use bash syntax incompatible with Windows cmd/PowerShell. Windows users should use WSL2.
+
+**Expected Behaviors (macOS/Linux):**
+- Path sanitization handles POSIX paths
 - File permissions set correctly
-- Line endings handled properly (LF vs CRLF)
+- Line endings handled properly (LF)
 - Tilde expansion works (`~/.claude/`)
 - Handles spaces in project paths
 - Handles special characters in paths
@@ -1321,11 +1332,10 @@ Context Curator prioritizes **integration tests** over unit tests. Integration t
 **Test Scenarios:**
 1. Initialize on macOS
 2. Initialize on Linux
-3. Initialize on Windows (WSL and native)
-4. Project path with spaces
-5. Project path with special characters
-6. Verify contexts are cross-platform compatible
-7. Verify `.jsonl` files use consistent line endings
+3. Project path with spaces
+4. Project path with special characters
+5. Verify contexts are portable (macOS ↔ Linux)
+6. Verify `.jsonl` files use consistent line endings
 
 #### 13. Error Handling & Edge Cases
 

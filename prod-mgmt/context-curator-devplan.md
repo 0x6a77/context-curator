@@ -20,6 +20,8 @@ This plan implements the **task-based context management system** described in P
 
 **Key Innovation:** Claude Code's `/resume` re-reads CLAUDE.md from disk, enabling task-specific instructions to take effect at resume-time.
 
+> **Known Risk:** This behavior is not officially documented by Anthropic. If a future Claude Code update changes it, task switching breaks silently. Add a smoke test: after `/resume`, verify a known string from the task CLAUDE.md appears in system context.
+
 **No API key required. Works entirely within Claude Code using native features.**
 
 ---
@@ -52,7 +54,7 @@ my-project/
     │   ├── oauth-refactor/
     │   │   ├── CLAUDE.md              # ← Task knowledge
     │   │   ├── README.md              # ← Task docs
-    │   │   └── contexts/              # ← Golden contexts (committed)
+    │   │   └── contexts/              # ← Golden contexts (max 100KB each) (committed)
     │   │       └── oauth-deep-dive.jsonl
     │   └── default/
     │       └── CLAUDE.md              # ← Copy of original CLAUDE.md
@@ -410,7 +412,7 @@ Generate session ID.
 ✓ Task: oauth-refactor
 ✓ Context: oauth-deep-dive (47 msgs)
 
-Run: /resume sess-abc123
+Run: /resume <uuid>
 
 Your focus:
   Refactoring the legacy OAuth implementation in src/auth/
@@ -428,6 +430,8 @@ Your focus:
 ### 2.2 /context-save Command
 
 **Purpose:** Save current session as a context (personal by default, golden if flagged)
+
+> **Secret Scanning Policy:** Secrets are scanned at every save, not just at promotion. Personal saves warn but do not block. Golden saves require acknowledgement and offer redaction before proceeding.
 
 **Execution:** Forked context (has access to current session)
 
@@ -951,6 +955,8 @@ Intelligently combine contexts:
 ### 5. Golden Context via Git
 
 **Why:** Uses existing infrastructure, familiar workflow.
+
+**Size limit:** 100KB per golden context file. Warn and block on exceed to prevent repo bloat over time.
 
 - Committed to repo like any other file
 - Standard git workflow (add, commit, push)

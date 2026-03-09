@@ -1,2 +1,5 @@
+# Auto-generated file (each developer has their own)
 CLAUDE.md
-settings.local.json
+
+# Personal data files
+*.local.json
