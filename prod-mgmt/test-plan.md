@@ -1048,6 +1048,15 @@ def test_save_without_task():
 
 ## 5. Context Listing Tests · F-CTX-LIST
 
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-LIST-1 | `context-list` output: indexOf("Personal") < indexOf("Golden") AND specific context names appear |
+| T-LIST-2 | `context-list` shows exact message count matching `\b<N>\b` (word boundary, not `\d+`) |
+| T-LIST-3 | When no contexts exist, `context-list` output contains "fresh", "empty", or "no contexts" |
+| T-LIST-4 | `context-list` shows a non-empty description string after each context name, not just metadata |
+
 ### Test 5.1: List Contexts for Current Task
 
 **Setup:**
