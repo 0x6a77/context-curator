@@ -1242,6 +1242,12 @@ def test_list_nonexistent():
 
 ## 6. Context Management Tests · F-CTX-MANAGE
 
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-CTX-7 | `delete-context` on a golden context exits non-zero without `--confirm` flag; the file still exists after the failed attempt |
+
 ### Test 6.1: Manage When No Contexts Exist
 
 **Setup:**
