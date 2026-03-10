@@ -347,6 +347,15 @@ def test_init_preserves_existing():
 
 ## 2. Task Creation Tests · F-TASK-CREATE
 
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-TASK-1 | `task-create` produces CLAUDE.md with all required sections: `# Task:`, `## Focus`, `## Key Areas`, `## Guidelines` |
+| T-TASK-2 | `task-create` with uppercase name exits non-zero AND creates no task directory |
+| T-TASK-3 | `task-create` with multi-line description preserves all lines in the Focus section |
+| T-TASK-4 | `task-create` with empty description exits non-zero and creates no task directory |
+
 ### Test 2.1: Create New Task with Valid Name
 
 **Setup:**
