@@ -1692,6 +1692,14 @@ Type: Golden (team shared) ⭐
 
 ## 8. Two-File CLAUDE.md System Tests · F-CLMD
 
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-CLMD-1 | After any task operation, root `CLAUDE.md` content equals its pre-operation content |
+| T-CLMD-2 | After two task switches, `.claude/CLAUDE.md` contains exactly one `@import` line |
+| T-RESUME-MANUAL | MANUAL: After `/task <id>` + `/resume <session>`, Claude's response references task CLAUDE.md content |
+
 ### Test 8.1: Root CLAUDE.md Never Modified
 
 **Setup:**
