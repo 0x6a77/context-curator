@@ -6,7 +6,7 @@
 
 ---
 
-## Executive Summary
+## Overview
 
 Claude Code Context Curator is a **task-based context management system** that solves the critical problem of losing hard-won context when Claude Code auto-compacts or exceeds token limits. It enables developers to preserve "warmed-up" Claude sessions and return to peak performance on-demand.
 
@@ -330,6 +330,20 @@ Run: /resume <uuid>
 ## Features
 
 Save those precious hours of warming Claude up on complex subsystems. Context Curator preserves hard-won context so you can return to peak performance on-demand — the primary value of the system.
+
+### Command Reference
+
+| Command | Feature ID | Description |
+|---------|-----------|-------------|
+| `/task-init` | [F-INIT](#f-init--project-initialization-task-init) | Bootstrap a project for context-curator |
+| `/task <id>` _(new task)_ | [F-TASK-CREATE](#f-task-create--task-creation-task-new-task-id) | Create a new named task with custom instructions |
+| `/task <id>` _(existing task)_ | [F-TASK-SWITCH](#f-task-switch--task-switching-task-existing-task-id) | Switch to an existing task and load a context |
+| `/context-save <name> [--golden]` | [F-CTX-SAVE](#f-ctx-save--context-saving-context-save-n) | Save current session as a named context |
+| `/context-list [task-id]` | [F-CTX-LIST](#f-ctx-list--context-listing-context-list-task-id) | List all contexts with AI-generated summaries |
+| `/context-manage` | [F-CTX-MANAGE](#f-ctx-manage--context-management-context-manage) | Interactive context management and cleanup |
+| `/context-promote <name>` | [F-CTX-PROMOTE](#f-ctx-promote--context-promotion-context-promote-context-name) | Promote a personal context to golden (team-shared) |
+
+---
 
 ### F-INIT · Project Initialization (`/task-init`)
 
