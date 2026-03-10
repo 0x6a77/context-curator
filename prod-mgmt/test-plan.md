@@ -475,11 +475,27 @@ What should this task focus on? > This is a complex refactor involving:
 **Validation:**
 ```python
 def test_create_task_multiline_description():
-    # Verify all description lines captured
     task_md = Path(".claude/tasks/complex-refactor/CLAUDE.md").read_text()
-    assert "OAuth 2.0 migration" in task_md
-    assert "Session state cleanup" in task_md
-    assert "Token refresh logic" in task_md
+    
+    # Extract the ## Focus section specifically
+    lines = task_md.splitlines()
+    focus_start = next((i for i, l in enumerate(lines) if l.strip() == "## Focus"), None)
+    focus_end = next((i for i, l in enumerate(lines) if i > focus_start and l.startswith("## ")), len(lines))
+    assert focus_start is not None, "## Focus section must exist"
+    focus_lines = [l.strip() for l in lines[focus_start+1:focus_end] if l.strip()]
+    
+    # Per T-TASK-3: each input line must appear as its own line in ## Focus,
+    # not collapsed into a single sentence. Substring matching is insufficient.
+    assert any("OAuth 2.0 migration" in l for l in focus_lines), \
+        "Each description line must appear on its own line in ## Focus"
+    assert any("Session state cleanup" in l for l in focus_lines), \
+        "Each description line must appear on its own line in ## Focus"
+    assert any("Token refresh logic" in l for l in focus_lines), \
+        "Each description line must appear on its own line in ## Focus"
+    # Reject collapsed output: all three must NOT appear on the same line
+    assert not any(
+        "OAuth 2.0 migration" in l and "Session state cleanup" in l for l in focus_lines
+    ), "Lines must not be collapsed into a single sentence"
 ```
 
 ---
