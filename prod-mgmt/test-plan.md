@@ -2284,6 +2284,13 @@ def test_summary_displayed():
 
 ## 11. Git Integration Tests · F-GIT
 
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-GIT-1 | `git check-ignore .claude/CLAUDE.md` exits 0 in a real git repo after init |
+| T-GIT-2 | After a full workflow in a real git repo, `git status --porcelain` does not list any path containing the personal storage prefix |
+
 ### Test 11.1: .gitignore Setup
 
 **Validation:**
