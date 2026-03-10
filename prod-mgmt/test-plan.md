@@ -777,18 +777,31 @@ claude > /task task-a
 def test_multiple_task_switches():
     # Each switch should update .claude/CLAUDE.md
     
+    def assert_single_import(task_id):
+        """T-SWITCH-1: exactly one @import line pointing to the selected task."""
+        content = Path(".claude/CLAUDE.md").read_text()
+        import_lines = [l for l in content.splitlines() if l.strip().startswith("@import")]
+        assert len(import_lines) == 1, \
+            f"Expected exactly 1 @import line, found {len(import_lines)}: {import_lines}"
+        assert task_id in import_lines[0], \
+            f"@import must point to {task_id}, got: {import_lines[0]}"
+    
     run_command("/task task-a")
     assert verify_file_content(".claude/CLAUDE.md", "@import ./tasks/task-a/CLAUDE.md")
+    assert_single_import("task-a")
     
     run_command("/task task-b")
     assert verify_file_content(".claude/CLAUDE.md", "@import ./tasks/task-b/CLAUDE.md")
     assert not verify_file_content(".claude/CLAUDE.md", "task-a")
+    assert_single_import("task-b")
     
     run_command("/task task-c")
     assert verify_file_content(".claude/CLAUDE.md", "@import ./tasks/task-c/CLAUDE.md")
+    assert_single_import("task-c")
     
     run_command("/task task-a")
     assert verify_file_content(".claude/CLAUDE.md", "@import ./tasks/task-a/CLAUDE.md")
+    assert_single_import("task-a")
 ```
 
 ---
