@@ -183,7 +183,17 @@ class ContextCuratorTestCase:
 
 ## Feature Test Groups
 
-## 1. Project Initialization Tests
+## 1. Project Initialization Tests · F-INIT
+
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-INIT-1 | `init-project` creates `.claude/CLAUDE.md` containing an `@import` line; the file must not exist before the script runs |
+| T-INIT-2 | `init-project` copies root `CLAUDE.md` byte-for-byte to the stash path; backup must not exist before script runs (not created in test setup) |
+| T-INIT-3 | `.claude/tasks/default/CLAUDE.md` content equals root `CLAUDE.md` character-for-character |
+| T-INIT-4 | Running `init-project` twice exits 0 both times and produces identical file contents |
+| T-INIT-5 | Writing a file to project A's personal dir does not make it visible in project B's personal dir |
 
 ### Test 1.1: Initialize Fresh Project (No CLAUDE.md)
 
@@ -335,7 +345,16 @@ def test_init_preserves_existing():
 
 ---
 
-## 2. Task Creation Tests
+## 2. Task Creation Tests · F-TASK-CREATE
+
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-TASK-1 | `task-create` produces CLAUDE.md with all required sections: `# Task:`, `## Focus`, `## Key Areas`, `## Guidelines` |
+| T-TASK-2 | `task-create` with uppercase name exits non-zero AND creates no task directory |
+| T-TASK-3 | `task-create` with multi-line description preserves all lines in the Focus section |
+| T-TASK-4 | `task-create` with empty description exits non-zero and creates no task directory |
 
 ### Test 2.1: Create New Task with Valid Name
 
@@ -492,7 +511,15 @@ def test_create_task_empty_description():
 
 ---
 
-## 3. Task Switching Tests
+## 3. Task Switching Tests · F-TASK-SWITCH
+
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-SWITCH-1 | After `/task <existing-id>`, `.claude/CLAUDE.md` contains exactly one `@import` pointing to the selected task |
+| T-SWITCH-2 | When a task has no contexts, output contains "fresh", "empty", or "no contexts" and exits 0 |
+| T-SWITCH-3 | When both personal and golden contexts exist, personal contexts are listed before golden contexts |
 
 ### Test 3.1: Switch to Task with Personal Contexts Only
 
@@ -746,7 +773,18 @@ def test_multiple_task_switches():
 
 ---
 
-## 4. Context Saving Tests
+## 4. Context Saving Tests · F-CTX-SAVE
+
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-CTX-1 | `save-context --personal` creates file at exactly `<personalDir>/tasks/<task-id>/contexts/<name>.jsonl` |
+| T-CTX-2 | Saved context file parses as valid JSONL — asserted unconditionally, not inside an `if (fileExists)` guard |
+| T-CTX-3 | `save-context --golden` on a session with a real AWS key exits non-zero or produces a prompt; exit 0 with no prompt is a failure |
+| T-CTX-4 | `save-context --golden` on a 150KB session exits non-zero with output containing "100KB" or "too large" |
+| T-CTX-6 | `save-context` called twice with the same name creates a `.backup-` file; the backup contains the original content |
+| T-MEM-1 | After `save-context`, the personal memory MEMORY.md contains the task-id and context-name saved |
 
 ### Test 4.1: Save Personal Context with Valid Name
 
@@ -1008,7 +1046,16 @@ def test_save_without_task():
 
 ---
 
-## 5. Context Listing Tests
+## 5. Context Listing Tests · F-CTX-LIST
+
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-LIST-1 | `context-list` output: indexOf("Personal") < indexOf("Golden") AND specific context names appear |
+| T-LIST-2 | `context-list` shows exact message count matching `\b<N>\b` (word boundary, not `\d+`) |
+| T-LIST-3 | When no contexts exist, `context-list` output contains "fresh", "empty", or "no contexts" |
+| T-LIST-4 | `context-list` shows a non-empty description string after each context name, not just metadata |
 
 ### Test 5.1: List Contexts for Current Task
 
@@ -1193,7 +1240,13 @@ def test_list_nonexistent():
 
 ---
 
-## 6. Context Management Tests
+## 6. Context Management Tests · F-CTX-MANAGE
+
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-CTX-7 | `delete-context` on a golden context exits non-zero without `--confirm` flag; the file still exists after the failed attempt |
 
 ### Test 6.1: Manage When No Contexts Exist
 
@@ -1406,7 +1459,16 @@ def test_manage_preserve_golden():
 
 ---
 
-## 7. Context Promotion Tests
+## 7. Context Promotion Tests · F-CTX-PROMOTE
+
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-CTX-5 | `promote-context` on a 150KB personal context exits non-zero with output containing "100KB" or "too large" |
+| T-PROM-1 | After `promote-context`, both personal original and golden copy exist; contents are byte-for-byte identical |
+| T-PROM-2 | `promote-context` on a context with `ghp_` + 36 alphanumeric chars: output names the specific secret type |
+| T-PROM-3 | `promote-context` when golden already exists exits non-zero or warns; setup must create personal context only |
 
 ### Test 7.1: Promote Clean Context (No Secrets)
 
@@ -1628,7 +1690,15 @@ Type: Golden (team shared) ⭐
 
 ---
 
-## 8. Two-File CLAUDE.md System Tests
+## 8. Two-File CLAUDE.md System Tests · F-CLMD
+
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-CLMD-1 | After any task operation, root `CLAUDE.md` content equals its pre-operation content |
+| T-CLMD-2 | After two task switches, `.claude/CLAUDE.md` contains exactly one `@import` line |
+| T-RESUME-MANUAL | MANUAL: After `/task <id>` + `/resume <session>`, Claude's response references task CLAUDE.md content |
 
 ### Test 8.1: Root CLAUDE.md Never Modified
 
@@ -1866,7 +1936,18 @@ def test_multiple_developers():
 
 ---
 
-## 9. Secret Detection Tests
+## 9. Secret Detection Tests · F-SEC
+
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-SEC-2 | `scan-secrets` on a file with `AKIA` + 16 uppercase alphanumeric chars exits non-zero; output contains "AWS" or "AKIA" |
+| T-SEC-3 | `scan-secrets` detects both `sk_test_` and `sk_live_`; output names the specific key type |
+| T-SEC-4 | A context with one secret in user, one in assistant, one in tool_result: all three reported |
+| T-SEC-5 | `AKIAIOSFODNN7EXAMPLE` is treated as a true positive (scanner prefers false positives over false negatives) |
+| T-SEC-6 | After `redact-secrets`, every line parses as JSON; a second `scan-secrets` run returns "clean" |
+| T-SEC-7 | `scan-secrets` on a context with exactly 5 secrets reports count matching `\b5\b` |
 
 ### Test 9.1: Detect AWS Access Keys
 
@@ -2055,7 +2136,11 @@ def test_redaction_valid_jsonl():
 
 ---
 
-## 10. AI-Generated Summary Tests
+## 10. AI-Generated Summary Tests · F-SUMMARY
+
+**Acceptance Criteria:**
+
+_No automated AC clauses defined — summary quality is evaluated through F-CTX-LIST criterion T-LIST-4 (non-empty description after context name, not just metadata)._
 
 ### Test 10.1: Summary for Small Context
 
@@ -2197,7 +2282,14 @@ def test_summary_displayed():
 
 ---
 
-## 11. Git Integration Tests
+## 11. Git Integration Tests · F-GIT
+
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-GIT-1 | `git check-ignore .claude/CLAUDE.md` exits 0 in a real git repo after init |
+| T-GIT-2 | After a full workflow in a real git repo, `git status --porcelain` does not list any path containing the personal storage prefix |
 
 ### Test 11.1: .gitignore Setup
 
@@ -2386,7 +2478,13 @@ def test_working_claude_md_not_in_status():
 
 ---
 
-## 12. Cross-Platform Tests
+## 12. Cross-Platform Tests · F-XPLAT
+
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-ERR-3 | All operations work when project path contains a space; verified by exitCode === 0 AND output file existence |
 
 ### Test 12.1: Initialize on macOS
 
@@ -2510,7 +2608,14 @@ def test_line_endings():
 
 ---
 
-## 13. Error Handling Tests
+## 13. Error Handling Tests · F-ERR
+
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-ERR-1 | Any script run without init exits non-zero with output containing "initialized" or "init" — not a stack trace |
+| T-ERR-2 | `scan-secrets` on malformed JSONL exits non-zero (not 0) |
 
 ### Test 13.1: Run /task Without Initialization
 
@@ -2663,6 +2768,86 @@ def test_concurrent_saves():
     # Both should succeed without corruption
     assert verify_file_exists_in_personal("ctx-1.jsonl")
     assert verify_file_exists_in_personal("ctx-2.jsonl")
+```
+
+---
+
+## 14. PreCompact Auto-Save Hook Tests · F-HOOK
+
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-HOOK-1 | `auto-save-context` with a mock stdin payload creates a timestamped `.jsonl` file in the flat `<personalBase>/auto-saves/` directory |
+
+### Test 14.1: Auto-Save on PreCompact Trigger
+
+**Setup:**
+```bash
+cd test-project
+# Configure PreCompact hook pointing to auto-save-context script
+```
+
+**Execution:**
+```bash
+# Pipe a mock PreCompact stdin payload to the auto-save script
+echo '{"session_id":"abc123","project_dir":"/tmp/test-project"}' | npx tsx scripts/auto-save-context.ts
+```
+
+**Validation:**
+```python
+def test_auto_save_trigger():
+    payload = json.dumps({"session_id": "abc123", "project_dir": str(project_dir)})
+    result = subprocess.run(
+        ["npx", "tsx", "scripts/auto-save-context.ts"],
+        input=payload,
+        capture_output=True,
+        text=True
+    )
+    
+    assert result.returncode == 0
+    
+    # Verify flat auto-saves/ directory was created
+    auto_saves_dir = personal_base / "auto-saves"
+    assert auto_saves_dir.exists()
+    
+    # Verify at least one .jsonl file with timestamp in name
+    jsonl_files = list(auto_saves_dir.glob("*.jsonl"))
+    assert len(jsonl_files) >= 1
+    
+    # Verify filename contains a timestamp (ISO or unix format)
+    assert any(re.search(r'\d{4}|\d{10,}', f.name) for f in jsonl_files)
+    
+    # Verify file is valid JSONL
+    for f in jsonl_files:
+        for line in f.read_text().splitlines():
+            if line.strip():
+                json.loads(line)  # Must not raise
+```
+
+**Expected Output:**
+```
+✓ Auto-saved context to auto-saves/2026-03-10T12-34-56-789Z.jsonl
+```
+
+---
+
+### Test 14.2: Timestamped Filename Format
+
+**Validation:**
+```python
+def test_auto_save_timestamp_in_filename():
+    payload = json.dumps({"session_id": "abc123", "project_dir": str(project_dir)})
+    subprocess.run(["npx", "tsx", "scripts/auto-save-context.ts"], input=payload, text=True)
+    
+    auto_saves_dir = personal_base / "auto-saves"
+    jsonl_files = list(auto_saves_dir.glob("*.jsonl"))
+    
+    # Filename must contain a recognisable timestamp, not a fixed name
+    for f in jsonl_files:
+        assert f.name != "auto-save.jsonl", "Filename must be timestamped, not fixed"
+        assert re.search(r'\d{4}-\d{2}-\d{2}|\d{10,}', f.name), \
+               f"No timestamp found in filename: {f.name}"
 ```
 
 ---
@@ -2895,15 +3080,20 @@ This test plan provides comprehensive coverage of context-curator functionality 
 - Enable confident refactoring
 
 **Test Coverage:**
-- ✅ Project initialization
-- ✅ Task creation and switching
-- ✅ Context saving (personal and golden)
-- ✅ Context listing and management
-- ✅ Context promotion with secret detection
-- ✅ Two-file CLAUDE.md system
-- ✅ Git integration
-- ✅ Cross-platform compatibility
-- ✅ Error handling
+- ✅ Project initialization (F-INIT)
+- ✅ Task creation (F-TASK-CREATE)
+- ✅ Task switching (F-TASK-SWITCH)
+- ✅ Context saving — personal and golden (F-CTX-SAVE)
+- ✅ Context listing (F-CTX-LIST)
+- ✅ Context management (F-CTX-MANAGE)
+- ✅ Context promotion with secret detection (F-CTX-PROMOTE)
+- ✅ Two-file CLAUDE.md system (F-CLMD)
+- ✅ Secret detection and redaction (F-SEC)
+- ✅ AI-generated summaries (F-SUMMARY)
+- ✅ Git integration (F-GIT)
+- ✅ Cross-platform compatibility (F-XPLAT)
+- ✅ Error handling (F-ERR)
+- ✅ PreCompact auto-save hook (F-HOOK)
 
 **Next Steps:**
 1. Implement test utilities and base classes
