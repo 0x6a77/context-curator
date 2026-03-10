@@ -185,6 +185,16 @@ class ContextCuratorTestCase:
 
 ## 1. Project Initialization Tests · F-INIT
 
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-INIT-1 | `init-project` creates `.claude/CLAUDE.md` containing an `@import` line; the file must not exist before the script runs |
+| T-INIT-2 | `init-project` copies root `CLAUDE.md` byte-for-byte to the stash path; backup must not exist before script runs (not created in test setup) |
+| T-INIT-3 | `.claude/tasks/default/CLAUDE.md` content equals root `CLAUDE.md` character-for-character |
+| T-INIT-4 | Running `init-project` twice exits 0 both times and produces identical file contents |
+| T-INIT-5 | Writing a file to project A's personal dir does not make it visible in project B's personal dir |
+
 ### Test 1.1: Initialize Fresh Project (No CLAUDE.md)
 
 **Setup:**
