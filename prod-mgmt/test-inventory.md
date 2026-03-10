@@ -4,7 +4,7 @@
 
 ## Section 1 — Test Inventory
 
-| TEST_ID | DESCRIPTION | DOD_CLAUSE | VERDICT | ATTACK_VECTOR |
+| TEST_ID | DESCRIPTION | AC_CLAUSE | VERDICT | ATTACK_VECTOR |
 |---------|-------------|------------|---------|---------------|
 | initialization.test.ts:T1.1-a | Runs init-project on empty dir, asserts .claude/CLAUDE.md exists and contains @import pointing to tasks/default/CLAUDE.md, and that the imported path exists on disk. | T-INIT-1: init-project creates .claude/CLAUDE.md with @import | PASS | No exploitable gap found. |
 | initialization.test.ts:T1.1-b | Asserts .gitignore in .claude/ contains exactly `^CLAUDE\.md$` on its own line. | T-INIT-1 (gitignore aspect) | PASS | No exploitable gap found. |
@@ -15,7 +15,7 @@
 | task-operations.test.ts:T2.1-structure | Runs task-create, asserts exit 0, task directory, CLAUDE.md, contexts/ exist. | T-TASK-1: CLAUDE.md with all required sections | PASS | No exploitable gap found. |
 | task-operations.test.ts:T2.1-sections | Runs task-create with description "Refactoring OAuth implementation in src/auth/", asserts all four required markdown sections exist, asserts the word "oauth" appears under the ## Focus section specifically. | T-TASK-1: all required sections present | PASS | No exploitable gap found. |
 | task-operations.test.ts:T2.2-uppercase | Asserts non-zero exit and no directory created for uppercase task name. | T-TASK-2: exits non-zero AND creates no task directory | PASS | No exploitable gap found. |
-| task-operations.test.ts:T2.3-multiline | Passes multi-line description, checks keywords "oauth", "session", "token" appear under ## Focus section. | T-TASK-3: multi-line description preserves all lines in Focus section | FAIL | The DoD clause requires all lines to be preserved. The test only checks for three keyword substrings. An implementation that generates a single-sentence AI summary containing those keywords would satisfy this test while violating the DoD (which requires verbatim multi-line preservation). |
+| task-operations.test.ts:T2.3-multiline | Passes multi-line description, checks keywords "oauth", "session", "token" appear under ## Focus section. | T-TASK-3: multi-line description preserves all lines in Focus section | FAIL | The AC clause requires all lines to be preserved. The test only checks for three keyword substrings. An implementation that generates a single-sentence AI summary containing those keywords would satisfy this test while violating the AC (which requires verbatim multi-line preservation). |
 | task-operations.test.ts:T2.4-empty | Runs task-create with empty description, asserts non-zero exit and no directory created. | T-TASK-4: exits non-zero, creates no task directory | PASS | No exploitable gap found. |
 | context-operations.test.ts:T4.1-path | Runs save-context --personal, asserts file exists at exact constructed path. | T-CTX-1: file created at exactly <personalDir>/tasks/<task-id>/contexts/<name>.jsonl | PASS | No exploitable gap found. |
 | context-operations.test.ts:T4.1-jsonl | Asserts exit 0, file exists, isValidJsonl returns true, non-empty content (length > 0 after trim). | T-CTX-2: valid JSONL, asserted unconditionally, not inside if-guard | PASS | No exploitable gap found. |
@@ -46,14 +46,14 @@
 | error-handling.test.ts:T13.1-noinit | Without init, runs task-create and update-import, asserts exit != 0, output matches /init|not initialized/i, stderr has no Node stack trace pattern. | T-ERR-1: exits non-zero with "initialized" or "init", not a stack trace | PASS | No exploitable gap found. |
 | error-handling.test.ts:T13.3-corrupt | Creates malformed JSONL, runs scan-secrets, asserts exit != 0 and no Node stack trace in stderr. | T-ERR-2: scan-secrets exits non-zero on malformed JSONL | PASS | No exploitable gap found. |
 | error-handling.test.ts:T12.4-spaces | Creates dir "my project", runs init-project, task-create, and update-import, asserts exit 0 AND output file existence for each. | T-ERR-3: all operations work with space in path; exit 0 AND file exists | PASS | No exploitable gap found. |
-| new-features.test.ts:T-HOOK-1 | Pipes JSON payload `{session_id, project_dir}` to auto-save-context via stdin (execSync redirect), asserts exit 0, auto-saves/ dir exists, at least one .jsonl file present, that file is valid JSONL. | T-HOOK-1: timestamped .jsonl file in flat auto-saves/ directory | FAIL | The DoD requires a "timestamped .jsonl file." The test asserts only that at least one file ending in .jsonl exists — no check that the filename contains a timestamp. An implementation that creates `auto-save.jsonl` (fixed name, no timestamp) passes this test while violating the DoD. Additionally, the test does not verify the content of the auto-saved file is derived from the session payload (only that it is valid JSONL). |
+| new-features.test.ts:T-HOOK-1 | Pipes JSON payload `{session_id, project_dir}` to auto-save-context via stdin (execSync redirect), asserts exit 0, auto-saves/ dir exists, at least one .jsonl file present, that file is valid JSONL. | T-HOOK-1: timestamped .jsonl file in flat auto-saves/ directory | FAIL | The AC requires a "timestamped .jsonl file." The test asserts only that at least one file ending in .jsonl exists — no check that the filename contains a timestamp. An implementation that creates `auto-save.jsonl` (fixed name, no timestamp) passes this test while violating the DoD. Additionally, the test does not verify the content of the auto-saved file is derived from the session payload (only that it is valid JSONL). |
 | context-operations.test.ts:T-HOOK-1 | Passes --session-id as CLI argument (not stdin), asserts exit 0, auto-saves/ dir exists, one .jsonl file present, valid JSONL. | T-HOOK-1: timestamped .jsonl file in flat auto-saves/ directory | FAIL | (1) The DoD specifies a stdin payload interface (preCompact hook behavior). This test exercises a CLI args interface, which may or may not exist in the implementation. An implementation that correctly handles stdin but not CLI args would fail this test; one that handles CLI args but not stdin would pass this test while violating the DoD. (2) No timestamp check on the filename. |
-| context-operations.test.ts:T-MEM-1 | After save-context, asserts MEMORY.md at `join(ctx.personalBase, 'memory', 'MEMORY.md')` contains task-id and context-name. | T-MEM-1: MEMORY.md contains task-id and context-name after save | ESCALATE | Two independent tests disagree on the path for MEMORY.md: this test uses `personalBase/memory/MEMORY.md`, while new-features.test.ts:T-MEM-1 uses `personalDir/memory/MEMORY.md`. The DoD does not specify which path is correct. At most one of these tests is exercising the real implementation path; the other produces a vacuous assertion (always passes because the file is never written there). Human review required to determine the authoritative path and which test, if either, is correct. |
+| context-operations.test.ts:T-MEM-1 | After save-context, asserts MEMORY.md at `join(ctx.personalBase, 'memory', 'MEMORY.md')` contains task-id and context-name. | T-MEM-1: MEMORY.md contains task-id and context-name after save | ESCALATE | Two independent tests disagree on the path for MEMORY.md: this test uses `personalBase/memory/MEMORY.md`, while new-features.test.ts:T-MEM-1 uses `personalDir/memory/MEMORY.md`. The AC does not specify which path is correct. At most one of these tests is exercising the real implementation path; the other produces a vacuous assertion (always passes because the file is never written there). Human review required to determine the authoritative path and which test, if either, is correct. |
 | new-features.test.ts:T-MEM-1 | After save-context, uses waitFor to poll for MEMORY.md at `join(ctx.personalDir, 'memory', 'MEMORY.md')`, asserts contains task-id and context-name. | T-MEM-1: MEMORY.md contains task-id and context-name after save | ESCALATE | Same path disagreement as above. |
 
 ---
 
-## Section 2 — DoD Coverage Gaps
+## Section 2 — AC Coverage Gaps
 
 **T-INIT-1**: covered by initialization.test.ts:T1.1-a, T1.2-claudemd
 Coverage: ADEQUATE
@@ -113,7 +113,7 @@ Coverage: ADEQUATE
 Coverage: ADEQUATE
 
 **T-LIST-4**: covered by context-operations.test.ts:T5.6-summary
-Coverage: INADEQUATE — Test cannot distinguish an AI-generated summary from any fixed alphabetic string. The DoD clause "not just metadata" is not falsifiable by this test.
+Coverage: INADEQUATE — Test cannot distinguish an AI-generated summary from any fixed alphabetic string. The AC clause "not just metadata" is not falsifiable by this test.
 
 **T-PROM-1**: covered by context-operations.test.ts:T7.1-copies
 Coverage: ADEQUATE
@@ -164,16 +164,16 @@ Coverage: ADEQUATE
 Coverage: ADEQUATE
 
 **T-HOOK-1**: covered by new-features.test.ts:T-HOOK-1 and context-operations.test.ts:T-HOOK-1
-Coverage: INADEQUATE — Neither test verifies a timestamp in the filename. context-operations.test.ts version tests CLI args rather than stdin, making it irrelevant to the DoD interface.
+Coverage: INADEQUATE — Neither test verifies a timestamp in the filename. context-operations.test.ts version tests CLI args rather than stdin, making it irrelevant to the AC interface.
 
 **T-MEM-1**: covered by new-features.test.ts:T-MEM-1 and context-operations.test.ts:T-MEM-1
 Coverage: INADEQUATE — Two tests assert MEMORY.md at different paths (personalBase vs personalDir). At most one is correct; the other asserts a path that may never be written by the implementation, producing a vacuous pass if the file happens not to exist (the assertion would fail rather than vacuously pass — but the path disagreement means coverage is unreliable).
 
-**T-RESUME-MANUAL**: marked MANUAL in DoD
+**T-RESUME-MANUAL**: marked MANUAL in AC
 Coverage: MISSING (intentionally manual; no automated coverage exists)
 
-**CLAUSE: /context-manage command (PRD Commands Reference section) — NO DOD DEFINED — STRICT FAIL**
-The `/context-manage` command is fully specified in the PRD Commands Reference section with defined behavior (list contexts, view details, interactive cleanup via natural language). No DoD clause exists for this feature. No test can be evaluated for adequate coverage.
+**CLAUSE: /context-manage command (PRD Commands Reference section) — NO AC DEFINED — STRICT FAIL**
+The `/context-manage` command is fully specified in the PRD Commands Reference section with defined behavior (list contexts, view details, interactive cleanup via natural language). No AC clause exists for this feature. No test can be evaluated for adequate coverage.
 
-**CLAUSE: Task Switching — existing task (PRD Feature Behavior 3, Commands Reference /task <existing-id>) — NO DOD DEFINED — STRICT FAIL**
-Switching to an existing task (as distinct from creating a new task) is a defined PRD behavior with specified outcomes (context listing, .claude/CLAUDE.md update). No formal DoD clause covers this command path. Task-operations.test.ts Group 3 tests exist but cannot be evaluated without a DoD clause.
+**CLAUSE: Task Switching — existing task (PRD Feature Behavior 3, Commands Reference /task <existing-id>) — NO AC DEFINED — STRICT FAIL**
+Switching to an existing task (as distinct from creating a new task) is a defined PRD behavior with specified outcomes (context listing, .claude/CLAUDE.md update). No formal AC clause covers this command path. Task-operations.test.ts Group 3 tests exist but cannot be evaluated without a AC clause.
