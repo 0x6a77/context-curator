@@ -299,8 +299,8 @@ describe('Context Listing Tests (Group 5)', () => {
       const result = await runScript('context-list', ['no-contexts'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const output = result.stdout.toLowerCase();
-      // FIX 9: specific pattern match
-      expect(output).toMatch(/no contexts|empty/i);
+      // FIX 9: specific pattern match (DoD allows "no contexts", "empty", or "fresh")
+      expect(output).toMatch(/no contexts|empty|fresh/i);
     });
   });
 

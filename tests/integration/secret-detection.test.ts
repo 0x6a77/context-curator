@@ -112,8 +112,8 @@ describe('Secret Detection Tests (Group 9)', () => {
 
       const output = result.stdout.toLowerCase();
       expect(result.exitCode).not.toBe(0);
-      expect(output).toContain('sk_test');
-      expect(output).toContain('sk_live');
+      expect(output).toContain('sk_test_');
+      expect(output).toContain('sk_live_');
     });
   });
 
@@ -223,7 +223,7 @@ describe('Secret Detection Tests (Group 9)', () => {
       const mixedTypeContext = [
         { type: 'user', message: { role: 'user', content: 'User secret: AKIAIOSFODNN7EXAMPLE123' }, timestamp: new Date().toISOString() },
         { type: 'assistant', message: { role: 'assistant', content: 'Assistant secret: sk_test_4eC39HqLyjWDarjtT1zdp7dc' }, timestamp: new Date().toISOString() },
-        { type: 'tool_result', message: { role: 'tool', content: 'Tool secret: ghp_abcdefghijklmnopqrstuvwxyz123456' }, timestamp: new Date().toISOString() },
+        { type: 'tool_result', message: { role: 'tool', content: 'Tool secret: ghp_abcdefghijklmnopqrstuvwxyz1234567890' }, timestamp: new Date().toISOString() },
       ];
       const contextPath = createTestContext(mixedTypeContext);
 

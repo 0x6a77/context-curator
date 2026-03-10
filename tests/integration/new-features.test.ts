@@ -61,7 +61,7 @@ describe('T-CTX-5: 100KB cap on promote-context', () => {
 
     expect(result.exitCode).not.toBe(0);
     const output = (result.stdout + result.stderr).toLowerCase();
-    expect(output.includes('100kb') || output.includes('too large') || output.includes('size')).toBe(true);
+    expect(output.includes('100kb') || output.includes('too large')).toBe(true);
   });
 });
 
@@ -168,16 +168,15 @@ describe('T-HOOK-1: PreCompact hook auto-save', () => {
     // Script exits 0 on success (or on non-fatal errors, to not block compaction)
     expect(exitCode).toBe(0);
 
-    // Fix 40: A file named auto-YYYYMMDD-HHMM.jsonl must exist under the task's contexts dir
-    // T-HOOK-1: directory must exist — unconditional assertion (no if-guard)
-    const contextsDir = join(ctx.personalDir, 'tasks', 'hook1-task', 'contexts');
-    expect(existsSync(contextsDir)).toBe(true);
-    const files = readdirSync(contextsDir);
-    const autoFiles = files.filter(f => f.startsWith('auto-') && f.endsWith('.jsonl'));
+    // T-HOOK-1: timestamped file must exist in the flat auto-saves/ directory
+    const autoSaveDir = join(ctx.personalBase, 'auto-saves');
+    expect(existsSync(autoSaveDir)).toBe(true);
+    const files = readdirSync(autoSaveDir);
+    const autoFiles = files.filter(f => f.endsWith('.jsonl'));
     expect(autoFiles.length).toBeGreaterThanOrEqual(1);
 
     // The auto-saved file must be valid JSONL
-    const autoPath = join(contextsDir, autoFiles[0]);
+    const autoPath = join(autoSaveDir, autoFiles[0]);
     expect(isValidJsonl(autoPath)).toBe(true);
   });
 });

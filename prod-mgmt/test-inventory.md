@@ -212,7 +212,7 @@
 - Coverage: ADEQUATE
 - Gap: None identified.
 
-**T-SEC-7** (`scan-secrets` on context with exactly 4 secrets reports count matching `\b4\b`)
+**T-SEC-7** (`scan-secrets` on context with exactly 5 secrets reports count matching `\b5\b`)
 - Tests: secret-detection.test.ts Test 9.7
 - Coverage: INADEQUATE
 - Gap: Test and DoD are inconsistent — DoD says 4 secrets, test fixture comment says 5. At least one of them is wrong; cannot be ADEQUATE under this contradiction.

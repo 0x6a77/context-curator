@@ -70,7 +70,7 @@ export const GITHUB_TOKEN_CONTEXT: Message[] = [
     type: 'user',
     message: {
       role: 'user',
-      content: 'My GitHub token: ghp_abcdefghijklmnopqrstuvwxyz123456',
+      content: 'My GitHub token: ghp_abcdefghijklmnopqrstuvwxyz1234567890',
     },
     timestamp: '2026-01-18T10:00:00.000Z',
   },
@@ -137,7 +137,7 @@ export const MULTIPLE_SECRETS_CONTEXT: Message[] = [
 AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
 AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
 STRIPE_SECRET_KEY=sk_live_abc123def456
-GITHUB_TOKEN=ghp_abcdefghijklmnopqrstuvwxyz123456
+GITHUB_TOKEN=ghp_abcdefghijklmnopqrstuvwxyz1234567890
 DATABASE_PASSWORD=superSecret!123`,
     },
     timestamp: '2026-01-18T10:00:00.000Z',
@@ -264,7 +264,7 @@ export const SECRET_TEST_CASES = [
   },
   {
     name: 'GitHub Personal Access Token',
-    input: 'ghp_abcdefghijklmnopqrstuvwxyz123456',
+    input: 'ghp_abcdefghijklmnopqrstuvwxyz1234567890',
     shouldDetect: true,
     type: 'github_token',
   },

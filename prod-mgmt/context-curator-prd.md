@@ -1030,11 +1030,11 @@ Each feature is done when its acceptance criterion passes and its named test exi
 | All message types scanned | A context with one secret in user, one in assistant, one in tool_result: all three reported | T-SEC-4 |
 | False positive policy | `AKIAIOSFODNN7EXAMPLE` is treated as a true positive (scanner prefers false positives over false negatives) | T-SEC-5 |
 | Redaction produces valid JSONL | After `redact-secrets`, every line parses as JSON; a second `scan-secrets` run returns "clean" | T-SEC-6 |
-| Multiple secrets exact count | `scan-secrets` on a context with exactly 4 secrets reports count matching `\b4\b` | T-SEC-7 |
+| Multiple secrets exact count | `scan-secrets` on a context with exactly 5 secrets reports count matching `\b5\b` | T-SEC-7 |
 | Missing .claude/ graceful | Any script run without init exits non-zero with output containing "initialized" or "init" — not a stack trace | T-ERR-1 |
 | Corrupt JSONL handled | `scan-secrets` on malformed JSONL exits non-zero (not 0) | T-ERR-2 |
 | Paths with spaces | All operations work when project path contains a space; verified by exitCode === 0 AND output file existence | T-ERR-3 |
-| PreCompact auto-save | `auto-save-context` with a mock stdin payload creates a timestamped file at the expected personal context path | T-HOOK-1 |
+| PreCompact auto-save | `auto-save-context` with a mock stdin payload creates a timestamped `.jsonl` file in the flat `<personalBase>/auto-saves/` directory | T-HOOK-1 |
 | MEMORY.md updated after save | After `save-context`, the personal memory MEMORY.md contains the task-id and context-name saved | T-MEM-1 |
 | /resume smoke test | MANUAL: After `/task <id>` + `/resume <session>`, Claude's response references task CLAUDE.md content | T-RESUME-MANUAL |
 
