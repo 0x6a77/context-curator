@@ -2988,12 +2988,17 @@ def test_auto_save_trigger():
     auto_saves_dir = personal_base / "auto-saves"
     assert auto_saves_dir.exists()
     
-    # Verify at least one .jsonl file with timestamp in name
+    # Verify at least one .jsonl file was created
     jsonl_files = list(auto_saves_dir.glob("*.jsonl"))
-    assert len(jsonl_files) >= 1
+    assert len(jsonl_files) >= 1, "auto-saves/ must contain at least one .jsonl file"
     
-    # Verify filename contains a timestamp (ISO or unix format)
-    assert any(re.search(r'\d{4}|\d{10,}', f.name) for f in jsonl_files)
+    # T-HOOK-1: filename must contain an ISO-8601 timestamp, not a fixed name.
+    # \d{4} alone is too weak — it matches counters, ports, any 4-digit sequence.
+    # Require YYYY-MM-DD as the minimum timestamp signal.
+    assert all(f.name != "auto-save.jsonl" for f in jsonl_files), \
+        "Filename must not be a fixed non-timestamped name"
+    assert any(re.search(r'\d{4}-\d{2}-\d{2}', f.name) for f in jsonl_files), \
+        f"At least one file must have an ISO-8601 date in its name. Got: {[f.name for f in jsonl_files]}"
     
     # Verify file is valid JSONL
     for f in jsonl_files:
