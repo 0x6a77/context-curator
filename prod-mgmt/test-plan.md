@@ -1461,6 +1461,15 @@ def test_manage_preserve_golden():
 
 ## 7. Context Promotion Tests · F-CTX-PROMOTE
 
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-CTX-5 | `promote-context` on a 150KB personal context exits non-zero with output containing "100KB" or "too large" |
+| T-PROM-1 | After `promote-context`, both personal original and golden copy exist; contents are byte-for-byte identical |
+| T-PROM-2 | `promote-context` on a context with `ghp_` + 36 alphanumeric chars: output names the specific secret type |
+| T-PROM-3 | `promote-context` when golden already exists exits non-zero or warns; setup must create personal context only |
+
 ### Test 7.1: Promote Clean Context (No Secrets)
 
 **Setup:**
