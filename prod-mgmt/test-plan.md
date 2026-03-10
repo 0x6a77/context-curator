@@ -345,6 +345,70 @@ def test_init_preserves_existing():
 
 ---
 
+### Test 1.5: Project A Context Not Visible in Project B (T-INIT-5)
+
+**Setup:**
+```bash
+mkdir /tmp/cc-test-project-a && mkdir /tmp/cc-test-project-b
+```
+
+**Execution:**
+```bash
+# Project A: init and save a context through the implementation
+cd /tmp/cc-test-project-a
+claude > /task-init
+claude > /task work-a
+What should this task focus on? > Testing project isolation
+claude > /context-save marker-context
+
+# Project B: init separately — must NOT see A's contexts
+cd /tmp/cc-test-project-b
+claude > /task-init
+claude > /context-list
+```
+
+**Validation:**
+```python
+def test_project_isolation():
+    project_a = Path("/tmp/cc-test-project-a")
+    project_b = Path("/tmp/cc-test-project-b")
+
+    # CRITICAL: all writes go through the implementation — never write directly
+    # to ~/.claude. Writing the marker directly to a computed path makes this
+    # test self-fulfilling and never exercises the implementation's scoping logic.
+    with in_directory(project_a):
+        assert run_command("/task-init")["returncode"] == 0
+        run_command("/task work-a\nTesting project isolation")
+        run_command("/context-save marker-context")
+
+    sanitized_a = sanitize_path(str(project_a))
+    personal_a = Path.home() / ".claude/projects" / sanitized_a
+
+    # Pre-condition: the implementation must have created the context in A
+    ctx_a = personal_a / "tasks/work-a/contexts/marker-context.jsonl"
+    assert ctx_a.exists(), \
+        f"Pre-condition failed: implementation did not write {ctx_a}"
+
+    with in_directory(project_b):
+        assert run_command("/task-init")["returncode"] == 0
+        result_b = run_command("/context-list")
+
+    sanitized_b = sanitize_path(str(project_b))
+    personal_b = Path.home() / ".claude/projects" / sanitized_b
+
+    # Paths must differ — validates the sanitize_path formula is project-scoped
+    assert sanitized_a != sanitized_b, \
+        "Projects A and B must encode to different personal storage paths"
+
+    # Project A's context must NOT appear in B's storage or listing
+    assert not (personal_b / "tasks/work-a/contexts/marker-context.jsonl").exists(), \
+        "Project A's context file must not exist in project B's personal storage"
+    assert "marker-context" not in result_b["stdout"], \
+        "context-list in project B must not list project A's contexts"
+```
+
+---
+
 ## 2. Task Creation Tests · F-TASK-CREATE
 
 **Acceptance Criteria:**
@@ -2290,7 +2354,12 @@ def test_redaction_valid_jsonl():
 
 **Acceptance Criteria:**
 
-_No automated AC clauses defined — summary quality is evaluated through F-CTX-LIST criterion T-LIST-4 (non-empty description after context name, not just metadata)._
+| AC ID | Criterion |
+|-------|-----------|
+| T-SUM-1 | A saved context's summary is between 20 and 500 characters — neither empty nor a novel-length dump |
+| T-SUM-2 | Two contexts saved from clearly different conversations produce different summary strings (summaries must not be hardcoded or identical regardless of content) |
+
+_Summary quality is also exercised by T-LIST-4 (F-CTX-LIST): the summary must appear as a non-metadata description string in `context-list` output._
 
 ### Test 10.1: Summary for Small Context
 

@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-This plan implements the **task-based context management system** described in PRD v13.0. The core innovation solves the **warm-up problem**: preserving hard-won Claude understanding that gets lost to auto-compact.
+This plan implements the **task-based context management system** described in PRD v17.0. The core innovation solves the **warm-up problem**: preserving hard-won Claude understanding that gets lost to auto-compact.
 
 **Core Architecture:**
 - **Tasks** = Focused work environments with custom CLAUDE.md
