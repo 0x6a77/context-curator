@@ -2138,6 +2138,10 @@ def test_redaction_valid_jsonl():
 
 ## 10. AI-Generated Summary Tests · F-SUMMARY
 
+**Acceptance Criteria:**
+
+_No automated AC clauses defined — summary quality is evaluated through F-CTX-LIST criterion T-LIST-4 (non-empty description after context name, not just metadata)._
+
 ### Test 10.1: Summary for Small Context
 
 **Validation:**
