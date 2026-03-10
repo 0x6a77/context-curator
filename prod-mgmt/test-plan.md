@@ -783,7 +783,6 @@ def test_multiple_task_switches():
 | T-CTX-2 | Saved context file parses as valid JSONL — asserted unconditionally, not inside an `if (fileExists)` guard |
 | T-CTX-3 | `save-context --golden` on a session with a real AWS key exits non-zero or produces a prompt; exit 0 with no prompt is a failure |
 | T-CTX-4 | `save-context --golden` on a 150KB session exits non-zero with output containing "100KB" or "too large" |
-| T-CTX-5 | _(belongs to F-CTX-PROMOTE — see Section 7)_ |
 | T-CTX-6 | `save-context` called twice with the same name creates a `.backup-` file; the backup contains the original content |
 | T-MEM-1 | After `save-context`, the personal memory MEMORY.md at `~/.claude/projects/<sanitized-project>/MEMORY.md` contains the task-id and context-name saved |
 
