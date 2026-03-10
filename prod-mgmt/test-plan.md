@@ -1186,8 +1186,12 @@ claude > /task no-contexts
 def test_list_no_contexts():
     result = run_command("/context-list")
     
-    assert "no contexts" in result["stdout"].lower() or \
-           "0 contexts" in result["stdout"]
+    assert result["returncode"] == 0
+    # T-LIST-3: output must contain one of exactly the three AC-specified phrases.
+    # OR fallbacks to broad patterns (e.g. "0 contexts") are banned — they can
+    # match unrelated numeric output.
+    assert re.search(r'\bfresh\b|\bempty\b|\bno contexts\b', result["stdout"], re.IGNORECASE), \
+        f'Output must contain "fresh", "empty", or "no contexts". Got: {result["stdout"][:200]}'
 ```
 
 **Expected Output:**
