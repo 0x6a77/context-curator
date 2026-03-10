@@ -2385,19 +2385,46 @@ def test_summary_in_metadata():
 
 ---
 
-### Test 10.7: Summary Displayed in List
+### Test 10.7: Summary Displayed in List (T-LIST-4)
 
 **Validation:**
 ```python
+KNOWN_PLACEHOLDERS = {"n/a", "no summary", "context saved", "summary unavailable", ""}
+
 def test_summary_displayed():
+    # Save two contexts with clearly different content
     run_command("/task task-1")
-    run_command("/context-save ctx-1")
+    create_conversation_about("authentication OAuth flow")
+    run_command("/context-save ctx-auth")
+    
+    create_conversation_about("database migration schema")
+    run_command("/context-save ctx-db")
     
     result = run_command("/context-list")
+    assert result["returncode"] == 0
     
-    # Verify summary shown
-    assert "Summary:" in result["stdout"] or \
-           metadata["summary"][:50] in result["stdout"]
+    # T-LIST-4: must show a non-empty description, not just metadata
+    # Extract the line after each context name
+    lines = result["stdout"].splitlines()
+    
+    # Find summary lines (lines that follow context name lines)
+    ctx_auth_summary = extract_summary_for_context(lines, "ctx-auth")
+    ctx_db_summary = extract_summary_for_context(lines, "ctx-db")
+    
+    assert ctx_auth_summary is not None, "ctx-auth must have a summary line"
+    assert ctx_db_summary is not None, "ctx-db must have a summary line"
+    
+    # Must be non-trivially long
+    assert len(ctx_auth_summary) > 10, "Summary must be more than a placeholder"
+    assert len(ctx_db_summary) > 10, "Summary must be more than a placeholder"
+    
+    # Must not be a known placeholder
+    assert ctx_auth_summary.lower().strip() not in KNOWN_PLACEHOLDERS
+    assert ctx_db_summary.lower().strip() not in KNOWN_PLACEHOLDERS
+    
+    # Two different contexts must produce different summaries
+    assert ctx_auth_summary != ctx_db_summary, \
+        "Different contexts must produce different summaries (not hardcoded)"
 ```
 
 ---
