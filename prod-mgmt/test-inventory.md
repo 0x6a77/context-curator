@@ -175,5 +175,5 @@ Coverage: MISSING (intentionally manual; no automated coverage exists)
 **T-CTX-7**: covered by context-operations.test.ts:T6.6-deletion
 Coverage: ADEQUATE — PRD v17.0 defines AC T-CTX-7: `delete-context` on a golden context exits non-zero without `--confirm`; file still exists after the failed attempt.
 
-**CLAUSE: Task Switching — existing task (PRD Feature Behavior 3, Commands Reference /task <existing-id>) — NO AC DEFINED — STRICT FAIL**
-Switching to an existing task (as distinct from creating a new task) is a defined PRD behavior with specified outcomes (context listing, .claude/CLAUDE.md update). No formal AC clause covers this command path. Task-operations.test.ts Group 3 tests exist but cannot be evaluated without a AC clause.
+**T-SWITCH-1, T-SWITCH-2, T-SWITCH-3**: PRD v17.0 defines AC clauses for F-TASK-SWITCH. Task-operations.test.ts Group 3 tests cover these but have not been formally evaluated against the new AC clauses. Review recommended.
+Coverage: NEEDS REVIEW — AC clauses now defined; existing Group 3 tests require re-evaluation against T-SWITCH-1 (single @import after switch), T-SWITCH-2 (no-contexts fresh-start message), T-SWITCH-3 (personal listed before golden).
