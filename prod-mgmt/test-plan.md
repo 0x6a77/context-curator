@@ -3080,15 +3080,20 @@ This test plan provides comprehensive coverage of context-curator functionality 
 - Enable confident refactoring
 
 **Test Coverage:**
-- ✅ Project initialization
-- ✅ Task creation and switching
-- ✅ Context saving (personal and golden)
-- ✅ Context listing and management
-- ✅ Context promotion with secret detection
-- ✅ Two-file CLAUDE.md system
-- ✅ Git integration
-- ✅ Cross-platform compatibility
-- ✅ Error handling
+- ✅ Project initialization (F-INIT)
+- ✅ Task creation (F-TASK-CREATE)
+- ✅ Task switching (F-TASK-SWITCH)
+- ✅ Context saving — personal and golden (F-CTX-SAVE)
+- ✅ Context listing (F-CTX-LIST)
+- ✅ Context management (F-CTX-MANAGE)
+- ✅ Context promotion with secret detection (F-CTX-PROMOTE)
+- ✅ Two-file CLAUDE.md system (F-CLMD)
+- ✅ Secret detection and redaction (F-SEC)
+- ✅ AI-generated summaries (F-SUMMARY)
+- ✅ Git integration (F-GIT)
+- ✅ Cross-platform compatibility (F-XPLAT)
+- ✅ Error handling (F-ERR)
+- ✅ PreCompact auto-save hook (F-HOOK)
 
 **Next Steps:**
 1. Implement test utilities and base classes
