@@ -2610,6 +2610,13 @@ def test_line_endings():
 
 ## 13. Error Handling Tests · F-ERR
 
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-ERR-1 | Any script run without init exits non-zero with output containing "initialized" or "init" — not a stack trace |
+| T-ERR-2 | `scan-secrets` on malformed JSONL exits non-zero (not 0) |
+
 ### Test 13.1: Run /task Without Initialization
 
 **Validation:**
