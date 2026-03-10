@@ -2772,6 +2772,86 @@ def test_concurrent_saves():
 
 ---
 
+## 14. PreCompact Auto-Save Hook Tests · F-HOOK
+
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-HOOK-1 | `auto-save-context` with a mock stdin payload creates a timestamped `.jsonl` file in the flat `<personalBase>/auto-saves/` directory |
+
+### Test 14.1: Auto-Save on PreCompact Trigger
+
+**Setup:**
+```bash
+cd test-project
+# Configure PreCompact hook pointing to auto-save-context script
+```
+
+**Execution:**
+```bash
+# Pipe a mock PreCompact stdin payload to the auto-save script
+echo '{"session_id":"abc123","project_dir":"/tmp/test-project"}' | npx tsx scripts/auto-save-context.ts
+```
+
+**Validation:**
+```python
+def test_auto_save_trigger():
+    payload = json.dumps({"session_id": "abc123", "project_dir": str(project_dir)})
+    result = subprocess.run(
+        ["npx", "tsx", "scripts/auto-save-context.ts"],
+        input=payload,
+        capture_output=True,
+        text=True
+    )
+    
+    assert result.returncode == 0
+    
+    # Verify flat auto-saves/ directory was created
+    auto_saves_dir = personal_base / "auto-saves"
+    assert auto_saves_dir.exists()
+    
+    # Verify at least one .jsonl file with timestamp in name
+    jsonl_files = list(auto_saves_dir.glob("*.jsonl"))
+    assert len(jsonl_files) >= 1
+    
+    # Verify filename contains a timestamp (ISO or unix format)
+    assert any(re.search(r'\d{4}|\d{10,}', f.name) for f in jsonl_files)
+    
+    # Verify file is valid JSONL
+    for f in jsonl_files:
+        for line in f.read_text().splitlines():
+            if line.strip():
+                json.loads(line)  # Must not raise
+```
+
+**Expected Output:**
+```
+✓ Auto-saved context to auto-saves/2026-03-10T12-34-56-789Z.jsonl
+```
+
+---
+
+### Test 14.2: Timestamped Filename Format
+
+**Validation:**
+```python
+def test_auto_save_timestamp_in_filename():
+    payload = json.dumps({"session_id": "abc123", "project_dir": str(project_dir)})
+    subprocess.run(["npx", "tsx", "scripts/auto-save-context.ts"], input=payload, text=True)
+    
+    auto_saves_dir = personal_base / "auto-saves"
+    jsonl_files = list(auto_saves_dir.glob("*.jsonl"))
+    
+    # Filename must contain a recognisable timestamp, not a fixed name
+    for f in jsonl_files:
+        assert f.name != "auto-save.jsonl", "Filename must be timestamped, not fixed"
+        assert re.search(r'\d{4}-\d{2}-\d{2}|\d{10,}', f.name), \
+               f"No timestamp found in filename: {f.name}"
+```
+
+---
+
 ## Test Automation Framework
 
 ### Test Runner
