@@ -83,17 +83,24 @@ describe('Task Creation Tests (Group 2)', () => {
       const workingMdPath = join(ctx.projectDir, '.claude', 'CLAUDE.md');
       expect(fileExists(workingMdPath)).toBe(true);
       const content = readFile(workingMdPath);
-      // FIX 5: Stricter @import regex check
-      expect(content).toMatch(/@import\s+\S+CLAUDE\.md/);
+      // Fix 8: Must specifically point to oauth-refactor task's CLAUDE.md
+      expect(content).toMatch(/@import\s+\S+oauth-refactor\S+CLAUDE\.md/);
       const importMatch = content.match(/@import\s+(\S+CLAUDE\.md)/);
       expect(importMatch).not.toBeNull();
+      expect(importMatch![1]).toContain('oauth-refactor');
     });
 
-    it('should provide resume instruction in output', async () => {
+    // Fix 9: Verify task structure is complete after create (DoD focus)
+    it('should confirm task structure is complete after create', async () => {
       const result = await runScript('task-create', ['oauth-refactor', 'OAuth work'], ctx.projectDir);
 
-      // FIX 6: Check for resume keyword rather than circular task-id check
-      expect(result.stdout).toMatch(/resume/i);
+      // T-TASK-1: task directory and CLAUDE.md must exist with required sections
+      expect(result.exitCode).toBe(0);
+      const taskMdPath = join(ctx.projectDir, '.claude', 'tasks', 'oauth-refactor', 'CLAUDE.md');
+      expect(fileExists(taskMdPath)).toBe(true);
+      const content = readFile(taskMdPath);
+      expect(content).toMatch(/^# Task:/m);
+      expect(content).toMatch(/^## Focus/m);
     });
   });
 
@@ -128,9 +135,12 @@ describe('Task Creation Tests (Group 2)', () => {
       expect(fileExists(specialCharDir)).toBe(false);
     });
 
+    // Fix 10: Capture result and add exit code assertion
     it('should not create directory for invalid task', async () => {
-      await runScript('task-create', ['OAuth Refactor', 'desc'], ctx.projectDir);
+      const result = await runScript('task-create', ['OAuth Refactor', 'desc'], ctx.projectDir);
 
+      // T-TASK-2: must exit non-zero for invalid name
+      expect(result.exitCode).not.toBe(0);
       expect(fileExists(join(ctx.projectDir, '.claude', 'tasks', 'OAuth Refactor'))).toBe(false);
       expect(fileExists(join(ctx.projectDir, '.claude', 'tasks', 'oauth refactor'))).toBe(false);
     });
@@ -198,22 +208,17 @@ describe('Task Switching Tests (Group 3)', () => {
       );
     });
 
-    // T-LIST-1: Replace OR with specific context name check
+    // Fix 11: Clear non-conditional assertion
     it('should list personal contexts when switching', async () => {
       const result = await runScript('task-list', ['auth-work'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       expect(result.exitCode).toBe(0);
       const output = result.stdout;
       expect(output).toContain('my-progress');
-      // FIX 12: Ordering assertion — Personal before Golden
-      // (golden section won't appear here, but Personal header should appear before any Golden header)
-      // Both indexOf checks are safe: if 'golden' doesn't appear, indexOf returns -1
-      // which is already less than any real 'personal' index — so we only assert when both present
-      const personalIdx = output.toLowerCase().indexOf('personal');
-      const goldenIdx = output.toLowerCase().indexOf('golden');
-      if (personalIdx >= 0 && goldenIdx >= 0) {
-        expect(personalIdx).toBeLessThan(goldenIdx);
-      }
+      // Personal section must appear; since there are no golden contexts, 'golden' must NOT appear
+      const outputLower = output.toLowerCase();
+      expect(outputLower.indexOf('personal')).toBeGreaterThanOrEqual(0);
+      expect(outputLower.indexOf('golden')).toBeLessThan(0);
     });
   });
 
@@ -231,12 +236,15 @@ describe('Task Switching Tests (Group 3)', () => {
       );
     });
 
-    // FIX 13: Remove OR chain; use specific context name
+    // Fix 12: Check presence of golden section and that 'personal' does NOT appear
     it('should list golden contexts when switching', async () => {
       const result = await runScript('task-list', ['oauth-work'], ctx.projectDir);
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('oauth-deep-dive');
+      // Golden section must appear; no personal contexts in this test
+      const outputLower = result.stdout.toLowerCase();
+      expect(outputLower).toContain('golden');
     });
   });
 
@@ -255,7 +263,7 @@ describe('Task Switching Tests (Group 3)', () => {
       createJsonl(join(goldenDir, 'golden-1.jsonl'), createSampleMessages(20));
     });
 
-    // FIX 14: Remove OR chain; use separate assertions
+    // Fix 13: Verify ordering (personal before golden)
     it('should list both personal and golden contexts', async () => {
       const result = await runScript('task-list', ['mixed-work'], ctx.projectDir);
 
@@ -263,6 +271,8 @@ describe('Task Switching Tests (Group 3)', () => {
       // Should show both types
       expect(output).toContain('personal');
       expect(output).toContain('golden');
+      // Personal must appear before golden (T-LIST-1 ordering)
+      expect(output.indexOf('personal')).toBeLessThan(output.indexOf('golden'));
     });
 
     // T-LIST-1 ordering: Replace conditional indexOf check with a strict unconditional check
@@ -305,7 +315,7 @@ describe('Task Switching Tests (Group 3)', () => {
       await runScript('task-create', ['some-task', 'Some work'], ctx.projectDir);
     });
 
-    // FIX 16: Remove if-guard; unconditionally assert file exists and contains 'default'
+    // Fix 14: Check @import specifically resolves to default CLAUDE.md
     it('should switch to default task', async () => {
       const result = await runScript('update-import', ['default'], ctx.projectDir);
 
@@ -314,18 +324,17 @@ describe('Task Switching Tests (Group 3)', () => {
       const workingMdPath = join(ctx.projectDir, '.claude', 'CLAUDE.md');
       expect(fileExists(workingMdPath)).toBe(true);
       const content = readFile(workingMdPath);
-      expect(content).toContain('default');
+      expect(content).toMatch(/@import\s+\S+default\S+CLAUDE\.md/);
     });
 
+    // Fix 15: Narrow to specific pattern to avoid trivial matches
     it('should indicate vanilla mode restored', async () => {
       const result = await runScript('update-import', ['default'], ctx.projectDir);
 
       const output = result.stdout.toLowerCase();
-      expect(
-        output.includes('default') ||
-        output.includes('vanilla') ||
-        output.includes('restored')
-      ).toBe(true);
+      // T-CLMD-1: output must indicate the default/vanilla state was restored
+      // Use a specific enough pattern to avoid trivial matches
+      expect(output).toMatch(/vanilla|restored/);
     });
   });
 

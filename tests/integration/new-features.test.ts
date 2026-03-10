@@ -19,6 +19,7 @@ import {
   readFile,
   createJsonl,
   isValidJsonl,
+  waitFor,
 } from '../utils/test-helpers';
 import { SMALL_CONTEXT, CLEAN_CONTEXT } from '../fixtures/sample-contexts';
 
@@ -167,17 +168,17 @@ describe('T-HOOK-1: PreCompact hook auto-save', () => {
     // Script exits 0 on success (or on non-fatal errors, to not block compaction)
     expect(exitCode).toBe(0);
 
-    // A file named auto-YYYYMMDD-HHMM.jsonl must exist under the task's contexts dir
+    // Fix 40: A file named auto-YYYYMMDD-HHMM.jsonl must exist under the task's contexts dir
+    // T-HOOK-1: directory must exist — unconditional assertion (no if-guard)
     const contextsDir = join(ctx.personalDir, 'tasks', 'hook1-task', 'contexts');
-    if (existsSync(contextsDir)) {
-      const files = readdirSync(contextsDir);
-      const autoFiles = files.filter(f => f.startsWith('auto-') && f.endsWith('.jsonl'));
-      expect(autoFiles.length).toBeGreaterThanOrEqual(1);
+    expect(existsSync(contextsDir)).toBe(true);
+    const files = readdirSync(contextsDir);
+    const autoFiles = files.filter(f => f.startsWith('auto-') && f.endsWith('.jsonl'));
+    expect(autoFiles.length).toBeGreaterThanOrEqual(1);
 
-      // The auto-saved file must be valid JSONL
-      const autoPath = join(contextsDir, autoFiles[0]);
-      expect(isValidJsonl(autoPath)).toBe(true);
-    }
+    // The auto-saved file must be valid JSONL
+    const autoPath = join(contextsDir, autoFiles[0]);
+    expect(isValidJsonl(autoPath)).toBe(true);
   });
 });
 
@@ -208,11 +209,10 @@ describe('T-MEM-1: MEMORY.md updated after save-context', () => {
     );
     expect(result.exitCode).toBe(0);
 
-    // update-memory is spawned detached — give it a moment to write
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
+    // Fix 41: Wait for MEMORY.md to appear (up to 5 seconds) to handle async memory update
     const memoryPath = join(ctx.personalDir, 'memory', 'MEMORY.md');
-    expect(fileExists(memoryPath)).toBe(true);
+    const appeared = await waitFor(() => fileExists(memoryPath), 5000, 200);
+    expect(appeared).toBe(true);
 
     const memContent = readFile(memoryPath);
     expect(memContent).toContain('mem1-task');

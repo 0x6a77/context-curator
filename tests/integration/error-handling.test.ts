@@ -83,6 +83,7 @@ describe('Error Handling Tests (Group 13)', () => {
       await runScript('task-create', ['task-1', 'Task'], ctx.projectDir);
     });
 
+    // Fix 37: Strengthen stack trace check and add error message assertion
     it('should detect corrupt JSONL', async () => {
       const contextDir = join(ctx.personalDir, 'tasks', 'task-1', 'contexts');
       mkdirSync(contextDir, { recursive: true });
@@ -93,8 +94,14 @@ describe('Error Handling Tests (Group 13)', () => {
 
       expect(result.exitCode).not.toBe(0);
       expect(result.stderr).not.toContain('at Object.<anonymous>');
+      // Must not contain any Node.js stack trace patterns
+      expect(result.stderr).not.toMatch(/at\s+\w+[\s.]+\(/);
+      // Must produce some error output indicating the file is corrupt
+      const output = (result.stdout + result.stderr).toLowerCase();
+      expect(output).toMatch(/invalid|corrupt|malformed|parse.*error|json/i);
     });
 
+    // Fix 38: Strengthen stack trace check
     it('should not crash on invalid JSON in context', async () => {
       const contextDir = join(ctx.personalDir, 'tasks', 'task-1', 'contexts');
       mkdirSync(contextDir, { recursive: true });
@@ -107,6 +114,8 @@ describe('Error Handling Tests (Group 13)', () => {
       expect(result.exitCode).not.toBe(0);
       // Must not produce an unhandled exception stack trace
       expect(result.stderr).not.toContain('at Object.<anonymous>');
+      // Stronger stack trace check
+      expect(result.stderr).not.toMatch(/at\s+\w+[\s.]+\(/);
     });
   });
 
@@ -248,19 +257,25 @@ describe('Cross-Platform Compatibility Tests (Group 12)', () => {
   });
 
   describe('Test 12.4: Project Path with Spaces', () => {
+    // Fix 39: Expand to cover all operations (task-create and update-import too)
     it('should handle paths with spaces', async () => {
       const spacePath = join(ctx.projectDir, 'my project');
       mkdirSync(spacePath, { recursive: true });
       writeFileSync(join(spacePath, 'CLAUDE.md'), '# Project with spaces\n');
 
-      const result = await runScript('init-project', [], spacePath, { CLAUDE_HOME: ctx.personalBase });
-
-      expect(result.exitCode).toBe(0);
-      expect(fileExists(join(spacePath, '.claude', 'CLAUDE.md'))).toBe(true);
-
-      // Also run task-create in the space path
+      // init-project must work with spaces in path
       const initResult = await runScript('init-project', [], spacePath, { CLAUDE_HOME: ctx.personalBase });
       expect(initResult.exitCode).toBe(0);
+      expect(fileExists(join(spacePath, '.claude', 'CLAUDE.md'))).toBe(true);
+
+      // task-create must also work with spaces in path
+      const taskResult = await runScript('task-create', ['space-task', 'Task in spaced dir'], spacePath, { CLAUDE_HOME: ctx.personalBase });
+      expect(taskResult.exitCode).toBe(0);
+      expect(fileExists(join(spacePath, '.claude', 'tasks', 'space-task', 'CLAUDE.md'))).toBe(true);
+
+      // update-import must work with spaces in path
+      const switchResult = await runScript('update-import', ['space-task'], spacePath, { CLAUDE_HOME: ctx.personalBase });
+      expect(switchResult.exitCode).toBe(0);
       expect(fileExists(join(spacePath, '.claude', 'CLAUDE.md'))).toBe(true);
     });
   });

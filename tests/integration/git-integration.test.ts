@@ -124,8 +124,12 @@ describe('Git Integration Tests (Group 11)', () => {
       await runScript('task-create', ['task-1', 'Test task'], ctx.projectDir);
     });
 
+    // Fix 35: Replace with structural isolation check (personal storage is outside projectDir)
     it('should not include personal storage in git', async () => {
-      // Run save-context to actually create personal files
+      // Verify personal storage is outside project dir (structural isolation)
+      expect(ctx.personalBase.startsWith(ctx.projectDir)).toBe(false);
+
+      // Run save-context to create personal files
       createJsonl(join(ctx.personalDir, 'current-session.jsonl'), SMALL_CONTEXT);
       await runScript(
         'save-context',
@@ -134,23 +138,25 @@ describe('Git Integration Tests (Group 11)', () => {
         { CLAUDE_HOME: ctx.personalBase }
       );
 
-      // Stage everything in project dir
+      // Verify personal context file was created outside project dir
+      const personalContextPath = join(ctx.personalDir, 'tasks', 'task-1', 'contexts', 'my-work.jsonl');
+      expect(fileExists(personalContextPath)).toBe(true);
+      expect(personalContextPath.startsWith(ctx.projectDir)).toBe(false);
+
+      // Stage everything inside project dir — personal files must not appear
       gitAdd(ctx.projectDir, '.');
       const status = getGitStatus(ctx.projectDir);
-
-      // Personal storage is under ctx.personalBase which is outside projectDir
-      // No staged file should reference the personal storage path prefix
       const statusLines = status.split('\n').filter(l => l.trim());
       statusLines.forEach(line => {
-        expect(line).not.toContain(ctx.personalBase);
-        expect(line).not.toContain('personal-ctx');
         expect(line).not.toContain('my-work');
+        expect(line).not.toContain('personal-ctx');
       });
     });
   });
 
   describe('Test 11.5: No Git Conflicts from Context Operations', () => {
-    it('should produce no UU conflict markers when two devs work independently', async () => {
+    // Fix 36: Replace vacuous conflict-marker test with meaningful cross-isolation test
+    it('should isolate task files between two independent developer workspaces', async () => {
       await runScript('init-project', [], ctx.projectDir);
 
       const ctx2 = createTestEnvironment('git2');
@@ -175,19 +181,19 @@ describe('Git Integration Tests (Group 11)', () => {
         gitAdd(ctx2.projectDir, '.claude/');
         gitCommit(ctx2.projectDir, 'Add different task');
 
-        // Verify: no conflict markers in either repo
-        const status1 = getGitStatus(ctx.projectDir);
-        const status2 = getGitStatus(ctx2.projectDir);
-        expect(status1).not.toMatch(/^UU /m);
-        expect(status2).not.toMatch(/^UU /m);
-
         // Verify each project has its own task
         expect(fileExists(join(ctx.projectDir, '.claude', 'tasks', 'shared-task', 'CLAUDE.md'))).toBe(true);
         expect(fileExists(join(ctx2.projectDir, '.claude', 'tasks', 'different-task', 'CLAUDE.md'))).toBe(true);
 
-        // Verify .claude/CLAUDE.md is not tracked in either repo
-        const status1Lines = status1.split('\n');
+        // Verify cross-isolation: dev 1's task not in dev 2's project and vice versa
+        expect(fileExists(join(ctx2.projectDir, '.claude', 'tasks', 'shared-task'))).toBe(false);
+        expect(fileExists(join(ctx.projectDir, '.claude', 'tasks', 'different-task'))).toBe(false);
+
+        // Verify .claude/CLAUDE.md is not tracked in either repo after commit
+        const status1Lines = getGitStatus(ctx.projectDir).split('\n');
+        const status2Lines = getGitStatus(ctx2.projectDir).split('\n');
         status1Lines.forEach(line => expect(line).not.toContain('.claude/CLAUDE.md'));
+        status2Lines.forEach(line => expect(line).not.toContain('.claude/CLAUDE.md'));
       } finally {
         ctx2.cleanup();
       }

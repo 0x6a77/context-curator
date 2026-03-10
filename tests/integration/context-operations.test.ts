@@ -62,22 +62,27 @@ describe('Context Saving Tests (Group 4)', () => {
       expect(isValidJsonl(expectedPath)).toBe(true);
     });
 
-    // T-CTX-2: unconditional JSONL validation
+    // Fix 16: T-CTX-2: must exit 0 and produce non-empty valid JSONL
     it('should create valid JSONL file', async () => {
       createJsonl(join(ctx.personalDir, 'current-session.jsonl'), SMALL_CONTEXT);
 
-      await runScript(
+      const result = await runScript(
         'save-context',
         ['save-test', 'my-work', '--personal'],
         ctx.projectDir,
         { CLAUDE_HOME: ctx.personalBase }
       );
 
+      // T-CTX-2: must exit 0 and produce non-empty valid JSONL
+      expect(result.exitCode).toBe(0);
       const expectedPath = join(ctx.personalDir, 'tasks', 'save-test', 'contexts', 'my-work.jsonl');
       expect(fileExists(expectedPath)).toBe(true);
       expect(isValidJsonl(expectedPath)).toBe(true);
+      // Must not be empty — an empty file satisfies isValidJsonl trivially
+      expect(readFile(expectedPath).trim().length).toBeGreaterThan(0);
     });
 
+    // Fix 17: Add positive assertion that personal file exists
     it('should not save to project .claude/ directory for personal', async () => {
       createJsonl(join(ctx.personalDir, 'current-session.jsonl'), SMALL_CONTEXT);
 
@@ -88,7 +93,11 @@ describe('Context Saving Tests (Group 4)', () => {
         { CLAUDE_HOME: ctx.personalBase }
       );
 
-      // Verify NOT in project directory golden location
+      // Positive: personal file must exist
+      const personalPath = join(ctx.personalDir, 'tasks', 'save-test', 'contexts', 'my-work.jsonl');
+      expect(fileExists(personalPath)).toBe(true);
+
+      // Negative: must NOT be saved to project golden location
       const projectContextPath = join(ctx.projectDir, '.claude', 'tasks', 'save-test', 'contexts', 'my-work.jsonl');
       expect(fileExists(projectContextPath)).toBe(false);
     });
@@ -113,7 +122,7 @@ describe('Context Saving Tests (Group 4)', () => {
       expect(isValidJsonl(goldenPath)).toBe(true);
     });
 
-    // T-CTX-3: remove escape hatch, require scan-related output
+    // Fix 18: T-CTX-3: remove 'clean' from OR fallback
     it('should run secret scan before saving golden', async () => {
       createJsonl(join(ctx.personalDir, 'current-session.jsonl'), CLEAN_CONTEXT);
 
@@ -125,7 +134,8 @@ describe('Context Saving Tests (Group 4)', () => {
       );
 
       const output = result.stdout.toLowerCase();
-      expect(output.includes('scan') || output.includes('secret') || output.includes('clean')).toBe(true);
+      // 'scan' or 'secret' must appear — 'clean' is too common to be a meaningful assertion
+      expect(output.includes('scan') || output.includes('secret')).toBe(true);
     });
 
     // FIX 4: T-CTX-3: secret scan blocks golden save
@@ -146,6 +156,7 @@ describe('Context Saving Tests (Group 4)', () => {
   });
 
   describe('Test 4.3: Save with Invalid Name', () => {
+    // Fix 19: Add specific error message assertion
     it('should reject context name with invalid characters', async () => {
       const result = await runScript(
         'save-context',
@@ -154,7 +165,10 @@ describe('Context Saving Tests (Group 4)', () => {
       );
 
       expect(result.exitCode).not.toBe(0);
-      // FIX 5: verify no file was created for the invalid name
+      // Must emit a message about invalid name (not just exit non-zero for any reason)
+      const output = (result.stdout + result.stderr).toLowerCase();
+      expect(output).toMatch(/invalid.*(name|characters?)|name.*invalid/i);
+      // No file created for the invalid name
       const invalidPath = join(ctx.personalDir, 'tasks', 'save-test', 'contexts', 'my work!.jsonl');
       expect(fileExists(invalidPath)).toBe(false);
     });
@@ -255,6 +269,14 @@ describe('Context Listing Tests (Group 5)', () => {
       const output = result.stdout;
       expect(output).toContain('ctx-1');
       expect(output).toContain('ctx-2');
+
+      // Fix 20: T-LIST-1: if both personal and golden are present, personal must appear before golden
+      const outputLower = output.toLowerCase();
+      const personalIdx = outputLower.indexOf('personal');
+      const goldenIdx = outputLower.indexOf('golden');
+      if (personalIdx >= 0 && goldenIdx >= 0) {
+        expect(personalIdx).toBeLessThan(goldenIdx);
+      }
     });
 
     // T-LIST-2: word-boundary regex for message counts
@@ -382,13 +404,18 @@ describe('Context Management Tests (Group 6)', () => {
       createJsonl(join(goldenDir, 'golden-ctx.jsonl'), SMALL_CONTEXT);
     });
 
+    // Fix 21: Strengthen golden context indicator check
     it('should list golden context with special indicator', async () => {
       const result = await runScript('list-all-contexts', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       // FIX 12: drop 'team' branch
       expect(result.exitCode).toBe(0);
       const output = result.stdout;
-      expect(output.includes('⭐') || output.toLowerCase().includes('golden')).toBe(true);
+      const hasGoldenStar = output.includes('⭐');
+      const hasGoldenLabel = output.toLowerCase().includes('golden');
+      expect(hasGoldenStar || hasGoldenLabel).toBe(true);
+      // The context name must appear
+      expect(output).toContain('golden-ctx');
     });
 
     // T-CTX-7: deletion protection test
@@ -452,6 +479,7 @@ describe('Context Promotion Tests (Group 7)', () => {
       expect(readFile(goldenPath)).toBe(readFile(personalPath));
     });
 
+    // Fix 22: Add assertion that personal file still exists (copies, not moves)
     it('should copy to project golden directory', async () => {
       await runScript('promote-context', ['promote-test', 'clean-ctx'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
@@ -459,6 +487,9 @@ describe('Context Promotion Tests (Group 7)', () => {
       expect(fileExists(goldenPath)).toBe(true);
       // FIX 15: JSONL validation
       expect(isValidJsonl(goldenPath)).toBe(true);
+      // copies, not moves — personal source must still exist
+      const personalPath = join(ctx.personalDir, 'tasks', 'promote-test', 'contexts', 'clean-ctx.jsonl');
+      expect(fileExists(personalPath)).toBe(true);
     });
 
     it('should preserve original personal context', async () => {
@@ -503,7 +534,7 @@ describe('Context Promotion Tests (Group 7)', () => {
       createJsonl(join(personalDir, 'secret-ctx.jsonl'), GITHUB_TOKEN_CONTEXT);
     });
 
-    // T-PROM-2: require specific type identification
+    // Fix 23: T-PROM-2: output must identify GitHub token type specifically
     it('should detect secrets and warn/block', async () => {
       const result = await runScript(
         'promote-context',

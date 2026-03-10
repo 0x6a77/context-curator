@@ -193,6 +193,7 @@ describe('Two-File CLAUDE.md System Tests (Group 8)', () => {
   });
 
   describe('Test 8.5: /resume Structural Proxy (T-CLMD-2)', () => {
+    // Fix 34: Verify @import path specifically contains 'oauth-work'
     it('should set up the correct @import path for /resume to read', async () => {
       // This is the automated structural proxy for the manual T-RESUME-MANUAL test.
       // We verify OUR side of the contract: that .claude/CLAUDE.md has the correct
@@ -205,11 +206,13 @@ describe('Two-File CLAUDE.md System Tests (Group 8)', () => {
       expect(fileExists(workingMdPath)).toBe(true);
 
       const content = readFile(workingMdPath);
-      // Must contain a valid @import pointing to oauth-work's CLAUDE.md
+      // Must contain a valid @import pointing specifically to oauth-work's CLAUDE.md
       const importMatch = content.match(/@import\s+(\S+)/);
       expect(importMatch).not.toBeNull();
       const importRelPath = importMatch![1];
-      // The path in @import may be relative to .claude/ directory or project root
+      // The @import path must contain 'oauth-work' to point to the correct task
+      expect(importRelPath).toContain('oauth-work');
+      // The referenced task CLAUDE.md must exist
       const taskClaudeMdPath = join(ctx.projectDir, '.claude', 'tasks', 'oauth-work', 'CLAUDE.md');
       expect(fileExists(taskClaudeMdPath)).toBe(true);
     });

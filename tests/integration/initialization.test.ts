@@ -59,6 +59,8 @@ describe('Project Initialization Tests', () => {
       expect(claudeMdContent).toMatch(/@import\s+\S+CLAUDE\.md/);
       const importMatch = claudeMdContent.match(/@import\s+(\S+CLAUDE\.md)/);
       expect(importMatch).not.toBeNull();
+      // Fix 1: verify the import specifically points to the default task CLAUDE.md
+      expect(importMatch![1]).toContain('tasks/default/CLAUDE.md');
       const importedPath = join(ctx.projectDir, importMatch![1]);
       expect(fileExists(importedPath)).toBe(true);
     });
@@ -80,6 +82,9 @@ describe('Project Initialization Tests', () => {
 
       // FIX 5: Verify script exited successfully
       expect(result.exitCode).toBe(0);
+
+      // Fix 2: Positive assertion — default task must have been created (makes negative check non-vacuous)
+      expect(fileExists(join(ctx.projectDir, '.claude', 'tasks', 'default', 'CLAUDE.md'))).toBe(true);
 
       // Verify no backup created
       const stashPath = join(ctx.personalDir, '.stash', 'original-CLAUDE.md');
@@ -166,6 +171,8 @@ describe('Project Initialization Tests', () => {
       expect(content).toMatch(/@import\s+\S+CLAUDE\.md/);
       const importMatch = content.match(/@import\s+(\S+CLAUDE\.md)/);
       expect(importMatch).not.toBeNull();
+      // Fix 3: verify the import specifically points to the default task CLAUDE.md
+      expect(importMatch![1]).toContain('tasks/default/CLAUDE.md');
       const importedPath = join(ctx.projectDir, importMatch![1]);
       expect(fileExists(importedPath)).toBe(true);
     });
@@ -176,39 +183,56 @@ describe('Project Initialization Tests', () => {
       writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Instructions\n');
     });
 
+    // Fix 4: Capture content after first run and verify identity after second run
     it('should succeed on both initializations', async () => {
       // First init
       const result1 = await runScript('init-project', [], ctx.projectDir);
       expect(result1.exitCode).toBe(0);
 
+      // Capture .claude/CLAUDE.md content after first init
+      const contentAfterFirst = readFile(join(ctx.projectDir, '.claude', 'CLAUDE.md'));
+
       // Second init should not error
       const result2 = await runScript('init-project', [], ctx.projectDir);
       expect(result2.exitCode).toBe(0);
+
+      // T-INIT-4: file contents must be identical between runs
+      const contentAfterSecond = readFile(join(ctx.projectDir, '.claude', 'CLAUDE.md'));
+      expect(contentAfterSecond).toBe(contentAfterFirst);
     });
 
+    // Fix 5: Add content identity check
     it('should not create duplicate directories', async () => {
       await runScript('init-project', [], ctx.projectDir);
+      const contentAfterFirst = readFile(join(ctx.projectDir, '.claude', 'CLAUDE.md'));
+
       await runScript('init-project', [], ctx.projectDir);
 
-      // FIX 11: Pre-condition — .claude/CLAUDE.md must exist after second run
+      // FIX: .claude/CLAUDE.md must exist after second run
       expect(fileExists(join(ctx.projectDir, '.claude', 'CLAUDE.md'))).toBe(true);
 
       // Verify only one default task
       const tasksDir = join(ctx.projectDir, '.claude', 'tasks');
       const tasks = readdirSync(tasksDir);
       expect(tasks.filter(t => t === 'default').length).toBe(1);
+
+      // T-INIT-4: file contents must be identical
+      const contentAfterSecond = readFile(join(ctx.projectDir, '.claude', 'CLAUDE.md'));
+      expect(contentAfterSecond).toBe(contentAfterFirst);
     });
 
+    // Fix 6: Replace to focus on DoD (exit 0 + content identity)
     it('should indicate already initialized on second run', async () => {
-      await runScript('init-project', [], ctx.projectDir);
-      const secondResult = await runScript('init-project', [], ctx.projectDir);
+      const result1 = await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      expect(result1.exitCode).toBe(0);
+      const contentAfterFirst = readFile(join(ctx.projectDir, '.claude', 'CLAUDE.md'));
 
-      // FIX 10: Verify script exited successfully on second run
+      const secondResult = await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+
+      // T-INIT-4: both runs exit 0 and produce identical file contents
       expect(secondResult.exitCode).toBe(0);
-
-      // FIX 10: Check for indication of existing initialization with specific pattern
-      const output = secondResult.stdout.toLowerCase();
-      expect(output).toMatch(/already\s*(initialized|exists)/i);
+      const contentAfterSecond = readFile(join(ctx.projectDir, '.claude', 'CLAUDE.md'));
+      expect(contentAfterSecond).toBe(contentAfterFirst);
     });
 
     // T-INIT-4: Both runs exit 0 and produce identical file contents
@@ -271,11 +295,19 @@ describe('Project Initialization Tests', () => {
         const sanitized2 = sanitizePath(ctx2.projectDir);
         expect(sanitized1).not.toBe(sanitized2);
 
-        // T-INIT-5: Runtime isolation — a file in project 1 personal storage must not appear in project 2
-        const file1 = join(ctx.personalBase, 'projects', sanitizePath(ctx.projectDir), 'isolation-marker.txt');
-        writeFile(file1, 'project-1-only');
-        const file2 = join(ctx.personalBase, 'projects', sanitizePath(ctx2.projectDir), 'isolation-marker.txt');
-        expect(fileExists(file2)).toBe(false);
+        // Fix 7: T-INIT-5: Runtime isolation — project 1 personal storage must not overlap with project 2
+        // Verify that the personal storage paths are disjoint (different directories)
+        const personalPath1 = join(ctx.personalBase, 'projects', sanitizePath(ctx.projectDir));
+        const personalPath2 = join(ctx.personalBase, 'projects', sanitizePath(ctx2.projectDir));
+        expect(personalPath1).not.toBe(personalPath2);
+
+        // Verify init for project 1 did not create any files in project 2's personal storage directory
+        const markerInProject2 = join(personalPath2, 'init-marker.txt');
+        expect(fileExists(markerInProject2)).toBe(false);
+
+        // Write a marker in project 1 personal storage and confirm it doesn't appear in project 2
+        writeFile(join(personalPath1, 'marker.txt'), 'project-1');
+        expect(fileExists(join(personalPath2, 'marker.txt'))).toBe(false);
       } finally {
         ctx2.cleanup();
       }

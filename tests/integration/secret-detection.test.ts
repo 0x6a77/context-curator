@@ -56,7 +56,7 @@ describe('Secret Detection Tests (Group 9)', () => {
   }
 
   describe('Test 9.1: Detect AWS Access Keys', () => {
-    // T-SEC-2: specific AWS/AKIA match, must exit non-zero
+    // Fix 24: T-SEC-2: require AKIA prefix explicitly
     it('should detect AWS access key pattern', async () => {
       const contextPath = createTestContext(AWS_KEY_CONTEXT);
 
@@ -64,9 +64,11 @@ describe('Secret Detection Tests (Group 9)', () => {
 
       const output = result.stdout.toLowerCase();
       expect(result.exitCode).not.toBe(0); // must exit non-zero when secrets found
-      expect(output.includes('aws') || output.includes('akia')).toBe(true);
+      // AKIA prefix is specific to AWS access keys; require it explicitly
+      expect(output).toMatch(/akia/i);
     });
 
+    // Fix 25: remove vacuous |aws fallback
     it('should identify AWS secret key pattern', async () => {
       const contextPath = createTestContext(AWS_KEY_CONTEXT);
 
@@ -80,11 +82,12 @@ describe('Secret Detection Tests (Group 9)', () => {
       // Should find both access key and secret key
       const output = result.stdout.toLowerCase();
       expect(result.exitCode).not.toBe(0);
-      expect(output).toMatch(/secret.*key|aws/i);
+      expect(output).toMatch(/aws.*key|secret.*key|akia/i);
     });
   });
 
   describe('Test 9.2: Detect Stripe API Keys', () => {
+    // Fix 26: Add exit code assertion
     it('should detect Stripe live key pattern', async () => {
       const contextPath = createTestContext(STRIPE_KEY_CONTEXT);
 
@@ -95,6 +98,8 @@ describe('Secret Detection Tests (Group 9)', () => {
         { CLAUDE_HOME: ctx.personalBase }
       );
 
+      // T-SEC-3: must exit non-zero when secrets found
+      expect(result.exitCode).not.toBe(0);
       const output = result.stdout.toLowerCase();
       expect(output).toMatch(/sk_live/i);
     });
@@ -113,6 +118,7 @@ describe('Secret Detection Tests (Group 9)', () => {
   });
 
   describe('Test 9.3: Detect GitHub Tokens', () => {
+    // Fix 27: Require ghp_ specifically (not just 'github' text)
     it('should detect GitHub personal access token', async () => {
       const contextPath = createTestContext(GITHUB_TOKEN_CONTEXT);
 
@@ -125,11 +131,12 @@ describe('Secret Detection Tests (Group 9)', () => {
 
       const output = result.stdout.toLowerCase();
       expect(result.exitCode).not.toBe(0);
-      expect(output).toMatch(/github|ghp_/i);
+      expect(output).toMatch(/ghp_/i);
     });
   });
 
   describe('Test 9.4: Detect Private Keys', () => {
+    // Fix 28: Replace OR chain with specific pattern
     it('should detect RSA private key header', async () => {
       const contextPath = createTestContext(PRIVATE_KEY_CONTEXT);
 
@@ -142,11 +149,12 @@ describe('Secret Detection Tests (Group 9)', () => {
 
       const output = result.stdout.toLowerCase();
       expect(result.exitCode).not.toBe(0);
-      expect(output).toMatch(/rsa|private key/i);
+      expect(output).toMatch(/rsa.*private|private.*key|BEGIN.*PRIVATE/i);
     });
   });
 
   describe('Test 9.5: Detect Generic Passwords', () => {
+    // Fix 29: 'password' alone is specific enough
     it('should detect password assignment patterns', async () => {
       const contextPath = createTestContext(PASSWORD_CONTEXT);
 
@@ -159,37 +167,52 @@ describe('Secret Detection Tests (Group 9)', () => {
 
       const output = result.stdout.toLowerCase();
       expect(result.exitCode).not.toBe(0);
-      expect(output).toMatch(/password|credential/i);
+      expect(output).toMatch(/password/i);
     });
   });
 
-  // T-SEC-5: document true-positive policy for AKIAIOSFODNN7EXAMPLE
+  // Fix 30: T-SEC-5: isolate AKIAIOSFODNN7EXAMPLE with its own fixture
   describe('Test 9.6: AKIAIOSFODNN7EXAMPLE Policy', () => {
     it('should treat AKIAIOSFODNN7EXAMPLE as a true positive (policy: prefer FP over FN)', async () => {
-      // AWS documentation uses AKIAIOSFODNN7EXAMPLE as an example key.
-      // Our scanner INTENTIONALLY detects it — false positives are acceptable, false negatives are not.
-      const contextPath = createTestContext(AWS_KEY_CONTEXT); // AWS_KEY_CONTEXT contains this string
+      // Use a fixture containing ONLY AKIAIOSFODNN7EXAMPLE to isolate this policy test
+      const exampleKeyOnly = [
+        {
+          type: 'user',
+          message: { role: 'user', content: 'The AWS docs use AKIAIOSFODNN7EXAMPLE as an example.' },
+          timestamp: new Date().toISOString(),
+        },
+      ];
+      const contextPath = createTestContext(exampleKeyOnly);
 
       const result = await runScript('scan-secrets', [contextPath], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
+      // Policy: AKIAIOSFODNN7EXAMPLE must be flagged as a true positive (false negatives are worse than false positives)
       expect(result.exitCode).not.toBe(0);
       const output = result.stdout.toLowerCase();
-      expect(output.includes('aws') || output.includes('akia')).toBe(true);
+      expect(output).toMatch(/akia/i);
     });
   });
 
   describe('Test 9.7: Multiple Secrets in Single Message', () => {
-    // T-SEC-7: word-boundary count, must be > 1
+    // Fix 31: More specific count assertion
     it('should report correct count of multiple secrets', async () => {
       const contextPath = createTestContext(MULTIPLE_SECRETS_CONTEXT);
 
       const result = await runScript('scan-secrets', [contextPath], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       expect(result.exitCode).not.toBe(0);
-      // MULTIPLE_SECRETS_CONTEXT contains exactly 5 secrets
-      // Use word-boundary to match the exact count
+      // MULTIPLE_SECRETS_CONTEXT contains exactly 5 distinct secrets
+      // The count \b5\b must appear as a reported count, not incidentally (timestamp/line number)
+      // We also verify the exit code is non-zero (secrets were found)
       const output = result.stdout;
-      expect(output).toMatch(/\b5\b/);
+      const countMatch = output.match(/\b(found|detected|count|secrets?)[\s:]*\b(\d+)\b|\b(\d+)\b[\s]*(secrets?|found|detected)/i);
+      if (countMatch) {
+        const count = parseInt(countMatch[2] || countMatch[3]);
+        expect(count).toBe(5);
+      } else {
+        // Fallback: \b5\b appears in output
+        expect(output).toMatch(/\b5\b/);
+      }
     });
   });
 
@@ -237,6 +260,7 @@ describe('Secret Detection Tests (Group 9)', () => {
       expect(rescanResult.stdout.trim()).toMatch(/clean/i);
     });
 
+    // Fix 33: Add isValidJsonl and non-empty check for redacted output
     it('should remove or mask secrets in output', async () => {
       const contextPath = createTestContext(STRIPE_KEY_CONTEXT);
 
@@ -249,6 +273,8 @@ describe('Secret Detection Tests (Group 9)', () => {
 
       const redactedPath = join(ctx.personalDir, 'tasks', 'secret-test', 'contexts', 'test-ctx.redacted.jsonl');
       expect(fileExists(redactedPath)).toBe(true);
+      expect(isValidJsonl(redactedPath)).toBe(true);
+      expect(readFile(redactedPath).trim().length).toBeGreaterThan(0);
       const content = readFile(redactedPath);
       // Original secret should not appear
       expect(content).not.toContain('sk_live_abc123def456');
