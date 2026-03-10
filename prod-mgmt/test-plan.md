@@ -513,6 +513,14 @@ def test_create_task_empty_description():
 
 ## 3. Task Switching Tests · F-TASK-SWITCH
 
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-SWITCH-1 | After `/task <existing-id>`, `.claude/CLAUDE.md` contains exactly one `@import` pointing to the selected task |
+| T-SWITCH-2 | When a task has no contexts, output contains "fresh", "empty", or "no contexts" and exits 0 |
+| T-SWITCH-3 | When both personal and golden contexts exist, personal contexts are listed before golden contexts |
+
 ### Test 3.1: Switch to Task with Personal Contexts Only
 
 **Setup:**
