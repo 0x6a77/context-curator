@@ -2480,6 +2480,12 @@ def test_working_claude_md_not_in_status():
 
 ## 12. Cross-Platform Tests · F-XPLAT
 
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-ERR-3 | All operations work when project path contains a space; verified by exitCode === 0 AND output file existence |
+
 ### Test 12.1: Initialize on macOS
 
 **Validation:**
