@@ -2194,19 +2194,32 @@ def test_false_positives():
 
 ---
 
-### Test 9.7: Multiple Secrets in Single Message
+### Test 9.7: Multiple Secrets in Single Message (T-SEC-7)
+
+**Fixture note:** The Stripe key MUST be `sk_test_` or `sk_live_` followed by **≥ 24 alphanumeric characters**. Short keys like `sk_live_abc123` (12 chars) do NOT match the strict Stripe pattern — a correctly strict scanner will detect fewer secrets, causing `\b5\b` to fail for a correct implementation. Use `sk_live_abcdefghijklmnopqrstuvwx` (28 chars) or longer.
 
 **Validation:**
 ```python
-def test_multiple_secrets():
-    message = """
-    AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
-    AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-    STRIPE_KEY=sk_live_abc123
-    """
+def test_multiple_secrets_count():
+    # MULTIPLE_SECRETS_CONTEXT — exactly 5 secrets, all matching strict patterns:
+    # 1. AWS access key: AKIA + 16 uppercase alphanumeric
+    # 2. Stripe live key: sk_live_ + ≥24 alphanumeric chars  ← must be ≥24 chars
+    # 3. GitHub token: ghp_ + 36 alphanumeric chars
+    # 4. Generic password: password=<value>
+    # 5. Private key header: -----BEGIN RSA PRIVATE KEY-----
+    message = "\n".join([
+        "AKIAIOSFODNN7EXAMPLE1234",                          # AWS (AKIA+20)
+        "sk_live_abcdefghijklmnopqrstuvwxyz12",              # Stripe (≥24)
+        "ghp_abcdefghijklmnopqrstuvwxyz123456",              # GitHub (36)
+        "password=SuperSecret123!",                           # generic
+        "-----BEGIN RSA PRIVATE KEY-----",                    # private key
+    ])
+    result = run_scan_secrets_on_text(message)
     
-    secrets = detect_secrets_in_text(message)
-    assert len(secrets) >= 3
+    assert result["returncode"] != 0
+    # T-SEC-7: count must match \b5\b — not a broad \d+ match
+    assert re.search(r'\b5\b', result["stdout"]), \
+        f"Output must report exactly 5 secrets. Got: {result['stdout'][:300]}"
 ```
 
 ---
