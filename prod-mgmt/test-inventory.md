@@ -172,8 +172,8 @@ Coverage: INADEQUATE — Two tests assert MEMORY.md at different paths (personal
 **T-RESUME-MANUAL**: marked MANUAL in AC
 Coverage: MISSING (intentionally manual; no automated coverage exists)
 
-**CLAUSE: /context-manage command (PRD Commands Reference section) — NO AC DEFINED — STRICT FAIL**
-The `/context-manage` command is fully specified in the PRD Commands Reference section with defined behavior (list contexts, view details, interactive cleanup via natural language). No AC clause exists for this feature. No test can be evaluated for adequate coverage.
+**T-CTX-7**: covered by context-operations.test.ts:T6.6-deletion
+Coverage: ADEQUATE — PRD v17.0 defines AC T-CTX-7: `delete-context` on a golden context exits non-zero without `--confirm`; file still exists after the failed attempt.
 
 **CLAUSE: Task Switching — existing task (PRD Feature Behavior 3, Commands Reference /task <existing-id>) — NO AC DEFINED — STRICT FAIL**
 Switching to an existing task (as distinct from creating a new task) is a defined PRD behavior with specified outcomes (context listing, .claude/CLAUDE.md update). No formal AC clause covers this command path. Task-operations.test.ts Group 3 tests exist but cannot be evaluated without a AC clause.
