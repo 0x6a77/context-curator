@@ -183,7 +183,7 @@ class ContextCuratorTestCase:
 
 ## Feature Test Groups
 
-## 1. Project Initialization Tests
+## 1. Project Initialization Tests · F-INIT
 
 ### Test 1.1: Initialize Fresh Project (No CLAUDE.md)
 
@@ -335,7 +335,7 @@ def test_init_preserves_existing():
 
 ---
 
-## 2. Task Creation Tests
+## 2. Task Creation Tests · F-TASK-CREATE
 
 ### Test 2.1: Create New Task with Valid Name
 
@@ -492,7 +492,7 @@ def test_create_task_empty_description():
 
 ---
 
-## 3. Task Switching Tests
+## 3. Task Switching Tests · F-TASK-SWITCH
 
 ### Test 3.1: Switch to Task with Personal Contexts Only
 
@@ -746,7 +746,7 @@ def test_multiple_task_switches():
 
 ---
 
-## 4. Context Saving Tests
+## 4. Context Saving Tests · F-CTX-SAVE
 
 ### Test 4.1: Save Personal Context with Valid Name
 
@@ -1008,7 +1008,7 @@ def test_save_without_task():
 
 ---
 
-## 5. Context Listing Tests
+## 5. Context Listing Tests · F-CTX-LIST
 
 ### Test 5.1: List Contexts for Current Task
 
@@ -1193,7 +1193,7 @@ def test_list_nonexistent():
 
 ---
 
-## 6. Context Management Tests
+## 6. Context Management Tests · F-CTX-MANAGE
 
 ### Test 6.1: Manage When No Contexts Exist
 
@@ -1406,7 +1406,7 @@ def test_manage_preserve_golden():
 
 ---
 
-## 7. Context Promotion Tests
+## 7. Context Promotion Tests · F-CTX-PROMOTE
 
 ### Test 7.1: Promote Clean Context (No Secrets)
 
@@ -1628,7 +1628,7 @@ Type: Golden (team shared) ⭐
 
 ---
 
-## 8. Two-File CLAUDE.md System Tests
+## 8. Two-File CLAUDE.md System Tests · F-CLMD
 
 ### Test 8.1: Root CLAUDE.md Never Modified
 
@@ -1866,7 +1866,7 @@ def test_multiple_developers():
 
 ---
 
-## 9. Secret Detection Tests
+## 9. Secret Detection Tests · F-SEC
 
 ### Test 9.1: Detect AWS Access Keys
 
@@ -2055,7 +2055,7 @@ def test_redaction_valid_jsonl():
 
 ---
 
-## 10. AI-Generated Summary Tests
+## 10. AI-Generated Summary Tests · F-SUMMARY
 
 ### Test 10.1: Summary for Small Context
 
@@ -2197,7 +2197,7 @@ def test_summary_displayed():
 
 ---
 
-## 11. Git Integration Tests
+## 11. Git Integration Tests · F-GIT
 
 ### Test 11.1: .gitignore Setup
 
@@ -2386,7 +2386,7 @@ def test_working_claude_md_not_in_status():
 
 ---
 
-## 12. Cross-Platform Tests
+## 12. Cross-Platform Tests · F-XPLAT
 
 ### Test 12.1: Initialize on macOS
 
@@ -2510,7 +2510,7 @@ def test_line_endings():
 
 ---
 
-## 13. Error Handling Tests
+## 13. Error Handling Tests · F-ERR
 
 ### Test 13.1: Run /task Without Initialization
 
