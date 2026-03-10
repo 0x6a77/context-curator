@@ -1079,6 +1079,89 @@ def test_save_without_task():
 
 ---
 
+### Test 4.7: Golden Save Rejected When Session Exceeds 100KB
+
+**Setup:**
+```bash
+cd test-project
+# Create a session file larger than 100KB
+```
+
+**Execution:**
+```bash
+> /context-save large-golden --golden
+```
+
+**Validation:**
+```python
+def test_golden_save_rejected_over_100kb():
+    # Create a session file that exceeds 100KB
+    large_messages = [{"role": "user", "content": "x" * 1000} for _ in range(150)]
+    session_path = create_session_file(large_messages)
+    assert session_path.stat().st_size > 100 * 1024, "Pre-condition: file must exceed 100KB"
+    
+    result = run_command("/context-save large-golden --golden")
+    
+    # T-CTX-4: must exit non-zero with specific message
+    assert result["returncode"] != 0, "Must reject golden save over 100KB"
+    assert re.search(r'100KB|too large', result["stdout"], re.IGNORECASE), \
+        f'Output must mention "100KB" or "too large". Got: {result["stdout"][:200]}'
+    
+    # Verify no file was created
+    golden_path = Path(".claude/tasks") / current_task / "contexts/large-golden.jsonl"
+    assert not golden_path.exists(), "No golden context file must be created on rejection"
+```
+
+**Expected Output:**
+```
+✗ Context too large to save as golden
+  Size: 152KB (limit: 100KB)
+  Use /context-save <name> (personal) to save without the size cap.
+```
+
+---
+
+### Test 4.8: MEMORY.md Updated After Save
+
+**Setup:**
+```bash
+cd test-project
+claude > /task auth-work
+[have conversation]
+```
+
+**Execution:**
+```bash
+> /context-save my-progress
+```
+
+**Validation:**
+```python
+def test_memory_md_updated_after_save():
+    run_command("/task auth-work")
+    run_command("/context-save my-progress")
+    
+    # T-MEM-1: authoritative path is <personalBase>/<sanitized-project>/MEMORY.md
+    # where personalBase = ~/.claude/projects
+    sanitized = sanitize_path(str(project_dir))
+    memory_path = Path.home() / ".claude" / "projects" / sanitized / "MEMORY.md"
+    
+    # Must exist unconditionally — no if-guard allowed
+    assert memory_path.exists(), f"MEMORY.md must be created at {memory_path}"
+    
+    content = memory_path.read_text()
+    assert "auth-work" in content, "MEMORY.md must contain the task-id"
+    assert "my-progress" in content, "MEMORY.md must contain the context-name"
+```
+
+**Expected Output:**
+```
+✓ Saved context: my-progress (N msgs)
+✓ Updated MEMORY.md
+```
+
+---
+
 ## 5. Context Listing Tests · F-CTX-LIST
 
 **Acceptance Criteria:**
