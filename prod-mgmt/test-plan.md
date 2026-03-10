@@ -1,7 +1,7 @@
 # Context Curator Integration Test Plan
 
-**Version:** 1.0  
-**Last Updated:** January 18, 2026  
+**Version:** 1.1
+**Last Updated:** March 10, 2026
 **Purpose:** Detailed integration test specifications for context-curator
 
 ---
