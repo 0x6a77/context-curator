@@ -775,6 +775,17 @@ def test_multiple_task_switches():
 
 ## 4. Context Saving Tests · F-CTX-SAVE
 
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-CTX-1 | `save-context --personal` creates file at exactly `<personalDir>/tasks/<task-id>/contexts/<name>.jsonl` |
+| T-CTX-2 | Saved context file parses as valid JSONL — asserted unconditionally, not inside an `if (fileExists)` guard |
+| T-CTX-3 | `save-context --golden` on a session with a real AWS key exits non-zero or produces a prompt; exit 0 with no prompt is a failure |
+| T-CTX-4 | `save-context --golden` on a 150KB session exits non-zero with output containing "100KB" or "too large" |
+| T-CTX-6 | `save-context` called twice with the same name creates a `.backup-` file; the backup contains the original content |
+| T-MEM-1 | After `save-context`, the personal memory MEMORY.md contains the task-id and context-name saved |
+
 ### Test 4.1: Save Personal Context with Valid Name
 
 **Setup:**
