@@ -1728,7 +1728,7 @@ def test_promote_with_secrets():
         "task-1", 
         "secret-ctx",
         secret_type="stripe_key",
-        secret_value="sk_live_abcdef123456"
+        secret_value="sk_live_abcdefghijklmnopqrstuvwx"  # ≥24 chars required for strict scanner
     )
     
     result = run_command("/context-promote secret-ctx")
@@ -1752,7 +1752,7 @@ def test_promote_with_secrets():
 
 Found 1 secret:
 1. Stripe API Key (sk_live_...)
-   Line 23: "Here's the API key: sk_live_abcdef123456"
+   Line 23: "Here's the API key: sk_live_abcdefghijklmnopqrstuvwx"
 
 Cannot promote context with secrets.
 Options:
@@ -1779,8 +1779,9 @@ cd test-project
 **Validation:**
 ```python
 def test_promote_with_redaction():
-    create_context_with_secret("task-1", "secret-ctx", 
-                                secret_value="sk_live_abc123")
+    # Key must be ≥24 chars after prefix so a strict Stripe scanner detects it
+    create_context_with_secret("task-1", "secret-ctx",
+                                secret_value="sk_live_abcdefghijklmnopqrstuvwx")
     
     result = run_command("/context-promote secret-ctx --redact")
     
@@ -1792,7 +1793,7 @@ def test_promote_with_redaction():
     golden_content = golden_path.read_text()
     
     # Verify secret not present
-    assert "sk_live_abc123" not in golden_content
+    assert "sk_live_abcdefghijklmnopqrstuvwx" not in golden_content
     # Verify redaction marker present
     assert "REDACTED" in golden_content or \
            "***" in golden_content
@@ -2168,7 +2169,7 @@ def test_detect_aws_keys():
 def test_detect_stripe_keys():
     test_keys = [
         "sk_live_abcdefghijklmnop1234567890",
-        "sk_test_xyz789",
+        "sk_test_abcdefghijklmnopqrstuvwx",
         "pk_live_abc123"
     ]
     
@@ -2333,7 +2334,7 @@ def test_secrets_in_message_types():
 def test_redaction_valid_jsonl():
     context = create_context_with_secret(
         "task-1", "redact-test",
-        secret_value="sk_live_abc123"
+        secret_value="sk_live_abcdefghijklmnopqrstuvwx"
     )
     
     # Redact the secret
@@ -3292,7 +3293,7 @@ CONTEXT_WITH_AWS_KEY = """
 """
 
 CONTEXT_WITH_STRIPE_KEY = """
-{"role": "user", "content": "Stripe key: sk_live_abc123def456"}
+{"role": "user", "content": "Stripe key: sk_live_abcdefghijklmnopqrstuvwx"}
 {"role": "assistant", "content": "Got it"}
 """
 ```
