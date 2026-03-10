@@ -495,18 +495,22 @@ cd test-project
 ```bash
 claude
 > /task minimal-task
-What should this task focus on? > [press enter]
+What should this task focus on? > [press enter with no input]
 ```
 
 **Validation:**
 ```python
 def test_create_task_empty_description():
-    # Verify task created with generic description
-    task_md = Path(".claude/tasks/minimal-task/CLAUDE.md").read_text()
-    assert len(task_md) > 0  # Should have some default content
+    result = run_command("/task minimal-task\n")  # empty description
     
-    # Should still be functional
-    assert verify_file_exists(".claude/tasks/minimal-task/contexts/")
+    # Per T-TASK-4: must exit non-zero AND create no task directory
+    assert result["returncode"] != 0, "Empty description must be rejected"
+    assert not verify_file_exists(".claude/tasks/minimal-task/"), \
+        "No task directory must be created when description is empty"
+    assert "description" in result["stdout"].lower() or \
+           "empty" in result["stdout"].lower() or \
+           "focus" in result["stdout"].lower(), \
+        "Error message must prompt for a description"
 ```
 
 ---
