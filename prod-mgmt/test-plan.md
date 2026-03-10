@@ -3025,11 +3025,12 @@ def test_auto_save_timestamp_in_filename():
     auto_saves_dir = personal_base / "auto-saves"
     jsonl_files = list(auto_saves_dir.glob("*.jsonl"))
     
-    # Filename must contain a recognisable timestamp, not a fixed name
+    # Filename must contain an ISO-8601 date — not a fixed name, not a bare counter.
     for f in jsonl_files:
-        assert f.name != "auto-save.jsonl", "Filename must be timestamped, not fixed"
-        assert re.search(r'\d{4}-\d{2}-\d{2}|\d{10,}', f.name), \
-               f"No timestamp found in filename: {f.name}"
+        assert f.name != "auto-save.jsonl", \
+            "Filename must be timestamped, not a fixed name"
+        assert re.search(r'\d{4}-\d{2}-\d{2}', f.name), \
+            f"Filename must contain YYYY-MM-DD timestamp. Got: {f.name}"
 ```
 
 ---
