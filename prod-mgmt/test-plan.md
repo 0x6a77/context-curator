@@ -1938,6 +1938,17 @@ def test_multiple_developers():
 
 ## 9. Secret Detection Tests · F-SEC
 
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-SEC-2 | `scan-secrets` on a file with `AKIA` + 16 uppercase alphanumeric chars exits non-zero; output contains "AWS" or "AKIA" |
+| T-SEC-3 | `scan-secrets` detects both `sk_test_` and `sk_live_`; output names the specific key type |
+| T-SEC-4 | A context with one secret in user, one in assistant, one in tool_result: all three reported |
+| T-SEC-5 | `AKIAIOSFODNN7EXAMPLE` is treated as a true positive (scanner prefers false positives over false negatives) |
+| T-SEC-6 | After `redact-secrets`, every line parses as JSON; a second `scan-secrets` run returns "clean" |
+| T-SEC-7 | `scan-secrets` on a context with exactly 5 secrets reports count matching `\b5\b` |
+
 ### Test 9.1: Detect AWS Access Keys
 
 **Setup:**
