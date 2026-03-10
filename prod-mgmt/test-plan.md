@@ -2224,23 +2224,40 @@ def test_multiple_secrets_count():
 
 ---
 
-### Test 9.8: Secrets in Different Message Types
+### Test 9.8: Secrets in Different Message Types (T-SEC-4)
 
 **Validation:**
 ```python
 def test_secrets_in_message_types():
+    # T-SEC-4: one distinct secret per message type; each must be reported.
+    # Use real canonical patterns — placeholder "AKIA..." will NOT be detected.
+    # Each key is unique so detection cannot be attributed to a single scan of all text.
     context = create_context_with_content(
         "task-1", "multi-type",
         messages=[
-            {"role": "user", "content": "Key: AKIA..."},
-            {"role": "assistant", "content": "I'll use AKIA..."},
-            {"role": "tool", "content": "Output: AKIA..."}
+            {"role": "user",        "content": "Key: AKIAIOSFODNN7EXAMPL1"},   # AWS AKIA+16 upper
+            {"role": "assistant",   "content": "Key: AKIAIOSFODNN7EXAMPL2"},   # unique, different
+            {"role": "tool_result", "content": "Key: AKIAIOSFODNN7EXAMPL3"},   # unique, tool_result
         ]
     )
     
-    secrets = detect_secrets(context)
-    # Should find secrets in all message types
-    assert len(secrets) >= 3
+    result = run_scan_secrets(context)
+    assert result["returncode"] != 0
+    
+    # Must report secrets; parse which roles they came from
+    # Implementation must report source_role or equivalent per-detection metadata.
+    # A count of 3 is necessary but not sufficient — must verify per-role coverage.
+    detections = parse_secret_detections(result["stdout"])
+    roles_detected = {d["source_role"] for d in detections}
+    
+    assert "user" in roles_detected, \
+        "Secret in user message must be reported"
+    assert "assistant" in roles_detected, \
+        "Secret in assistant message must be reported"
+    assert "tool_result" in roles_detected, \
+        "Secret in tool_result message must be reported"
+    assert len(detections) >= 3, \
+        "All three secrets must be individually reported"
 ```
 
 ---
