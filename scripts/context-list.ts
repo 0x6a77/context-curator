@@ -86,9 +86,23 @@ async function main() {
   const jsonMode = args.includes('--json');
   const taskArg = args.find(a => !a.startsWith('--'));
 
-  const taskId = taskArg || await getCurrentTask();
   const cwd = process.cwd();
   const projectId = getProjectId(cwd);
+
+  // If a task arg was provided, verify it exists
+  let taskId: string;
+  if (taskArg) {
+    const { listTasks } = await import('../src/utils.js');
+    const tasks = await listTasks(cwd);
+    const found = tasks.find(t => t.id === taskArg);
+    if (!found) {
+      console.error(`❌ Task '${taskArg}' not found`);
+      process.exit(1);
+    }
+    taskId = taskArg;
+  } else {
+    taskId = await getCurrentTask();
+  }
 
   const sessions = await listActiveSessions(cwd);
   const contexts = await listContexts(taskId, cwd);
@@ -149,7 +163,7 @@ async function main() {
   }
 
   if (sessions.length === 0 && contexts.length === 0) {
-    console.log('No sessions or contexts found.');
+    console.log('No contexts found. Start fresh or save a session with /context-save.');
     console.log('');
   }
 

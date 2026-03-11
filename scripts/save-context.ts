@@ -14,7 +14,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import {
-  getProjectId,
+  getClaudeHome,
   getGoldenTasksDir,
   getPersonalTasksDir,
   getPersonalProjectDir,
@@ -24,8 +24,45 @@ import {
   validateName,
   formatDate,
   checkGoldenContextSize,
+  scanForSecrets,
   MAX_GOLDEN_SIZE_BYTES
 } from '../src/utils.js';
+
+async function updateMemoryFile(taskId: string, contextName: string, location: string, messages: number): Promise<void> {
+  const entry = `- ${taskId}/${contextName} (${messages} msgs) [${location}] saved:${new Date().toISOString().slice(0, 10)}`;
+  const header = '## Saved Contexts (context-curator)';
+  const footer = '<!-- end:saved-contexts -->';
+
+  async function writeToPath(memoryPath: string): Promise<void> {
+    const memoryDir = path.dirname(memoryPath);
+    await ensureDir(memoryDir);
+    let content = '';
+    try { content = await fs.readFile(memoryPath, 'utf-8'); } catch { content = '# Project Memory\n\n'; }
+    const sectionStart = content.indexOf(header);
+    const sectionEnd = content.indexOf(footer);
+    let newContent: string;
+    if (sectionStart !== -1 && sectionEnd !== -1) {
+      const before = content.slice(0, sectionStart).trimEnd();
+      const section = content.slice(sectionStart, sectionEnd + footer.length);
+      const after = content.slice(sectionEnd + footer.length).trimStart();
+      const updatedSection = section.replace(footer, `${entry}\n\n${footer}`);
+      newContent = [before, '', updatedSection, after ? '\n' + after : ''].join('\n') + '\n';
+    } else {
+      newContent = content.trimEnd() + `\n\n${header}\n\n${entry}\n\n${footer}\n`;
+    }
+    await fs.writeFile(memoryPath, newContent);
+  }
+
+  // Write to both CLAUDE_HOME/memory/MEMORY.md and project-scoped memory
+  const cwd = process.cwd();
+  const { getPersonalProjectDir } = await import('../src/utils.js');
+  const topLevelPath = path.join(getClaudeHome(), 'memory', 'MEMORY.md');
+  const projectPath = path.join(getPersonalProjectDir(cwd), 'memory', 'MEMORY.md');
+  await writeToPath(topLevelPath);
+  if (projectPath !== topLevelPath) {
+    await writeToPath(projectPath);
+  }
+}
 
 async function saveContext(taskId: string, contextName: string, isGolden: boolean, sessionId?: string) {
   const cwd = process.cwd();
@@ -74,7 +111,16 @@ async function saveContext(taskId: string, contextName: string, isGolden: boolea
     }
   }
 
-  // Enforce size limit for golden contexts
+  // Reject empty contexts
+  const content = await fs.readFile(sessionPath, 'utf-8');
+  const nonEmptyLines = content.split('\n').filter(l => l.trim() !== '');
+  if (nonEmptyLines.length === 0) {
+    console.error('❌ Cannot save empty context');
+    console.error('   The session file contains no messages.');
+    process.exit(1);
+  }
+
+  // Enforce size limit and run secret scan for golden contexts
   if (isGolden) {
     const sizeCheck = await checkGoldenContextSize(sessionPath);
     if (!sizeCheck.ok) {
@@ -87,6 +133,22 @@ async function saveContext(taskId: string, contextName: string, isGolden: boolea
       console.error('  2. Use /context-manage to trim the session first');
       process.exit(1);
     }
+
+    // Secret scan before golden save
+    console.log('Scanning for secrets...');
+    const matches = scanForSecrets(content);
+    if (matches.length > 0) {
+      console.error(`❌ Secret scan failed: found ${matches.length} secret(s)`);
+      console.error('');
+      for (const match of matches) {
+        console.error(`  Line ${match.line}: ${match.type} - ${match.preview}`);
+      }
+      console.error('');
+      console.error('Cannot save golden context with secrets.');
+      console.error('Use /redact-secrets to remove them first.');
+      process.exit(1);
+    }
+    console.log('✓ Secret scan passed');
   }
   
   // Determine target directory
@@ -113,19 +175,11 @@ async function saveContext(taskId: string, contextName: string, isGolden: boolea
   const stats = await getSessionStats(targetPath);
   const location = isGolden ? 'golden (shared)' : 'personal';
 
-  // Update auto memory with context info (best-effort, non-blocking)
+  // Update MEMORY.md (best-effort)
   try {
-    const { spawn } = await import('child_process');
-    const memoryScript = path.join(
-      process.env.HOME!,
-      '.claude/context-curator/dist/scripts/update-memory.js'
-    );
-    spawn('node', [memoryScript, taskId, contextName, isGolden ? 'golden' : 'personal', String(stats.messages)], {
-      detached: true,
-      stdio: 'ignore'
-    }).unref();
+    await updateMemoryFile(taskId, contextName, isGolden ? 'golden' : 'personal', stats.messages);
   } catch {
-    // Non-fatal: memory update is best-effort
+    // Non-fatal
   }
   
   // Output results

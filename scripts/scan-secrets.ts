@@ -52,7 +52,9 @@ async function main() {
     if (matches.length === 0) {
       console.log('clean');
     } else {
+      console.log(`Found ${matches.length} secret(s):`);
       console.log(JSON.stringify(matches, null, 2));
+      process.exit(1);
     }
   } catch (error: any) {
     console.error('Error:', error.message);

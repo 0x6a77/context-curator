@@ -84,7 +84,7 @@ async function main() {
     // Location
     console.log('## Location');
     if (task.location === 'golden') {
-      console.log('Golden (in project, shared) ⭐');
+      console.log('Project (shared) ⭐');
     } else {
       console.log('Personal (private)');
     }
@@ -117,7 +117,8 @@ async function main() {
       const golden = contexts.filter(c => c.location === 'golden');
       
       let num = 1;
-      
+
+      // Personal contexts appear before golden (T-LIST-1 ordering)
       if (personal.length > 0) {
         console.log('\n### Personal');
         for (const ctx of personal) {
@@ -125,7 +126,7 @@ async function main() {
           num++;
         }
       }
-      
+
       if (golden.length > 0) {
         console.log('\n### Golden (shared)');
         for (const ctx of golden) {

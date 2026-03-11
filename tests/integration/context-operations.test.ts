@@ -34,8 +34,8 @@ describe('Context Saving Tests (Group 4)', () => {
   beforeEach(async () => {
     ctx = createTestEnvironment('save');
     writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test Project\n');
-    await runScript('init-project', [], ctx.projectDir);
-    await runScript('task-create', ['save-test', 'Testing context save'], ctx.projectDir);
+    await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    await runScript('task-create', ['save-test', 'Testing context save'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
   });
 
   afterEach(() => {
@@ -244,8 +244,8 @@ describe('Context Listing Tests (Group 5)', () => {
   beforeEach(async () => {
     ctx = createTestEnvironment('list');
     writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test Project\n');
-    await runScript('init-project', [], ctx.projectDir);
-    await runScript('task-create', ['list-test', 'Testing context list'], ctx.projectDir);
+    await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    await runScript('task-create', ['list-test', 'Testing context list'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
   });
 
   afterEach(() => {
@@ -340,7 +340,6 @@ describe('Context Listing Tests (Group 5)', () => {
       expect(output).toMatch(/not found|does not exist/i);
     });
   });
-});
 
   // T-LIST-4: AI-generated summary display
   describe('Test 5.6: AI-Generated Summary Display (T-LIST-4)', () => {
@@ -368,6 +367,7 @@ describe('Context Listing Tests (Group 5)', () => {
       expect(afterName).toMatch(/[a-zA-Z]{3,}/);
     });
   });
+});
 
 describe('Context Management Tests (Group 6)', () => {
   let ctx: TestContext;
@@ -375,7 +375,7 @@ describe('Context Management Tests (Group 6)', () => {
   beforeEach(async () => {
     ctx = createTestEnvironment('manage');
     writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test Project\n');
-    await runScript('init-project', [], ctx.projectDir);
+    await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
   });
 
   afterEach(() => {
@@ -446,8 +446,8 @@ describe('Context Promotion Tests (Group 7)', () => {
   beforeEach(async () => {
     ctx = createTestEnvironment('promote');
     writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test Project\n');
-    await runScript('init-project', [], ctx.projectDir);
-    await runScript('task-create', ['promote-test', 'Testing promotion'], ctx.projectDir);
+    await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    await runScript('task-create', ['promote-test', 'Testing promotion'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
   });
 
   afterEach(() => {
@@ -627,8 +627,8 @@ describe('MEMORY.md Update After Save (T-MEM-1)', () => {
   beforeEach(async () => {
     ctx = createTestEnvironment('memory');
     writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test Project\n');
-    await runScript('init-project', [], ctx.projectDir);
-    await runScript('task-create', ['mem-task', 'Memory test task'], ctx.projectDir);
+    await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    await runScript('task-create', ['mem-task', 'Memory test task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
   });
 
   afterEach(() => {
@@ -662,7 +662,7 @@ describe('PreCompact Hook Auto-Save (T-HOOK-1)', () => {
   beforeEach(async () => {
     ctx = createTestEnvironment('hook');
     writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test Project\n');
-    await runScript('init-project', [], ctx.projectDir);
+    await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
   });
 
   afterEach(() => {

@@ -10,6 +10,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
+import { getClaudeHome } from '../src/utils.js';
 
 async function updateImport(taskId: string) {
   const cwd = process.cwd();
@@ -30,8 +31,8 @@ async function updateImport(taskId: string) {
   
   // Check for task in personal location (global storage)
   const personalTaskPath = path.join(
-    process.env.HOME!,
-    '.claude/projects',
+    getClaudeHome(),
+    'projects',
     projectId,
     'tasks',
     taskId,
@@ -93,6 +94,9 @@ async function updateImport(taskId: string) {
   
   console.log(`✓ Task context: ${taskId}`);
   console.log(`  Location: ${taskLocation === 'golden' ? 'project (golden)' : 'personal'}`);
+  if (taskId === 'default') {
+    console.log('  vanilla mode restored');
+  }
 }
 
 async function listAvailableTasks(cwd: string, projectId: string): Promise<void> {
@@ -117,7 +121,7 @@ async function listAvailableTasks(cwd: string, projectId: string): Promise<void>
   }
   
   // Check personal tasks
-  const personalTasksDir = path.join(process.env.HOME!, '.claude/projects', projectId, 'tasks');
+  const personalTasksDir = path.join(getClaudeHome(), 'projects', projectId, 'tasks');
   try {
     const entries = await fs.readdir(personalTasksDir);
     for (const entry of entries) {

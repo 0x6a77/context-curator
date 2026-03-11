@@ -33,7 +33,7 @@ describe('Task Creation Tests (Group 2)', () => {
     ctx = createTestEnvironment('task');
     // Initialize project first
     writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test Project\n');
-    await runScript('init-project', [], ctx.projectDir);
+    await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
   });
 
   afterEach(() => {
@@ -42,7 +42,7 @@ describe('Task Creation Tests (Group 2)', () => {
 
   describe('Test 2.1: Create New Task with Valid Name', () => {
     it('should create task directory structure', async () => {
-      const result = await runScript('task-create', ['oauth-refactor', 'Refactoring OAuth in src/auth/'], ctx.projectDir);
+      const result = await runScript('task-create', ['oauth-refactor', 'Refactoring OAuth in src/auth/'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       // FIX 1: Assert exit code is 0
       expect(result.exitCode).toBe(0);
 
@@ -54,7 +54,7 @@ describe('Task Creation Tests (Group 2)', () => {
 
     // T-TASK-1: Verify all required sections AND that the description word appears
     it('should create task CLAUDE.md with description', async () => {
-      const result = await runScript('task-create', ['oauth-refactor', 'Refactoring OAuth implementation in src/auth/'], ctx.projectDir);
+      const result = await runScript('task-create', ['oauth-refactor', 'Refactoring OAuth implementation in src/auth/'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       // FIX 2: Assert exit code is 0
       expect(result.exitCode).toBe(0);
 
@@ -76,7 +76,7 @@ describe('Task Creation Tests (Group 2)', () => {
 
     // T-TASK-1: Remove conditional guard; unconditionally assert @import format
     it('should update .claude/CLAUDE.md with import directive', async () => {
-      const result = await runScript('task-create', ['oauth-refactor', 'OAuth work'], ctx.projectDir);
+      const result = await runScript('task-create', ['oauth-refactor', 'OAuth work'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       // FIX 4: Assert exit code is 0
       expect(result.exitCode).toBe(0);
 
@@ -92,7 +92,7 @@ describe('Task Creation Tests (Group 2)', () => {
 
     // Fix 9: Verify task structure is complete after create (DoD focus)
     it('should confirm task structure is complete after create', async () => {
-      const result = await runScript('task-create', ['oauth-refactor', 'OAuth work'], ctx.projectDir);
+      const result = await runScript('task-create', ['oauth-refactor', 'OAuth work'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       // T-TASK-1: task directory and CLAUDE.md must exist with required sections
       expect(result.exitCode).toBe(0);
@@ -108,7 +108,7 @@ describe('Task Creation Tests (Group 2)', () => {
     it('should reject task name with spaces', async () => {
       const taskId = 'OAuth Refactor';
       const taskDir = join(ctx.projectDir, '.claude', 'tasks', taskId);
-      const result = await runScript('task-create', [taskId, 'desc'], ctx.projectDir);
+      const result = await runScript('task-create', [taskId, 'desc'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       // FIX 7: Non-zero exit, specific error message, no files created
       expect(result.exitCode).not.toBe(0);
@@ -119,7 +119,7 @@ describe('Task Creation Tests (Group 2)', () => {
 
     // T-TASK-2: Strict check — non-zero exit AND no files created
     it('should reject task name with uppercase', async () => {
-      const result = await runScript('task-create', ['OAuthRefactor', 'desc'], ctx.projectDir);
+      const result = await runScript('task-create', ['OAuthRefactor', 'desc'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       expect(result.exitCode).not.toBe(0);
       expect(fileExists(join(ctx.projectDir, '.claude', 'tasks', 'OAuthRefactor'))).toBe(false);
@@ -128,7 +128,7 @@ describe('Task Creation Tests (Group 2)', () => {
 
     it('should reject task name with special characters', async () => {
       const specialCharDir = join(ctx.projectDir, '.claude', 'tasks', 'oauth@refactor!');
-      const result = await runScript('task-create', ['oauth@refactor!', 'desc'], ctx.projectDir);
+      const result = await runScript('task-create', ['oauth@refactor!', 'desc'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       expect(result.exitCode).not.toBe(0);
       // FIX 8: Unconditionally assert no directory created
@@ -137,7 +137,7 @@ describe('Task Creation Tests (Group 2)', () => {
 
     // Fix 10: Capture result and add exit code assertion
     it('should not create directory for invalid task', async () => {
-      const result = await runScript('task-create', ['OAuth Refactor', 'desc'], ctx.projectDir);
+      const result = await runScript('task-create', ['OAuth Refactor', 'desc'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       // T-TASK-2: must exit non-zero for invalid name
       expect(result.exitCode).not.toBe(0);
@@ -151,7 +151,7 @@ describe('Task Creation Tests (Group 2)', () => {
     it('should capture full multi-line description', async () => {
       const description = `This is a complex refactor involving:\n- OAuth 2.0 migration\n- Session state cleanup\n- Token refresh logic`;
 
-      const result = await runScript('task-create', ['complex-refactor', description], ctx.projectDir);
+      const result = await runScript('task-create', ['complex-refactor', description], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       // FIX 9: Assert exit code is 0
       expect(result.exitCode).toBe(0);
 
@@ -173,7 +173,7 @@ describe('Task Creation Tests (Group 2)', () => {
     // FIX 11: DoD requires non-zero exit for empty description; remove conditional accept
     it('should reject empty description', async () => {
       const taskId = 'minimal-task';
-      const result = await runScript('task-create', [taskId, ''], ctx.projectDir);
+      const result = await runScript('task-create', [taskId, ''], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       expect(result.exitCode).not.toBe(0);
       expect(fileExists(join(ctx.projectDir, '.claude', 'tasks', taskId))).toBe(false);
@@ -187,7 +187,7 @@ describe('Task Switching Tests (Group 3)', () => {
   beforeEach(async () => {
     ctx = createTestEnvironment('switch');
     writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test Project\n');
-    await runScript('init-project', [], ctx.projectDir);
+    await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
   });
 
   afterEach(() => {
@@ -197,7 +197,7 @@ describe('Task Switching Tests (Group 3)', () => {
   describe('Test 3.1: Switch to Task with Personal Contexts Only', () => {
     beforeEach(async () => {
       // Create task with personal context
-      await runScript('task-create', ['auth-work', 'Authentication work'], ctx.projectDir);
+      await runScript('task-create', ['auth-work', 'Authentication work'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       
       // Create personal context directory and file
       const personalContextDir = join(ctx.personalDir, 'tasks', 'auth-work', 'contexts');
@@ -225,7 +225,7 @@ describe('Task Switching Tests (Group 3)', () => {
   describe('Test 3.2: Switch to Task with Golden Contexts Only', () => {
     beforeEach(async () => {
       // Create task with golden context
-      await runScript('task-create', ['oauth-work', 'OAuth work'], ctx.projectDir);
+      await runScript('task-create', ['oauth-work', 'OAuth work'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       
       // Create golden context
       const goldenDir = join(ctx.projectDir, '.claude', 'tasks', 'oauth-work', 'contexts');
@@ -238,7 +238,7 @@ describe('Task Switching Tests (Group 3)', () => {
 
     // Fix 12: Check presence of golden section and that 'personal' does NOT appear
     it('should list golden contexts when switching', async () => {
-      const result = await runScript('task-list', ['oauth-work'], ctx.projectDir);
+      const result = await runScript('task-list', ['oauth-work'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('oauth-deep-dive');
@@ -250,7 +250,7 @@ describe('Task Switching Tests (Group 3)', () => {
 
   describe('Test 3.3: Switch to Task with Mixed Contexts', () => {
     beforeEach(async () => {
-      await runScript('task-create', ['mixed-work', 'Mixed contexts'], ctx.projectDir);
+      await runScript('task-create', ['mixed-work', 'Mixed contexts'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       
       // Create personal contexts
       const personalDir = join(ctx.personalDir, 'tasks', 'mixed-work', 'contexts');
@@ -265,7 +265,7 @@ describe('Task Switching Tests (Group 3)', () => {
 
     // Fix 13: Verify ordering (personal before golden)
     it('should list both personal and golden contexts', async () => {
-      const result = await runScript('task-list', ['mixed-work'], ctx.projectDir);
+      const result = await runScript('task-list', ['mixed-work'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const output = result.stdout.toLowerCase();
       // Should show both types
@@ -291,7 +291,7 @@ describe('Task Switching Tests (Group 3)', () => {
 
   describe('Test 3.4: Switch to Task with No Contexts', () => {
     beforeEach(async () => {
-      await runScript('task-create', ['empty-task', 'No contexts'], ctx.projectDir);
+      await runScript('task-create', ['empty-task', 'No contexts'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
     });
 
     // FIX 15: Replace OR chain with specific regex match
@@ -304,7 +304,7 @@ describe('Task Switching Tests (Group 3)', () => {
 
     it('should still allow task switch', async () => {
       // Update import should work even with no contexts
-      const result = await runScript('update-import', ['empty-task'], ctx.projectDir);
+      const result = await runScript('update-import', ['empty-task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       expect(result.exitCode).toBe(0);
     });
   });
@@ -312,12 +312,12 @@ describe('Task Switching Tests (Group 3)', () => {
   describe('Test 3.5: Switch to Default Task', () => {
     beforeEach(async () => {
       // Create a non-default task first
-      await runScript('task-create', ['some-task', 'Some work'], ctx.projectDir);
+      await runScript('task-create', ['some-task', 'Some work'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
     });
 
     // Fix 14: Check @import specifically resolves to default CLAUDE.md
     it('should switch to default task', async () => {
-      const result = await runScript('update-import', ['default'], ctx.projectDir);
+      const result = await runScript('update-import', ['default'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       expect(result.exitCode).toBe(0);
       
@@ -329,7 +329,7 @@ describe('Task Switching Tests (Group 3)', () => {
 
     // Fix 15: Narrow to specific pattern to avoid trivial matches
     it('should indicate vanilla mode restored', async () => {
-      const result = await runScript('update-import', ['default'], ctx.projectDir);
+      const result = await runScript('update-import', ['default'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const output = result.stdout.toLowerCase();
       // T-CLMD-1: output must indicate the default/vanilla state was restored
@@ -340,33 +340,33 @@ describe('Task Switching Tests (Group 3)', () => {
 
   describe('Test 3.6: Multiple Task Switches', () => {
     beforeEach(async () => {
-      await runScript('task-create', ['task-a', 'Task A'], ctx.projectDir);
-      await runScript('task-create', ['task-b', 'Task B'], ctx.projectDir);
-      await runScript('task-create', ['task-c', 'Task C'], ctx.projectDir);
+      await runScript('task-create', ['task-a', 'Task A'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      await runScript('task-create', ['task-b', 'Task B'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      await runScript('task-create', ['task-c', 'Task C'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
     });
 
     it('should update .claude/CLAUDE.md on each switch', async () => {
       const workingMdPath = join(ctx.projectDir, '.claude', 'CLAUDE.md');
 
       // FIX T2: Remove all if-guards; unconditionally assert file exists then assert contents
-      const r1 = await runScript('update-import', ['task-a'], ctx.projectDir);
+      const r1 = await runScript('update-import', ['task-a'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       expect(r1.exitCode).toBe(0);
       expect(fileExists(workingMdPath)).toBe(true);
       expect(fileContains(workingMdPath, 'task-a')).toBe(true);
 
-      const r2 = await runScript('update-import', ['task-b'], ctx.projectDir);
+      const r2 = await runScript('update-import', ['task-b'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       expect(r2.exitCode).toBe(0);
       expect(fileExists(workingMdPath)).toBe(true);
       expect(fileContains(workingMdPath, 'task-b')).toBe(true);
       expect(fileContains(workingMdPath, 'task-a')).toBe(false);
 
-      const r3 = await runScript('update-import', ['task-c'], ctx.projectDir);
+      const r3 = await runScript('update-import', ['task-c'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       expect(r3.exitCode).toBe(0);
       expect(fileExists(workingMdPath)).toBe(true);
       expect(fileContains(workingMdPath, 'task-c')).toBe(true);
 
       // Switch back to task-a
-      const r4 = await runScript('update-import', ['task-a'], ctx.projectDir);
+      const r4 = await runScript('update-import', ['task-a'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       expect(r4.exitCode).toBe(0);
       expect(fileExists(workingMdPath)).toBe(true);
       expect(fileContains(workingMdPath, 'task-a')).toBe(true);
