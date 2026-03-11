@@ -267,25 +267,33 @@ describe('Task Switching Tests (Group 3)', () => {
     it('T-SWITCH-3: should list both personal and golden contexts', async () => {
       const result = await runScript('task-list', ['mixed-work'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
-      const output = result.stdout.toLowerCase();
-      // Should show both types
-      expect(output).toContain('personal');
-      expect(output).toContain('golden');
-      // Personal must appear before golden (T-LIST-1 ordering)
-      expect(output.indexOf('personal')).toBeLessThan(output.indexOf('golden'));
+      const output = result.stdout;
+      const outputLower = output.toLowerCase();
+      // All three specific context names must appear (proves both sections have real content)
+      expect(output).toContain('personal-1');
+      expect(output).toContain('personal-2');
+      expect(output).toContain('golden-1');
+      // Section labels must also appear
+      expect(outputLower).toContain('personal');
+      expect(outputLower).toContain('golden');
+      // personal-1 must appear before golden-1 in the output (ordering requirement)
+      // This uses specific context names rather than section headers to avoid path/metadata false matches
+      expect(output.indexOf('personal-1')).toBeLessThan(output.indexOf('golden-1'));
     });
 
-    // T-LIST-1 ordering: Replace conditional indexOf check with a strict unconditional check
+    // T-LIST-1 ordering: verify personal context names precede golden context names
     it('should show personal contexts before golden', async () => {
       const result = await runScript('task-list', ['mixed-work'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       expect(result.exitCode).toBe(0);
-      const output = result.stdout.toLowerCase();
-      const personalIdx = output.indexOf('personal');
-      const goldenIdx = output.indexOf('golden');
-      expect(personalIdx).toBeGreaterThanOrEqual(0);
-      expect(goldenIdx).toBeGreaterThanOrEqual(0);
-      expect(personalIdx).toBeLessThan(goldenIdx);
+      const output = result.stdout;
+      // Specific names must appear — proves each section contains its contexts
+      expect(output).toContain('personal-1');
+      expect(output).toContain('golden-1');
+      // personal context must appear before golden context in listing
+      expect(output.indexOf('personal-1')).toBeGreaterThanOrEqual(0);
+      expect(output.indexOf('golden-1')).toBeGreaterThanOrEqual(0);
+      expect(output.indexOf('personal-1')).toBeLessThan(output.indexOf('golden-1'));
     });
   });
 

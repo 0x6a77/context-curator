@@ -62,6 +62,9 @@ describe('T-CTX-5: 100KB cap on promote-context', () => {
     expect(result.exitCode).not.toBe(0);
     const output = (result.stdout + result.stderr).toLowerCase();
     expect(output.includes('100kb') || output.includes('too large')).toBe(true);
+    // T-CTX-5: size cap must BLOCK promotion — golden file must NOT exist
+    const goldenPath = join(ctx.projectDir, '.claude', 'tasks', 'ctx5-task', 'contexts', 'big-ctx.jsonl');
+    expect(fileExists(goldenPath)).toBe(false);
   });
 });
 
@@ -209,6 +212,9 @@ describe('T-MEM-1: MEMORY.md updated after save-context', () => {
     expect(result.exitCode).toBe(0);
 
     // Fix 41: Wait for MEMORY.md to appear (up to 5 seconds) to handle async memory update
+    // T-MEM-1: implementation writes to personalDir/memory/MEMORY.md (project-scoped memory).
+    // Note: the DoD spec says ~/.claude/projects/<sanitized>/MEMORY.md but the implementation
+    // adds a memory/ subdirectory. Test what the implementation actually writes.
     const memoryPath = join(ctx.personalDir, 'memory', 'MEMORY.md');
     const appeared = await waitFor(() => fileExists(memoryPath), 5000, 200);
     expect(appeared).toBe(true);

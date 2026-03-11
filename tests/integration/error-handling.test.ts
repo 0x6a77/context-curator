@@ -294,7 +294,7 @@ describe('Cross-Platform Compatibility Tests (Group 12)', () => {
       // Create session in personal storage (where save-context looks for it)
       createJsonl(join(ctx.personalDir, 'current-session.jsonl'), SMALL_CONTEXT);
 
-      await runScript('save-context', ['task-1', 'test-ctx', 'personal'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      await runScript('save-context', ['task-1', 'test-ctx', '--personal'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       // Check personal context directory for files
       const personalDir = join(ctx.personalDir, 'tasks', 'task-1', 'contexts');
@@ -313,7 +313,7 @@ describe('Cross-Platform Compatibility Tests (Group 12)', () => {
   describe('Test 12.7: Consistent Line Endings in Generated Files', () => {
     it('should use LF line endings in generated files', async () => {
       await runScript('init-project', [], ctx.projectDir);
-      await runScript('task-create', ['task-1', '--golden', 'Task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      await runScript('task-create', ['task-1', 'Task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const filesToCheck = [
         '.claude/.gitignore',

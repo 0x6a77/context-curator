@@ -280,14 +280,21 @@ describe('T-GIT-1 and T-GIT-2: git ignore and porcelain status checks', () => {
   });
 
   it('T-GIT-2: git status --porcelain does not list any path containing personal storage prefix after full workflow', async () => {
-    // Run a full workflow: create task, save context, promote
+    // Run a full workflow: create task, save context via the implementation
     await runScript('task-create', ['tgit-task', 'T-GIT-2 test task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
-    // Create and save a personal context
-    const { mkdirSync: mkdir, writeFileSync: writef } = await import('fs');
-    const personalCtxDir = join(ctx.personalDir, 'tasks', 'tgit-task', 'contexts');
-    mkdir(personalCtxDir, { recursive: true });
-    createJsonl(join(personalCtxDir, 'tgit-ctx.jsonl'), SMALL_CONTEXT);
+    // Plant a session file so save-context has something to read
+    createJsonl(join(ctx.personalDir, 'current-session.jsonl'), SMALL_CONTEXT);
+
+    // T-GIT-2: use save-context through the implementation (not createJsonl directly)
+    // This verifies the implementation itself places personal contexts outside the project dir
+    const saveResult = await runScript(
+      'save-context',
+      ['tgit-task', 'tgit-ctx', '--personal'],
+      ctx.projectDir,
+      { CLAUDE_HOME: ctx.personalBase }
+    );
+    expect(saveResult.exitCode).toBe(0);
 
     // Stage everything inside project dir
     gitAdd(ctx.projectDir, '.');

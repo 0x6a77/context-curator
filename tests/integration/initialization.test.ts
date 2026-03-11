@@ -22,6 +22,7 @@ import {
   fileContains,
   readFile,
   writeFile,
+  createJsonl,
   initGit,
   isGitIgnored,
   sanitizePath,
@@ -235,8 +236,8 @@ describe('Project Initialization Tests', () => {
       expect(contentAfterSecond).toBe(contentAfterFirst);
     });
 
-    // T-INIT-4: Both runs exit 0 and produce identical file contents
-    it('should produce identical files on second run', async () => {
+    // T-INIT-4: Both runs exit 0, produce identical file contents, and do NOT duplicate the stash backup
+    it('should produce identical files on second run and not duplicate stash', async () => {
       const result1 = await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       expect(result1.exitCode).toBe(0);
       const contentAfterFirst = readFile(join(ctx.projectDir, '.claude', 'CLAUDE.md'));
@@ -245,6 +246,14 @@ describe('Project Initialization Tests', () => {
       expect(result2.exitCode).toBe(0);
       const contentAfterSecond = readFile(join(ctx.projectDir, '.claude', 'CLAUDE.md'));
       expect(contentAfterSecond).toBe(contentAfterFirst);
+
+      // T-INIT-4 stash idempotency: second init must NOT create a duplicate stash backup.
+      // The stash directory should contain exactly one backup file for the original CLAUDE.md.
+      const stashDir = join(ctx.personalDir, '.stash');
+      if (existsSync(stashDir)) {
+        const stashFiles = readdirSync(stashDir).filter((f: string) => f.includes('CLAUDE'));
+        expect(stashFiles.length).toBe(1);
+      }
     });
   });
 
@@ -301,13 +310,25 @@ describe('Project Initialization Tests', () => {
         const personalPath2 = join(ctx.personalBase, 'projects', sanitizePath(ctx2.projectDir));
         expect(personalPath1).not.toBe(personalPath2);
 
-        // Verify init for project 1 did not create any files in project 2's personal storage directory
-        const markerInProject2 = join(personalPath2, 'init-marker.txt');
-        expect(fileExists(markerInProject2)).toBe(false);
+        // T-INIT-5: use save-context through the IMPLEMENTATION to verify project scoping.
+        // (Writing a marker directly only tests path-formula arithmetic, not the implementation.)
+        await runScript('task-create', ['iso-task', 'Isolation test'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+        createJsonl(join(personalPath1, 'current-session.jsonl'), [
+          { type: 'user', message: { role: 'user', content: 'Project 1 session' }, timestamp: new Date().toISOString() },
+        ]);
+        const saveResult = await runScript(
+          'save-context', ['iso-task', 'iso-ctx', '--personal'],
+          ctx.projectDir, { CLAUDE_HOME: ctx.personalBase }
+        );
+        expect(saveResult.exitCode).toBe(0);
 
-        // Write a marker in project 1 personal storage and confirm it doesn't appear in project 2
-        writeFile(join(personalPath1, 'marker.txt'), 'project-1');
-        expect(fileExists(join(personalPath2, 'marker.txt'))).toBe(false);
+        // The context file must exist in project 1's personal storage
+        const savedInProject1 = join(personalPath1, 'tasks', 'iso-task', 'contexts', 'iso-ctx.jsonl');
+        expect(fileExists(savedInProject1)).toBe(true);
+
+        // It must NOT appear anywhere under project 2's personal storage
+        const savedInProject2 = join(personalPath2, 'tasks', 'iso-task', 'contexts', 'iso-ctx.jsonl');
+        expect(fileExists(savedInProject2)).toBe(false);
       } finally {
         ctx2.cleanup();
       }
