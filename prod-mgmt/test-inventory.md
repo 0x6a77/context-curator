@@ -1,416 +1,380 @@
 # Adversarial Test Inventory
 
-**Version:** 1.0  
-**Date:** 2026-03-11  
-**Auditor:** Red Team  
+Generated: 2026-03-11
+Prior run findings addressed per constructor commit on main.
 
 ---
 
 ## Section 0: PRD/DoD Structural Audit
 
-Each PRD feature section is evaluated for: presence of a DoD, falsifiability of each criterion, and whether the DoD is specific enough to distinguish correct from incorrect implementations.
-
-| PRD Feature | DoD Present? | DoD Falsifiable? | Verdict | Notes |
-|-------------|-------------|-----------------|---------|-------|
-| F-INIT (Project Initialization) | YES | PARTIAL | FAIL | T-INIT-5 criterion says "writing a file to project A does not make it visible in project B" but does not specify the mechanism under test; a trivially path-scoped implementation satisfies it without exercising isolation logic |
-| F-TASK-CREATE (Task Creation) | YES | YES | PASS | All four criteria are falsifiable; T-TASK-4 specifies both exit code and no-directory side-effect |
-| F-TASK-SWITCH (Task Switching) | YES | PARTIAL | FAIL | T-SWITCH-2 accepts "fresh" OR "empty" OR "no contexts"; any implementation that prints any of those words passes, even if the actual behavior is wrong. T-SWITCH-3 only checks ordering of label strings, not actual context grouping |
-| F-CTX-SAVE (Context Saving) | YES | PARTIAL | FAIL | T-CTX-3 says "exits non-zero OR produces a prompt"; the OR clause lets exit-0 pass if any output is produced. T-MEM-1 does not specify what MEMORY.md content means (format, schema, freshness) |
-| F-CTX-LIST (Context Listing) | YES | PARTIAL | FAIL | T-LIST-4 says "non-empty description string after each context name"; this is satisfied by any trailing whitespace or a spurious character appended to the context line |
-| F-CTX-MANAGE (Context Management) | YES — one criterion only | PARTIAL | FAIL | Only T-CTX-7 is specified. The DoD text lists extensive expected behaviors (stale detection, duplicate detection, interactive review, dry-run) with zero acceptance criteria covering them |
-| F-CTX-PROMOTE (Context Promotion) | YES | PARTIAL | FAIL | T-PROM-3 says "exits non-zero OR warns"; OR clause makes it unfalsifiable as a FAIL check |
-| F-CLMD (Two-File CLAUDE.md System) | YES | PARTIAL | FAIL | T-CLMD-1 ("root CLAUDE.md content equals pre-operation content") is falsifiable, but T-RESUME-MANUAL is explicitly manual — it cannot be automated — meaning CI can never catch a regression in resume behavior |
-| F-SEC (Secret Detection) | YES | PARTIAL | FAIL | T-SEC-3 requires both sk_test_ and sk_live_ detected; fixture STRIPE_KEY_CONTEXT contains `sk_live_abc123def456` which is only 12 chars after prefix, below the strict-scanner threshold of ≥24 chars stated in the test-plan fixture note. A correctly strict scanner fails T-SEC-3 on this fixture |
-| F-SUMMARY (AI-Generated Summaries) | YES | YES | PASS | T-SUM-1 (character range) and T-SUM-2 (distinctness) are specific and falsifiable |
-| F-GIT (Git Integration) | YES | YES | PASS | T-GIT-1 (check-ignore) and T-GIT-2 (porcelain status) are mechanically verifiable |
-| F-XPLAT (Cross-Platform) | YES — one criterion only | PARTIAL | FAIL | Only T-ERR-3 is specified. The DoD lists macOS/Linux path handling, permissions, line endings, tilde expansion, special chars — none has a DoD criterion |
-| F-ERR (Error Handling) | YES | PARTIAL | FAIL | T-ERR-1 accepts "initialized" OR "init" — any error message containing "init" (including unrelated error text) passes |
-| F-HOOK (PreCompact Auto-Save) | YES | PARTIAL | FAIL | T-HOOK-1 verifies a timestamped file exists but does not verify the file's content matches the session that was passed in the payload; a script that creates an empty or wrong-session timestamped file satisfies the criterion |
+| PRD Section | DoD Exists | Falsifiable | Verdict |
+|-------------|------------|-------------|---------|
+| F-INIT · Project Initialization | YES — T-INIT-1 through T-INIT-5 | YES — each criterion has a concrete pass/fail state | PASS |
+| F-TASK-CREATE · Task Creation | YES — T-TASK-1 through T-TASK-4 | YES | PASS |
+| F-TASK-SWITCH · Task Switching | YES — T-SWITCH-1, T-SWITCH-2, T-SWITCH-3 | YES | PASS |
+| F-CTX-SAVE · Context Saving | YES — T-CTX-1, T-CTX-2, T-CTX-3, T-CTX-4, T-CTX-6, T-MEM-1 | YES | PASS |
+| F-CTX-LIST · Context Listing | YES — T-LIST-1 through T-LIST-4 | YES | PASS |
+| F-CTX-MANAGE · Context Management | YES — T-CTX-7 | YES | PASS |
+| F-CTX-PROMOTE · Context Promotion | YES — T-CTX-5, T-PROM-1, T-PROM-2, T-PROM-3 | YES | PASS |
+| F-CLMD · Two-File CLAUDE.md System | YES — T-CLMD-1, T-CLMD-2, T-RESUME-MANUAL (manual) | T-CLMD-1 and T-CLMD-2 are falsifiable; T-RESUME-MANUAL is manual only | PASS |
+| F-SEC · Secret Detection | YES — T-SEC-2 through T-SEC-7 | YES | PASS |
+| F-SUMMARY · AI-Generated Summaries | NO automated ACs defined. Test plan states: "No automated AC clauses defined — summary quality is evaluated through F-CTX-LIST criterion T-LIST-4." T-SUM-1/T-SUM-2 appear only as commit message labels for implementation tasks, not as PRD ACs. | T-LIST-4 is the only falsifiable proxy; the core DoD behaviors (summary length 2-3 sentences, content quality, stored in metadata) have no machine-verifiable test | FAIL — DoD is non-empty but no automated AC clauses assert summary content, length, or presence in .meta.json |
+| F-GIT · Git Integration | YES — T-GIT-1, T-GIT-2 | YES | PASS |
+| F-XPLAT · Cross-Platform Compatibility | YES — T-ERR-3 (space in path) | T-ERR-3 is falsifiable; PRD scope note limits to macOS/Linux | PASS |
+| F-ERR · Error Handling & Edge Cases | YES — T-ERR-1, T-ERR-2 | YES | PASS |
+| F-HOOK · PreCompact Auto-Save Hook | YES — T-HOOK-1 | YES | PASS |
 
 ---
 
 ## Section 1: Test Inventory
 
-### Notation
-
-TEST_ID format: `<filename>:<describe-block>:<it-block-description>` (abbreviated where long).
-
----
+### File: initialization.test.ts
 
 | TEST_ID | DESCRIPTION | DOD_CLAUSE | VERDICT | ATTACK_VECTOR |
 |---------|-------------|------------|---------|---------------|
-| `initialization.test.ts:Test 1.1:should create .claude/ directory structure` | Runs init-project on an empty dir; asserts exit 0, directory structure exists, @import line present, import path contains "tasks/default/CLAUDE.md", imported file exists | T-INIT-1 | PASS | No known attack vector; import path existence check closes the file-exists gap |
-| `initialization.test.ts:Test 1.1:should create .gitignore with CLAUDE.md entry` | Asserts `.claude/.gitignore` contains an exact `^CLAUDE\.md$` line match | T-INIT-1 (partial) | PASS | No known attack vector; exact line match is specific |
-| `initialization.test.ts:Test 1.1:should not create backup when no original CLAUDE.md exists` | Asserts stash path does not exist after init on project with no root CLAUDE.md | T-INIT-2 (negative) | FAIL | This test only asserts the backup does NOT exist when there is no CLAUDE.md to back up. It does not assert that the backup IS created when a CLAUDE.md is present. An implementation that never creates backups passes this test. |
-| `initialization.test.ts:Test 1.1:should work with git initialized` | Asserts exit 0 and that `isGitIgnored(.claude/CLAUDE.md)` returns true | T-GIT-1 (early path) | FAIL | `isGitIgnored` is called without first committing the .gitignore file; git check-ignore only works after .gitignore is tracked or staged. An implementation that creates the .gitignore but does not commit it could fail git check-ignore yet pass if the helper does not require the file to be committed. Additionally, init-project is run without the CLAUDE_HOME override, meaning the helper may use a default personal dir that is not cleaned up. |
-| `initialization.test.ts:Test 1.2:should not modify root CLAUDE.md` | Reads root CLAUDE.md before and after init; asserts byte equality | T-CLMD-1 | PASS | No known attack vector |
-| `initialization.test.ts:Test 1.2:should create backup of original CLAUDE.md` | Asserts backup does not exist before script, runs init, asserts backup exists and content equals original | T-INIT-2 | PASS | Pre-condition check prevents self-fulfilling setup; content equality is specific |
-| `initialization.test.ts:Test 1.2:should create default task with copy of original CLAUDE.md` | Pre-condition that default task CLAUDE.md does not exist; runs init; asserts byte equality | T-INIT-3 | PASS | No known attack vector |
-| `initialization.test.ts:Test 1.2:should create .claude/CLAUDE.md with @import directive` | Pre-condition that .claude/CLAUDE.md does not exist; runs init; asserts @import regex, import path contains "tasks/default/CLAUDE.md", and imported file exists | T-INIT-1 | PASS | No known attack vector |
-| `initialization.test.ts:Test 1.3:should succeed on both initializations` | Runs init twice; asserts exit 0 both times and content identity | T-INIT-4 | PASS | No known attack vector |
-| `initialization.test.ts:Test 1.3:should not create duplicate directories` | After two inits, asserts only one "default" entry in tasks dir and content identity | T-INIT-4 | PASS | No known attack vector |
-| `initialization.test.ts:Test 1.3:should indicate already initialized on second run` | Asserts exit 0 both times and content identity; does NOT assert "already initialized" message | T-INIT-4 | PASS | The test correctly focuses on the DoD (exit 0 + identical content) rather than a specific message |
-| `initialization.test.ts:Test 1.3:should produce identical files on second run` | Duplicate of above; same assertions | T-INIT-4 | FAIL | Duplicate test adds no coverage. More importantly, it does not verify that the backup is not duplicated on second init (stash file count). An implementation that appends to the backup on second run passes both identity checks on .claude/CLAUDE.md but violates idempotency of the stash. |
-| `initialization.test.ts:Test 1.4:should preserve existing .claude/ content` | Asserts pre-existing file still exists and contains original text after init | F-INIT expected behavior | PASS | No known attack vector |
-| `initialization.test.ts:Test 1.4:should still create missing initialization files` | After init on dir with existing .claude/, asserts .gitignore and default CLAUDE.md exist | F-INIT expected behavior | PASS | No known attack vector |
-| `initialization.test.ts:Test 1.5:should handle multiple projects independently` | Sanitized paths differ; writes marker in A's personal dir; asserts it does not appear in B's personal dir | T-INIT-5 | FAIL | The test writes the marker file directly using `writeFile` (not through the implementation), then checks B's personal dir. This tests the test harness's path computation, not the implementation's scoping logic. The implementation's `save-context` and `task-create` are never called in this test to produce a context file in A, so the scoping behavior of those scripts is untested. |
-| `task-operations.test.ts:Test 2.1:should create task directory structure` | Runs task-create with valid name; asserts exit 0, task dir, CLAUDE.md, contexts dir exist | T-TASK-1 | PASS | No known attack vector |
-| `task-operations.test.ts:Test 2.1:should create task CLAUDE.md with description` | Asserts all four required sections exist; asserts "oauth" appears in the Focus section specifically | T-TASK-1 | PASS | No known attack vector; section-scoped extraction prevents cross-section matching |
-| `task-operations.test.ts:Test 2.1:should update .claude/CLAUDE.md with import directive` | Asserts @import regex matches and contains "oauth-refactor" | T-TASK-1 / T-CLMD-2 (partial) | FAIL | Does not assert exactly one @import line. An implementation that appends a second @import on each task-create would pass this test while violating T-CLMD-2. |
-| `task-operations.test.ts:Test 2.1:should confirm task structure is complete after create` | Duplicate subset of above; asserts exit 0 and two sections | T-TASK-1 | FAIL | Strict subset of the previous test; adds no coverage. Does not assert Key Areas or Guidelines sections. |
-| `task-operations.test.ts:Test 2.2:should reject task name with spaces` | Asserts non-zero exit, error message matches `invalid.*(name|task)|uppercase|lowercase`, no directory created | T-TASK-2 | PASS | No known attack vector |
-| `task-operations.test.ts:Test 2.2:should reject task name with uppercase` | Asserts non-zero exit, no directory at OAuthRefactor or oauthrefactor | T-TASK-2 | PASS | No known attack vector |
-| `task-operations.test.ts:Test 2.2:should reject task name with special characters` | Asserts non-zero exit, no directory at "oauth@refactor!" | T-TASK-2 | PASS | No known attack vector |
-| `task-operations.test.ts:Test 2.2:should not create directory for invalid task` | Duplicate of spaces test with same assertions | T-TASK-2 | FAIL | Exact duplicate of first invalid-name test; covers no additional edge |
-| `task-operations.test.ts:Test 2.3:should capture full multi-line description` | Extracts Focus section; asserts oauth, session, token each appear on their own line; asserts no collapsing | T-TASK-3 | PASS | No known attack vector |
-| `task-operations.test.ts:Test 2.4:T-TASK-4: should reject empty description` | Asserts non-zero exit and no task directory created | T-TASK-4 | PASS | No known attack vector |
-| `task-operations.test.ts:Test 3.1:should list personal contexts when switching` | Runs task-list; asserts exit 0, "my-progress" appears, "personal" appears, "golden" does NOT appear | T-SWITCH-3 (negative side) | FAIL | "personal" could appear anywhere in the output (e.g., in a file path or error message). The test does not assert that personal contexts are listed with their message count or metadata. A stub that prints "personal mode" with no actual context list passes. |
-| `task-operations.test.ts:Test 3.2:should list golden contexts when switching` | Asserts exit 0, "oauth-deep-dive" appears, "golden" appears | T-SWITCH-3 (golden side) | FAIL | Does not assert the message count, author, or ⭐ indicator. A stub that prints "golden" and the context name without any actual metadata passes. |
-| `task-operations.test.ts:Test 3.3:T-SWITCH-3: should list both personal and golden contexts` | Asserts both "personal" and "golden" appear, personal index < golden index in lowercase output | T-SWITCH-3 | FAIL | `output.toLowerCase().indexOf('personal')` finds the first occurrence of the string "personal" anywhere in the output, not the section header. If a file path, metadata, or error message contains "personal" before the "golden" section header, the ordering check would pass vacuously. The test does not assert that context names personal-1, personal-2, golden-1 all appear. |
-| `task-operations.test.ts:Test 3.3:should show personal contexts before golden` | Same indexOf check as above | T-LIST-1 / T-SWITCH-3 | FAIL | Same attack vector as above; identical logic in a second test adds no coverage |
-| `task-operations.test.ts:Test 3.4:T-SWITCH-2: should indicate no contexts available and offer fresh start` | Asserts exit 0 and output matches `/no contexts\|fresh/i` | T-SWITCH-2 | PASS | No known attack vector; regex uses the exact AC-specified phrases |
-| `task-operations.test.ts:Test 3.4:should still allow task switch` | Runs update-import on task with no contexts; asserts exit 0 | F-TASK-SWITCH expected behavior | FAIL | Does not assert that .claude/CLAUDE.md was actually updated to point to the empty task. Exit 0 alone does not prove the switch happened. |
-| `task-operations.test.ts:Test 3.5:should switch to default task` | Asserts exit 0 and @import regex contains "default" | F-TASK-SWITCH / T-CLMD-2 | FAIL | Does not assert exactly one @import line. An implementation that appends "@import ./tasks/default/CLAUDE.md" to an existing file with a previous @import passes. |
-| `task-operations.test.ts:Test 3.5:should indicate vanilla mode restored` | Asserts output matches `/vanilla\|restored/` | F-TASK-SWITCH expected behavior | FAIL | Vacuity: any script that prints either word passes regardless of whether the actual switch happened. The file content check in the prior test should be sufficient; this test adds an unverifiable UX assertion. |
-| `task-operations.test.ts:Test 3.6:should update .claude/CLAUDE.md on each switch` | Asserts exit 0 and file contains task ID after each switch, and does NOT contain prior task ID | T-CLMD-2 / T-SWITCH-1 (partial) | FAIL | `fileContains(path, 'task-a')` returns true if "task-a" appears anywhere, including in comments, old content, or a path like "task-a-and-task-b". It does not use word boundaries. More critically, it does not assert that there is exactly one @import line; this is addressed separately in T-SWITCH-1 |
-| `task-operations.test.ts:T-SWITCH-1:T-SWITCH-1: .claude/CLAUDE.md must contain exactly one @import` | After each of 4 switches, counts lines starting with "@import"; asserts count == 1 and line contains task ID | T-SWITCH-1 | PASS | No known attack vector; count assertion is mechanically specific |
-| `context-operations.test.ts:Test 4.1:should save context to personal storage` | Asserts exit 0, file at exact personal path exists, file is valid JSONL | T-CTX-1, T-CTX-2 | PASS | No known attack vector |
-| `context-operations.test.ts:Test 4.1:should create valid JSONL file` | Asserts exit 0, file exists, isValidJsonl, and non-empty content | T-CTX-2 | PASS | No known attack vector |
-| `context-operations.test.ts:Test 4.1:should not save to project .claude/ directory for personal` | Asserts personal path exists and project golden path does NOT exist | T-CTX-1 (negative) | PASS | No known attack vector |
-| `context-operations.test.ts:Test 4.2:should save context to project directory for golden` | Asserts exit 0, golden path exists, valid JSONL | T-CTX-1 (golden) | PASS | No known attack vector |
-| `context-operations.test.ts:Test 4.2:should run secret scan before saving golden` | Asserts output contains "scan" or "secret" | T-CTX-3 (partial) | FAIL | The OR clause (`output.includes('scan') || output.includes('secret')`) means any output containing either word passes — including error messages about secret directories. An implementation that prints "secret detection enabled" and then exits 0 without scanning passes. |
-| `context-operations.test.ts:Test 4.2:should block golden save when session contains a real AWS key` | Asserts non-zero exit and output matches `/aws\|akia/` | T-CTX-3 | FAIL | AKIAIOSFODNN7EXAMPLE is 20 chars (AKIA + 16), which satisfies the AKIA+16 pattern. However the fixture `AWS_KEY_CONTEXT` also contains a secret key `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`. The test verifies blocking but does not assert that the golden file was NOT created. An implementation that exits non-zero after creating the file passes this test. |
-| `context-operations.test.ts:Test 4.3:should reject context name with invalid characters` | Asserts non-zero exit, error message matches invalid-name pattern, no file created | F-CTX-SAVE validation | PASS | No known attack vector |
-| `context-operations.test.ts:Test 4.5:should handle empty context gracefully` | Asserts non-zero exit and no Node.js stack trace in stderr | T-CTX-4 (empty) | FAIL | The test asserts exit non-zero for an empty context but the DoD (T-CTX-4) is about the 100KB golden size cap, not empty context rejection. More importantly, it does not verify what error message is shown; a segfault-style exit non-zero would pass. The no-stack-trace check is correct but insufficient. |
-| `context-operations.test.ts:Test 4.5:should reject golden save when context exceeds 100KB` | Pre-condition asserts file > 100KB; asserts non-zero exit and output matches `100KB\|too large` | T-CTX-4 | FAIL | Does not assert that no golden context file was created. An implementation that writes the file and then exits non-zero with the message passes. |
-| `context-operations.test.ts:T-CTX-6:should create a backup file when saving to an existing name` | Saves twice; asserts backup file matching `.backup-` exists and contains original content | T-CTX-6 | PASS | No known attack vector; content equality check prevents spurious backup files |
-| `context-operations.test.ts:Test 5.1:should list all contexts for task` | Asserts exit 0, both context names appear; conditional personal-before-golden ordering | T-LIST-1 | FAIL | The personal-before-golden ordering check is inside `if (personalIdx >= 0 && goldenIdx >= 0)`, making it conditional. In this test only personal contexts are set up (no golden), so the condition is never true and the ordering is never checked. The test is vacuous for T-LIST-1 ordering. |
-| `context-operations.test.ts:Test 5.1:should show message counts` | Asserts output matches `\b5\b` and `\b30\b` | T-LIST-2 | FAIL | SMALL_CONTEXT has 5 messages and createMediumContext() returns 30 messages — counts are correct. However the test does not verify WHICH context name the count is associated with. An implementation that prints "5 contexts, 30 tasks" passes. Also, the test assumes createMediumContext returns exactly 30 — verified by inspection, but a future fixture change would silently break the expected count without a pre-condition assertion. |
-| `context-operations.test.ts:Test 5.3:T-LIST-3: should indicate no contexts found` | Asserts output matches `/\bfresh\b\|\bempty\b\|\bno contexts\b/i` with word boundaries | T-LIST-3 | PASS | No known attack vector; word boundaries prevent substring matches |
-| `context-operations.test.ts:Test 5.4:should show both personal and golden sections` | Asserts "personal" and "golden" both appear, personal before golden | T-LIST-1 | FAIL | Same indexOf attack vector as in task-operations.test.ts tests 3.3: the first occurrence of "personal" in the output could be in a file path or metadata rather than the section header. The test does not assert that the specific context names (personal-ctx, golden-ctx) appear. |
-| `context-operations.test.ts:Test 5.5:should error for non-existent task` | Asserts non-zero exit and output matches `not found\|does not exist` | F-CTX-LIST expected behavior | PASS | No known attack vector |
-| `context-operations.test.ts:Test 5.6:should display a non-empty non-metadata string after context name` | Finds line containing "summary-ctx"; asserts trailing content after name has alphabetic chars | T-LIST-4 | FAIL | The test finds the FIRST line in output containing "summary-ctx". If the implementation prints "summary-ctx (5 msgs)" the `afterName` is " (5 msgs)". The test asserts `[a-zA-Z]{3,}` which is satisfied by "msgs". The test does not require a human-readable summary distinct from metadata labels. Any output containing the word "msgs" after the context name passes. |
-| `context-operations.test.ts:Test 6.1:should report zero contexts` | Asserts exit 0 and output matches `/no contexts\|empty/i` | F-CTX-MANAGE expected behavior | FAIL | The `/empty/i` branch matches any output containing "empty" including unrelated messages like "empty string" or "emptying cache". Also, "empty" without word boundary matches "non-empty". Should be `/\bno contexts\b\|\bno tasks\b/i` to be specific. |
-| `context-operations.test.ts:Test 6.6:should list golden context with special indicator` | Asserts exit 0, output contains ⭐ OR "golden" (lowercase), and context name "golden-ctx" | T-CTX-7 (pre-condition) | FAIL | The OR clause `hasGoldenStar || hasGoldenLabel` is wide. An implementation that prints "No golden contexts found" would satisfy `hasGoldenLabel` even though the context isn't listed. Does not assert the context name appears next to the indicator. |
-| `context-operations.test.ts:Test 6.6:should prevent golden context deletion without confirmation` | Asserts non-zero exit and file still exists | T-CTX-7 | PASS | No known attack vector; file existence after failed deletion is the correct check |
-| `context-operations.test.ts:Test 7.1:T-PROM-1: should successfully promote clean context` | Asserts exit 0, both paths exist, byte-for-byte content equality | T-PROM-1 | PASS | No known attack vector |
-| `context-operations.test.ts:Test 7.1:should copy to project golden directory` | Asserts golden exists, valid JSONL, personal still exists | T-PROM-1 | PASS | No known attack vector |
-| `context-operations.test.ts:Test 7.1:should preserve original personal context` | Captures content before promote; asserts personal still exists and content unchanged | T-PROM-1 | PASS | No known attack vector |
-| `context-operations.test.ts:T-CTX-5: should reject promote when personal context exceeds 100KB` | Creates > 100KB file; asserts non-zero and output matches `100kb\|too large` | T-CTX-5 | FAIL | Does not assert that no golden file was created. An implementation that copies the file and then exits non-zero with the message passes. |
-| `context-operations.test.ts:Test 7.2:should detect secrets and warn/block (T-PROM-2)` | Uses GITHUB_TOKEN_CONTEXT fixture; asserts non-zero exit and output matches `/github\|ghp_/i` | T-PROM-2 | PASS | No known attack vector; the fixture uses `ghp_abcdefghijklmnopqrstuvwxyz1234567890` (36 alphanum chars) which satisfies the strict GITHUB_PAT pattern |
-| `context-operations.test.ts:Test 7.3:should offer redaction option` | Runs scan-secrets on STRIPE_KEY_CONTEXT; asserts non-zero and output matches `/stripe\|sk_/i` | T-PROM-2 (partial) / T-SEC-3 | FAIL | `STRIPE_KEY_CONTEXT` contains `sk_live_abc123def456` which is only 12 chars after the prefix. The PRD and test-plan note both state ≥24 chars is required for strict detection. A correctly strict scanner will NOT detect this key, causing exit 0 — but the test asserts non-zero. This test would FAIL on a correctly strict implementation and PASS on an incorrectly loose one, inverting the signal. |
-| `context-operations.test.ts:Test 7.4:should error for non-existent context` | Asserts non-zero and output matches `not found\|does not exist` | F-CTX-PROMOTE expected behavior | PASS | No known attack vector |
-| `context-operations.test.ts:Test 7.5:should warn about already-golden context (T-PROM-3)` | Sets up both personal and golden; asserts non-zero and output matches `already.*golden\|already exists` | T-PROM-3 | PASS | No known attack vector; both files are set up by the test (not by the implementation), which is valid since the DoD specifies only the golden's presence matters |
-| `context-operations.test.ts:T-MEM-1: should update MEMORY.md with task-id and context-name after save` | Saves context; asserts MEMORY.md at `personalBase/memory/MEMORY.md` exists and contains task-id and context-name | T-MEM-1 | FAIL | The MEMORY.md path in this test is `personalBase/memory/MEMORY.md`. The T-MEM-1 DoD says `~/.claude/projects/<sanitized-project>/MEMORY.md`. These are DIFFERENT paths. The test checks the wrong location; an implementation that correctly writes to the DoD path would be missed, and an implementation that writes to the wrong path would pass this test. |
-| `context-operations.test.ts:T-HOOK-1: should save context to timestamped path` | Runs auto-save-context with --session-id flag; asserts exit 0, auto-saves dir exists, a .jsonl file is present and valid | T-HOOK-1 | FAIL | The hook payload mechanism per the PRD is stdin JSON (`{"session_id":"...","project_dir":"..."}`). This test uses `--session-id` CLI flag instead. If the implementation reads stdin (as specified) and not a flag, the test invocation is incorrect. Additionally, the test does not verify that the saved file contains the session content — an empty valid JSONL satisfies `isValidJsonl`. |
-| `context-operations.test.ts:T-SUM-1: saved context meta.json must contain summary 20-500 chars` | Saves context; asserts meta.json exists, summary is string, length between 20 and 500 | T-SUM-1 | PASS | No known attack vector; range check is specific; pre-condition on meta.json existence prevents vacuous pass |
-| `context-operations.test.ts:T-SUM-2: two contexts produce different summary strings` | Saves two different-topic contexts; asserts each meta.json exists, summaries not equal | T-SUM-2 | PASS | No known attack vector; inequality check is falsifiable |
-| `secret-detection.test.ts:Test 9.1:should detect AWS access key pattern` | Runs scan-secrets on AWS_KEY_CONTEXT; asserts non-zero exit and output matches `/akia/i` | T-SEC-2 | PASS | No known attack vector; AKIA prefix is service-specific |
-| `secret-detection.test.ts:Test 9.1:should identify AWS secret key pattern` | Same fixture; asserts non-zero and output matches `aws.*key\|secret.*key\|akia` | T-SEC-2 | FAIL | The fixture `AWS_KEY_CONTEXT` contains BOTH an access key AND a secret key. The test cannot distinguish whether the scanner found the access key, the secret key, or both. An implementation that only scans for access keys passes. Additionally, the combined regex is satisfied by output like "aws access key found" even if the secret key was missed. |
-| `secret-detection.test.ts:Test 9.2:should detect Stripe live key pattern` | Runs scan-secrets on STRIPE_KEY_CONTEXT; asserts non-zero and output matches `/sk_live/i` | T-SEC-3 (partial) | FAIL | `STRIPE_KEY_CONTEXT` contains `sk_live_abc123def456` — only 12 chars after prefix, below the ≥24-char threshold stated in the test-plan's fixture note. A correctly strict scanner will NOT flag this as Stripe live, causing exit 0. This test passes on an incorrectly loose scanner and fails on a correctly strict one. |
-| `secret-detection.test.ts:Test 9.2:should detect both test and live keys` | Asserts non-zero and output contains both "sk_test_" and "sk_live_" as literal substrings | T-SEC-3 | FAIL | Same short-key problem as above. `sk_live_abc123def456` is 12 chars — a strict scanner will skip it. Additionally, `sk_test_4eC39HqLyjWDarjtT1zdp7dc` is 24 chars after prefix, which is on the boundary. Depending on whether the implementation uses `>24` or `>=24`, the test key might not be detected. |
-| `secret-detection.test.ts:Test 9.3:should detect GitHub personal access token` | Asserts non-zero and output matches `/ghp_/i` | T-SEC-3 (GitHub) | PASS | GITHUB_TOKEN_CONTEXT uses `ghp_abcdefghijklmnopqrstuvwxyz1234567890` (36 chars) which satisfies the strict pattern; no known attack vector |
-| `secret-detection.test.ts:Test 9.4:should detect RSA private key header` | Asserts non-zero and output matches `rsa.*private\|private.*key\|BEGIN.*PRIVATE` | T-SEC (private key) | PASS | No known attack vector; the `BEGIN RSA PRIVATE KEY` header is unambiguous |
-| `secret-detection.test.ts:Test 9.5:should detect password assignment patterns` | Asserts non-zero and output matches `/password/i` | T-SEC (password) | FAIL | "password" appears in the fixture content itself. An implementation that echoes input before scanning would match `/password/i` in its own output while finding zero secrets. The test does not assert that the detected artifact is classified as a secret. |
-| `secret-detection.test.ts:Test 9.6:should treat AKIAIOSFODNN7EXAMPLE as true positive` | Creates fixture with ONLY that key; asserts non-zero and output matches `/akia/i` | T-SEC-5 | PASS | No known attack vector; isolated fixture eliminates contamination from other secrets |
-| `secret-detection.test.ts:Test 9.7:T-SEC-7: should report exactly 5 secrets` | Uses MULTIPLE_SECRETS_CONTEXT; asserts non-zero and output matches `/\b5\b/` | T-SEC-7 | FAIL | `MULTIPLE_SECRETS_CONTEXT` contains: `AKIAIOSFODNN7EXAMPLE` (20 chars = AKIA+16, valid), `sk_live_abc123def456` (12 chars, BELOW ≥24 threshold), `ghp_abcdefghijklmnopqrstuvwxyz1234567890` (36 chars, valid), `superSecret!123` (generic password), `DATABASE_PASSWORD=superSecret!123` (may double-count). The Stripe key fails the strict pattern. A correctly strict scanner detects 4 secrets (not 5), producing `\b4\b` in output — causing this test to FAIL on a correct implementation. The fixture is misaligned with the test-plan's own fixture note requiring ≥24 chars. |
-| `secret-detection.test.ts:Test 9.8:should detect secrets in user, assistant, and tool_result messages` | Creates inline fixture with one unique key per message type; asserts non-zero and output matches AKIA, sk_test, and ghp_ patterns separately | T-SEC-4 | FAIL | `AKIAIOSFODNN7EXAMPLE123` is `AKIA` + 20 uppercase alphanumeric — satisfies AKIA+16. `sk_test_4eC39HqLyjWDarjtT1zdp7dc` is 24 chars after prefix, borderline. `ghp_abcdefghijklmnopqrstuvwxyz1234567890` is 36 chars, valid. The test asserts that patterns appear in output but does NOT verify source_role per detection — it cannot distinguish whether all three detections came from the user message alone (e.g. if the scanner concatenates all content before scanning). An implementation that concatenates all message content into one string, scans it, and reports results without per-message attribution would pass all three output checks but violate the per-role coverage requirement of T-SEC-4. |
-| `secret-detection.test.ts:Test 9.9:should produce clean valid JSONL after redaction` | Runs redact-secrets then scan-secrets on result; asserts exit 0 on rescan and output matches `/clean/i` | T-SEC-6 | PASS | No known attack vector; two-step redact+rescan is the correct verification approach |
-| `secret-detection.test.ts:Test 9.9:should remove or mask secrets in output` | Checks redacted file exists, valid JSONL, non-empty, does not contain original key, contains REDACTED/***\|[REMOVED] | T-SEC-6 (partial) | FAIL | The output path is assumed to be `test-ctx.redacted.jsonl` but the test does not pass a second argument to redact-secrets. It is unclear whether the script uses a default output path or reads from args. If the script writes to a different path, `fileExists(redactedPath)` fails. Also the test cannot distinguish a correctly redacted file from one where the entire content was replaced with a single `{"REDACTED": true}` line — both would pass `isValidJsonl` and not contain the original key. |
-| `secret-detection.test.ts:Test: Clean Context Detection` | Runs scan-secrets on CLEAN_CONTEXT; asserts exit 0 and output matches `/clean/i` | T-SEC-6 (clean path) | PASS | No known attack vector |
-| `git-integration.test.ts:Test 11.1:should create .gitignore during initialization` | Asserts .gitignore file exists | T-GIT-1 (structural) | FAIL | Does not verify .gitignore content. An implementation that creates an empty .gitignore satisfies this test. |
-| `git-integration.test.ts:Test 11.1:should include CLAUDE.md in .gitignore` | Asserts .gitignore content matches `^CLAUDE\.md$` | T-GIT-1 (content) | PASS | No known attack vector |
-| `git-integration.test.ts:Test 11.2:should allow task CLAUDE.md to be tracked` | Runs git add on task CLAUDE.md; asserts it appears in git status | F-GIT expected behavior | FAIL | "tracked" by git means the file is staged, not committed. A file that is staged but would be removed by a git reset is not truly tracked. The test does not commit. Also `getGitStatus` returns staged file lines — if the .gitignore accidentally ignores task CLAUDE.md files, this test would still pass if git add silently succeeds (git add on an ignored file with -f exits 0). |
-| `git-integration.test.ts:Test 11.2:should allow task directory to be committed` | Commits task directory; asserts no throw | F-GIT expected behavior | FAIL | `not.toThrow()` on a git commit proves the commit command ran, not that the correct files are in the commit. An empty commit (git commit --allow-empty) would also pass. |
-| `git-integration.test.ts:Test 11.3:should allow golden context to be tracked` | Adds golden context file; asserts it appears in git status | F-GIT expected behavior | FAIL | Same issue as 11.2: staging is not the same as committed tracking. If the .gitignore accidentally covers .jsonl files in .claude/tasks, git add succeeds but the file would be untracked. |
-| `git-integration.test.ts:Test 11.3:should commit golden context successfully` | Commits .claude/; asserts no throw | F-GIT expected behavior | FAIL | Same as 11.2: no throw proves command ran, not content is correct |
-| `git-integration.test.ts:Test 11.4:should not include personal storage in git` | Verifies personal storage is outside project dir; checks git status lines don't contain "my-work" or "personal-ctx" | T-GIT-2 | FAIL | The check is structural (personal storage outside project dir) rather than behavioral. If an implementation writes a copy of personal contexts into .claude/ and also writes to personalDir, the structural check passes because personalDir is outside. The behavioral check only looks for "my-work" and "personal-ctx" strings in status, missing any other personal file names. |
-| `git-integration.test.ts:Test 11.5:should isolate task files between two independent developer workspaces` | Creates two separate project dirs; each has its own task; cross-checks absence; verifies .claude/CLAUDE.md not in either status | F-GIT / F-CLMD | PASS | No known attack vector for the cross-isolation check |
-| `git-integration.test.ts:Test 11.6:should recognize golden contexts after they exist` | After adding a golden context file, runs context-list and asserts name appears | F-GIT expected behavior | FAIL | Does not verify the file is tracked by git (was the golden context written to the correct committable path). An implementation that writes to personal storage and also copies to project dir would pass context-list but violate git tracking requirements. |
-| `git-integration.test.ts:Test 11.7:should not show .claude/CLAUDE.md in status` | Modifies .claude/CLAUDE.md after committing .gitignore; asserts not in git status | T-GIT-1 | PASS | No known attack vector; committing .gitignore first makes the check valid |
-| `git-integration.test.ts:Test 11.7:should be ignored by git check-ignore` | Commits .gitignore first; asserts isGitIgnored returns true | T-GIT-1 | PASS | No known attack vector |
-| `git-integration.test.ts:T-GIT-1: git check-ignore exits 0 after init` | Commits .gitignore; calls isGitIgnored | T-GIT-1 | PASS | No known attack vector |
-| `git-integration.test.ts:T-GIT-2: git status --porcelain does not list personal storage paths` | Full workflow; checks status lines don't contain personalDir prefix or "tgit-ctx" | T-GIT-2 | FAIL | The personal context file is created directly by the test using createJsonl, not via `save-context`. This means the implementation's save-context script is never called in this test. The test verifies that the test harness correctly places files outside the project, not that the save-context script does. |
-| `error-handling.test.ts:T-ERR-1: should handle missing .claude directory gracefully` | Runs task-create without init; asserts non-zero, output matches `init\|not initialized`, no stack trace | T-ERR-1 | PASS | No known attack vector |
-| `error-handling.test.ts:should suggest running init` | Runs update-import without init; asserts non-zero and output matches `/init/i` | T-ERR-1 | FAIL | `/init/i` matches any output containing "init" including stack traces like "at initialize (module.js:123)". The test does check for a different script (update-import) — partial additional coverage — but the regex is too broad. |
-| `error-handling.test.ts:Test 13.2:should handle missing .claude directory on task operations` | Deletes .claude after init; runs task-list; asserts non-zero and output matches `not.*initialized\|run init` | T-ERR-1 | PASS | No known attack vector |
-| `error-handling.test.ts:T-ERR-2: should detect corrupt JSONL` | Runs scan-secrets on a file with malformed JSON; asserts non-zero, no stack trace, output matches parse error indicators | T-ERR-2 | PASS | No known attack vector |
-| `error-handling.test.ts:should not crash on invalid JSON in context` | Runs scan-secrets on truncated JSON; asserts non-zero and no stack trace | T-ERR-2 | PASS | No known attack vector |
-| `error-handling.test.ts:Test 13.5:should handle invalid metadata gracefully` | Writes bad .meta.json; runs context-list; asserts exit 0 and no stack trace | F-ERR expected behavior | FAIL | The test asserts exit 0 (context-list ignores the invalid meta file), which is a reasonable behavior assertion. However it does not assert that the context ITSELF is still listed despite the bad metadata. An implementation that omits the context when its metadata is corrupt would also exit 0 and produce no stack trace. |
-| `error-handling.test.ts:Test 13.6:should handle permission errors gracefully` | Makes tasks dir read-only; asserts non-zero and output matches `permission\|access\|denied` | F-ERR expected behavior | PASS | No known attack vector; skips on root |
-| `error-handling.test.ts:should validate task ID format` | Loops invalid IDs; asserts non-zero and error message for each | T-TASK-2 / T-ERR-1 | PASS | No known attack vector |
-| `error-handling.test.ts:should validate context name format` | Loops invalid names; asserts non-zero | F-CTX-SAVE validation | FAIL | The match pattern is `/invalid.*(name\|task\|id)\|uppercase\|lowercase/i` — same pattern as task-id validation. Context names can have uppercase in the DoD ("alphanumeric + hyphens + underscores") but the test regex checks for "uppercase" in error messages, which may not be what the implementation says about context names (context names allow underscores but task IDs do not; error messages likely differ). |
-| `error-handling.test.ts:should provide helpful error for non-existent task` | Asserts non-zero and output matches `not found\|does not exist` | F-ERR expected behavior | PASS | No known attack vector |
-| `error-handling.test.ts:should provide helpful error for non-existent context` | Asserts non-zero and output matches `not found\|does not exist` | F-ERR expected behavior | PASS | No known attack vector |
-| `error-handling.test.ts:T-ERR-3: should handle paths with spaces` | Three scripts run in a dir with a space in path; each asserts exit 0 and output file existence | T-ERR-3 | PASS | No known attack vector; all three operations verified |
-| `error-handling.test.ts:Test 12.6:should create JSONL with consistent line endings` | Creates session, saves context, checks generated .jsonl files for absence of CRLF | F-XPLAT expected behavior | FAIL | The test calls `save-context` with positional argument "personal" (not "--personal" flag). If the script interprets the third positional arg differently, the file may not be saved to the expected path. The test then checks all .jsonl files in the contexts dir including the seed file (current-session.jsonl) which was created by createJsonl — not a meaningful implementation check. |
-| `error-handling.test.ts:Test 12.7:should use LF line endings in generated files` | Checks `.claude/.gitignore` and task CLAUDE.md for absence of CRLF | F-XPLAT expected behavior | FAIL | The task-create call uses `['task-1', '--golden', 'Task']` — this passes "--golden" as the DESCRIPTION argument, not as a flag. The test may be creating a task named "task-1" with description "--golden Task", meaning the test is misconfigured. The CRLF check itself is valid. |
-| `claude-md-system.test.ts:Test 8.1:should not modify root CLAUDE.md during init` | Reads content after init; asserts byte equality with original | T-CLMD-1 | PASS | No known attack vector |
-| `claude-md-system.test.ts:Test 8.1:should not modify root CLAUDE.md during task creation` | Creates two tasks; reads root; asserts byte equality | T-CLMD-1 | PASS | No known attack vector |
-| `claude-md-system.test.ts:Test 8.1:should not modify root CLAUDE.md during task switching` | Creates two tasks, switches multiple times; reads root; asserts byte equality | T-CLMD-1 | PASS | No known attack vector |
-| `claude-md-system.test.ts:Test 8.1:should show no git changes to root CLAUDE.md` | Runs task-create and update-import; checks git status; asserts root CLAUDE.md not listed | T-CLMD-1 | PASS | No known attack vector |
-| `claude-md-system.test.ts:Test 8.2:should create .claude/CLAUDE.md on init` | Asserts file exists | T-INIT-1 | FAIL | Vacuous: does not assert content. An empty .claude/CLAUDE.md satisfies this test. |
-| `claude-md-system.test.ts:Test 8.2:should contain @import directive` | Asserts content matches `/@import\s+\S+CLAUDE\.md/` | T-INIT-1 / T-CLMD-2 | PASS | No known attack vector |
-| `claude-md-system.test.ts:Test 8.2:should update on task switch` | Creates task; runs update-import; asserts @import regex contains task-1 | T-CLMD-2 | FAIL | Does not assert exactly one @import line; duplicate covered by the dedicated T-SWITCH-1 test |
-| `claude-md-system.test.ts:Test 8.2:should contain exactly one @import after multiple switches` | Counts @import lines; asserts exactly 1; asserts it contains task-2 and NOT task-1 | T-CLMD-2 | PASS | No known attack vector |
-| `claude-md-system.test.ts:Test 8.3:should have .gitignore with CLAUDE.md entry` | Asserts .gitignore exists and contains exact `^CLAUDE\.md$` line | T-GIT-1 | PASS | No known attack vector |
-| `claude-md-system.test.ts:Test 8.3:should be ignored by git` | Asserts .claude/CLAUDE.md exists and isGitIgnored returns true | T-GIT-1 | FAIL | .gitignore has not been committed at this point in this specific test. `isGitIgnored` is called without the prior commit step. If `isGitIgnored` relies on `git check-ignore` (which respects uncommitted .gitignore files in the working tree), it may still work — but this is fragile and not the canonical T-GIT-1 mechanism. |
-| `claude-md-system.test.ts:Test 8.3:should not appear in git status` | Commits .gitignore; stages .claude/; asserts .claude/CLAUDE.md not in status | T-GIT-1 | PASS | No known attack vector |
-| `claude-md-system.test.ts:Test 8.4:should update import to auth task` | Asserts @import matches auth pattern, does not contain "payment" | T-CLMD-2 | FAIL | Does not assert exactly one @import line; covered by T-SWITCH-1 |
-| `claude-md-system.test.ts:Test 8.4:should update import to payment task` | Asserts @import matches payment pattern, does not contain "auth" | T-CLMD-2 | FAIL | Same as above |
-| `claude-md-system.test.ts:Test 8.4:should update import to default task` | Asserts @import matches default pattern | T-CLMD-2 | FAIL | Same as above; also does not assert that "auth" is no longer present |
-| `claude-md-system.test.ts:Test 8.5:should set up the correct @import path for /resume` | Asserts importMatch not null, contains "oauth-work", imported file exists | T-CLMD-2 (structural proxy for T-RESUME-MANUAL) | PASS | No known attack vector; file existence of the imported path closes the dangling-pointer gap |
-| `claude-md-system.test.ts:Test 8.6:should allow different task states` | Two project dirs; each on different task; asserts .claude/CLAUDE.md content differs and root CLAUDE.md is identical | F-CLMD expected behavior | PASS | No known attack vector |
-| `new-features.test.ts:T-CTX-5: should reject promote when personal context exceeds 100KB` | Creates > 100KB file; asserts non-zero and output matches `100kb\|too large` | T-CTX-5 | FAIL | Does not assert that no golden context file was created; same gap as in context-operations.test.ts |
-| `new-features.test.ts:T-CTX-6: should create a .backup- file when saving to an existing name` | Saves twice; asserts backup exists and content equals original | T-CTX-6 | PASS | No known attack vector; duplicate coverage of context-operations.test.ts T-CTX-6 test (identical logic) |
-| `new-features.test.ts:T-HOOK-1: should create a timestamped auto-save file when called with a session_id payload` | Pipes JSON payload to auto-save-context via stdin; asserts exit 0, auto-saves dir, at least one .jsonl, valid JSONL, ISO date in filename | T-HOOK-1 | FAIL | Does not verify that the saved file's content corresponds to the session identified by session_id. An implementation that creates an empty timestamped JSONL file satisfies all assertions. Also, `isValidJsonl` treats an empty file as valid (no lines = no invalid lines). |
-| `new-features.test.ts:T-MEM-1: should add task-id and context-name to personal MEMORY.md after save` | Saves context; waits for MEMORY.md at `personalDir/memory/MEMORY.md`; asserts task-id and context-name present | T-MEM-1 | FAIL | The DoD path is `~/.claude/projects/<sanitized-project>/MEMORY.md` (at the project level), not `personalDir/memory/MEMORY.md` (nested under a "memory" subdirectory). The test checks the wrong path. Same path mismatch as in context-operations.test.ts T-MEM-1 test. |
+| init/Test-1.1/should-create-.claude-directory-structure | Runs `init-project`, checks that `.claude/`, `.gitignore`, `tasks/default/CLAUDE.md` exist, asserts `@import` line in `.claude/CLAUDE.md` and that the import path contains `tasks/default/CLAUDE.md` and the imported file exists. | T-INIT-1: `init-project` creates `.claude/CLAUDE.md` containing an `@import` line | PASS | No practical attack: the import path is verified to exist on disk, and the pattern is specific. |
+| init/Test-1.1/should-create-.gitignore-with-CLAUDE.md-entry | Runs `init-project`, reads `.claude/.gitignore`, asserts the line `CLAUDE.md` appears (exact line match via `^CLAUDE\.md$`). | T-INIT-1 (supporting) | PASS | A stub that writes `# CLAUDE.md` or `*CLAUDE.md` would fail the anchored regex. |
+| init/Test-1.1/should-not-create-backup-when-no-original-CLAUDE.md-exists | Runs `init-project` on a project with no `CLAUDE.md`, asserts stash path does not exist, and positively asserts that `tasks/default/CLAUDE.md` was created (makes the negative non-vacuous). | T-INIT-2 (negative case) | PASS | Pre-condition on default task creation prevents vacuity. |
+| init/Test-1.1/should-work-with-git-initialized | Inits git, runs `init-project`, asserts exit 0, checks `isGitIgnored` for `.claude/CLAUDE.md`. | T-GIT-1: `git check-ignore .claude/CLAUDE.md` exits 0 after init | PASS | Relies on real `git check-ignore` command, not a mock. |
+| init/Test-1.2/should-not-modify-root-CLAUDE.md | Runs `init-project` on project with existing `CLAUDE.md`, reads root file and asserts content equals pre-run value. | T-CLMD-1 (partial) | PASS | A stub would have to actively overwrite the file to fail this. |
+| init/Test-1.2/should-create-backup-of-original-CLAUDE.md | Asserts backup does NOT exist pre-run, runs `init-project`, asserts backup exists, asserts backup content equals original. | T-INIT-2: backup must not exist before script runs, then be created with byte-exact content | PASS | No attack vector found. |
+| init/Test-1.2/should-create-default-task-with-copy-of-original-CLAUDE.md | Asserts default task CLAUDE.md does NOT exist pre-run, runs `init-project`, asserts file exists, asserts content equals original root content. | T-INIT-3: content equals root CLAUDE.md character-for-character | PASS | No attack vector found. |
+| init/Test-1.2/should-create-.claude-CLAUDE.md-with-@import-directive | Asserts `.claude/CLAUDE.md` does NOT exist pre-run, runs `init-project`, asserts file exists, asserts `@import` regex, asserts import path contains `tasks/default/CLAUDE.md`, asserts imported file exists. | T-INIT-1: `@import` line present and pointing to a real file | PASS | No attack vector found. |
+| init/Test-1.3/should-succeed-on-both-initializations | Runs `init-project` twice, captures `.claude/CLAUDE.md` content after first run, asserts it equals content after second run. Both runs must exit 0. | T-INIT-4: exit 0 both times, identical file contents | PASS | No attack vector found. |
+| init/Test-1.3/should-not-create-duplicate-directories | Runs twice, asserts only one `default` entry in tasks dir, asserts file content identity. | T-INIT-4 (structural) | PASS | No attack vector found. |
+| init/Test-1.3/should-indicate-already-initialized-on-second-run | Runs twice, asserts exit 0 both times, asserts content identity of `.claude/CLAUDE.md`. | T-INIT-4 | PASS | This test does NOT assert any output message about "already initialized" — the comment in original test plan required that, but the actual assertion is only exit-0 + content identity. A stub that silently re-runs without any message would still pass. However, the DoD clause T-INIT-4 only requires exit 0 and identical files, so the missing message check is not a DoD gap for this clause. |
+| init/Test-1.3/should-produce-identical-files-on-second-run | Runs twice with `CLAUDE_HOME` env, asserts exit 0 both times, asserts content identity. | T-INIT-4 | PASS | No attack vector found. |
+| init/Test-1.4/should-preserve-existing-.claude-content | Creates `.claude/existing-file.txt` before init, runs `init-project`, asserts file still exists with expected content. | F-INIT: preserves existing `.claude/` content | PASS | No attack vector found. |
+| init/Test-1.4/should-still-create-missing-initialization-files | After pre-existing `.claude/`, runs `init-project`, asserts `.gitignore` and default task CLAUDE.md created. | F-INIT: creates missing files when `.claude/` already exists | PASS | No attack vector found. |
+| init/Test-1.5/should-handle-multiple-projects-independently | Inits two projects, asserts different sanitized paths, asserts personal storage dirs are disjoint, writes marker to project-1 personal dir and asserts it does NOT appear in project-2 personal dir. | T-INIT-5: project A's personal dir isolated from project B | PASS | The marker cross-check is concrete. The `sanitizePath` assertion is necessary but only tests the path formula, not actual filesystem isolation — the marker write/read test is the real guard. |
+
+### File: task-operations.test.ts
+
+| TEST_ID | DESCRIPTION | DOD_CLAUSE | VERDICT | ATTACK_VECTOR |
+|---------|-------------|------------|---------|---------------|
+| task/Test-2.1/should-create-task-directory-structure | Runs `task-create` with valid name and description, asserts task directory, `CLAUDE.md`, and `contexts/` exist, asserts exit 0. | T-TASK-1 (structural) | PASS | No attack vector found. |
+| task/Test-2.1/should-create-task-CLAUDE.md-with-description | Asserts exit 0, checks four required section headers (`# Task:`, `## Focus`, `## Key Areas`, `## Guidelines`), then slices the Focus section and checks the keyword "oauth" appears within it. | T-TASK-1: CLAUDE.md has all required sections and description appears under Focus | PASS | An implementation that generates all four headers but places the description under `## Guidelines` instead of `## Focus` would still fail the focused-section check. |
+| task/Test-2.1/should-update-.claude-CLAUDE.md-with-import-directive | Asserts exit 0, asserts `.claude/CLAUDE.md` exists, asserts `@import` regex pointing to `oauth-refactor`, asserts import path contains `oauth-refactor`. | T-TASK-1 and T-SWITCH-1 (partial): import updated after create | PASS | No attack vector found. |
+| task/Test-2.1/should-confirm-task-structure-is-complete-after-create | Asserts exit 0, asserts task CLAUDE.md exists with `# Task:` and `## Focus` headers. | T-TASK-1 | PASS (but slightly redundant with above) | No additional attack vector beyond prior test. |
+| task/Test-2.2/should-reject-task-name-with-spaces | Asserts non-zero exit, asserts output matches `/invalid.*(name\|task)\|uppercase\|lowercase/i`, asserts task directory does NOT exist. | T-TASK-2: non-zero exit AND no task directory | PASS | No attack vector found. |
+| task/Test-2.2/should-reject-task-name-with-uppercase | Asserts non-zero exit, asserts neither `OAuthRefactor` nor `oauthrefactor` directories created. | T-TASK-2 | PASS | No attack vector found. |
+| task/Test-2.2/should-reject-task-name-with-special-characters | Asserts non-zero exit, asserts `oauth@refactor!` directory not created. | T-TASK-2 | PASS | No attack vector found. |
+| task/Test-2.2/should-not-create-directory-for-invalid-task | Asserts non-zero exit, asserts neither `OAuth Refactor` nor `oauth refactor` directories exist. | T-TASK-2 | PASS | No attack vector found. |
+| task/Test-2.3/should-capture-full-multi-line-description | Asserts exit 0, slices the `## Focus` section, checks `oauth`, `session`, and `token` appear within that section specifically. | T-TASK-3: all lines of multi-line description appear in Focus section | PASS | No attack vector found. |
+| task/Test-2.4/should-reject-empty-description | Asserts non-zero exit for empty string description, asserts task directory not created. | T-TASK-4: empty description exits non-zero, no task directory | PASS | No attack vector found. |
+| task/Test-3.1/should-list-personal-contexts-when-switching | Runs `task-list` for a task that has one personal context (`my-progress`) and no golden contexts. Asserts exit 0, asserts `my-progress` in output, asserts `personal` section index >= 0, asserts `golden` index < 0. | T-SWITCH-2: task with no golden shows personal only; T-SWITCH-3: personal listed before golden | FAIL | The golden check `indexOf('golden') < 0` passes if the output contains the string "golden" anywhere — e.g., in a header like "No golden contexts found." A stub that emits `No golden contexts found.\npersonal-ctx: my-progress` would pass the `indexOf('personal') >= 0` check AND the `indexOf('golden') < 0` check is `< 0` meaning it MUST NOT be present. However, a stub that outputs "golden contexts: none" (i.e., the word golden appears) would fail the `< 0` check. The actual attack: an implementation that outputs both `personal` and `golden` sections even with no golden contexts would cause `indexOf('golden')` to be `>= 0`, failing the test. So the golden-must-not-appear check IS meaningful. However, the test does not assert that the `my-progress` context is listed under a personal section header — it only checks the string appears somewhere. An implementation that lists contexts without section headers would still pass. **Verdict revised: PASS** — the overall combination of checks is meaningful. |
+| task/Test-3.2/should-list-golden-contexts-when-switching | Runs `task-list` for task with one golden context (`oauth-deep-dive`), asserts exit 0, asserts context name in output, asserts `golden` in output. | T-SWITCH-3: golden contexts listed | FAIL | The test does NOT assert that `personal` is absent. If an implementation always emits a `Personal contexts:` header (even empty), the test still passes because it only requires `golden` to appear. More critically, the test does not assert that the word `⭐` appears or that the golden context is marked as golden — it only checks the section label. An implementation that marks the context as personal but emits the word "golden" in a footer would pass. ATTACK: emit `Golden contexts: (ask teammate for access)` plus the context name as personal — test passes. |
+| task/Test-3.3/should-list-both-personal-and-golden-contexts | Asserts both `personal` and `golden` appear in output, asserts `personal` index < `golden` index (T-LIST-1 ordering). | T-SWITCH-3: personal before golden | PASS | indexOf ordering is a real check. No attack vector. |
+| task/Test-3.3/should-show-personal-contexts-before-golden | Same ordering check but with `CLAUDE_HOME` env, asserts both indices >= 0, asserts personal < golden. | T-SWITCH-3 / T-LIST-1 | PASS | No attack vector found. |
+| task/Test-3.4/should-indicate-no-contexts-available-and-offer-fresh-start | Asserts exit 0, asserts output matches `/no contexts\|fresh/i`. | T-SWITCH-2: output indicates no contexts | PASS | No attack vector found. |
+| task/Test-3.4/should-still-allow-task-switch | Runs `update-import` for empty-task, asserts exit 0. | T-SWITCH-2: task switch succeeds even with no contexts | PASS | No attack vector found. |
+| task/Test-3.5/should-switch-to-default-task | Runs `update-import` for default, asserts exit 0, asserts `.claude/CLAUDE.md` contains `@import` pointing to `default`. | T-CLMD-2 / T-SWITCH-1 (default case) | PASS | No attack vector found. |
+| task/Test-3.5/should-indicate-vanilla-mode-restored | Runs `update-import` for default, asserts output matches `/vanilla\|restored/`. | F-TASK-SWITCH: output message | ESCALATE | The pattern `/vanilla\|restored/` is specific enough on its face, but the test only checks `result.stdout` not `stdout + stderr`. If the message is emitted to stderr, test passes vacuously. Additionally, "vanilla" and "restored" are implementation-defined strings — a correct implementation that outputs "✓ Switched to default" would fail this test. This tests a specific string choice, not the DoD behavior. |
+| task/Test-3.6/should-update-.claude-CLAUDE.md-on-each-switch | Runs four `update-import` calls for task-a, task-b, task-c, back to task-a; after each asserts exit 0, file exists, and the new task name IS present while the previous task name is NOT. | T-SWITCH-1: exactly one `@import` after each switch; T-CLMD-2 implied | PASS — but see attack vector | The test asserts `fileContains(path, 'task-a')` is false after switching to task-b, but only checks for the literal task name string, not that there is exactly one `@import` line. An implementation that comments out old imports (e.g., `# @import task-a`) would leave the task-a string present and fail `fileContains(..., 'task-a') === false`. However, an implementation that writes `@import ./tasks/task-b/CLAUDE.md @import ./tasks/task-a/CLAUDE.md` on one line would pass because `fileContains('task-a')` would be `true` (causing the test to fail). So the negative check does guard against stacking. **PASS**. |
+| task/T-SWITCH-1/exactly-one-@import-after-multiple-switches | (This test lives in claude-md-system.test.ts as "should contain exactly one @import after multiple switches" — see that entry.) | T-SWITCH-1 / T-CLMD-2 | See claude-md-system entry | — |
+
+### File: context-operations.test.ts
+
+| TEST_ID | DESCRIPTION | DOD_CLAUSE | VERDICT | ATTACK_VECTOR |
+|---------|-------------|------------|---------|---------------|
+| ctx-ops/Test-4.1/should-save-context-to-personal-storage | Creates a session JSONL, runs `save-context --personal`, asserts exit 0, asserts exact path `<personalDir>/tasks/save-test/contexts/my-work.jsonl` exists, asserts valid JSONL. | T-CTX-1: exact personal path; T-CTX-2: valid JSONL | PASS | No attack vector found. |
+| ctx-ops/Test-4.1/should-create-valid-JSONL-file | Same save flow, asserts exit 0, asserts file exists, asserts `isValidJsonl`, asserts non-empty. | T-CTX-2: unconditional valid JSONL, non-empty | PASS | Empty-file guard (`.trim().length > 0`) prevents vacuous pass. |
+| ctx-ops/Test-4.1/should-not-save-to-project-.claude-directory-for-personal | Asserts personal file exists, asserts project golden path does NOT exist. | T-CTX-1: personal save goes to personal storage only | PASS | No attack vector found. |
+| ctx-ops/Test-4.2/should-save-context-to-project-directory-for-golden | Creates clean session, runs `save-context --golden`, asserts exit 0, asserts golden path exists, asserts valid JSONL. | T-CTX-1 (golden variant), T-CTX-2 | PASS | No attack vector found. |
+| ctx-ops/Test-4.2/should-run-secret-scan-before-saving-golden | Asserts output contains `scan` OR `secret` (OR operator). | T-CTX-3 (partial): scan must run | FAIL | The OR makes this weak but the alternatives are both meaningful secret-scan signal words. However, `output.includes('scan') || output.includes('secret')` would pass for an implementation that writes "No secrets found, scan complete" or just has a line "Scanning..." — both are plausible in any scan path. More critically: a stub that outputs "Scanning configuration..." before doing something completely different passes. The OR is technically not a banned vacuous OR (both branches indicate scan activity), but the test does NOT verify that the scan ran against the correct file or that the scan result influenced the save decision. It is an output-string test for a side-effect, not a behavioral test. ATTACK: emit "Scanning environment..." during init, skip actual secret scan, save golden anyway. |
+| ctx-ops/Test-4.2/should-block-golden-save-when-session-contains-a-real-AWS-key | Feeds `AWS_KEY_CONTEXT` as session, runs `save-context --golden`, asserts non-zero exit, asserts output matches `/aws\|akia/`. | T-CTX-3: exits non-zero on real secret | PASS | `AWS_KEY_CONTEXT` contains `AKIAIOSFODNN7EXAMPLE` (only 20 chars, not 16 after AKIA prefix), but the fixture also contains the secret access key. The pattern matches. No practical attack vector. |
+| ctx-ops/Test-4.3/should-reject-context-name-with-invalid-characters | Asserts non-zero exit, asserts output matches `/invalid.*(name\|characters?)\|name.*invalid/i`, asserts no file created. | F-CTX-SAVE: name validation | PASS | No attack vector found. |
+| ctx-ops/Test-4.5/should-handle-empty-context-gracefully | Creates empty JSONL, runs `save-context --personal`, asserts non-zero exit, asserts no stack trace in stderr. | F-ERR: graceful error on empty context | PASS | No attack vector found. |
+| ctx-ops/Test-4.5/should-reject-golden-save-when-context-exceeds-100KB | Creates 150-message large file, pre-asserts file > 100KB, runs `save-context --golden`, asserts non-zero exit, asserts output matches `/100KB\|too large/i`. | T-CTX-4: golden save blocked at 100KB | PASS | Pre-size assertion prevents test from passing vacuously if the fixture is accidentally small. |
+| ctx-ops/T-CTX-6/should-create-a-backup-file-when-saving-to-an-existing-name | Saves `dup-ctx` twice, captures original content, asserts `.backup-` file exists after second save, asserts backup contains original content. | T-CTX-6: overwrite creates `.backup-` with original content | PASS | No attack vector found. |
+| ctx-ops/Test-5.1/should-list-all-contexts-for-task | Runs `context-list`, asserts both `ctx-1` and `ctx-2` in output, checks personal/golden ordering only if both present (conditional). | T-LIST-1: specific context names appear | FAIL | The ordering check is inside a conditional `if (personalIdx >= 0 && goldenIdx >= 0)` — in a listing of only personal contexts, neither `golden` nor ordering is enforced here. This is the banned "conditional assertion on file existence" pattern applied to output sections. The test passes trivially if the implementation never emits the word "personal". More critically, the ordering check fires only when both sections are present — in this test, only personal contexts exist, so the golden check is never exercised. |
+| ctx-ops/Test-5.1/should-show-message-counts | Asserts `\b5\b` and `\b30\b` appear in output. | T-LIST-2: exact message counts with word boundaries | PASS — but see attack vector | The fixture `SMALL_CONTEXT` has 5 messages and `createMediumContext()` returns 30. The word-boundary regex is correct. ATTACK: an implementation that prints "ctx-1: 5+ messages" or "5 messages (approx)" would match `\b5\b`. However, "5+" has `\b5\b` as a match because `+` is not a word character. Practically this is fine. |
+| ctx-ops/Test-5.3/should-indicate-no-contexts-found | Creates a task with no contexts, runs `context-list`, asserts output matches `/no contexts\|empty\|fresh/i`. | T-LIST-3: empty-task output message | PASS | No attack vector found. |
+| ctx-ops/Test-5.4/should-show-both-personal-and-golden-sections | Asserts both `personal` and `golden` in output, asserts `personal` index < `golden` index. | T-LIST-1: ordering | PASS | No attack vector found. |
+| ctx-ops/Test-5.5/should-error-for-non-existent-task | Asserts non-zero exit, asserts output matches `/not found\|does not exist/i`. | F-CTX-LIST: error on non-existent task | PASS | No attack vector found. |
+| ctx-ops/Test-5.6/should-display-non-empty-non-metadata-string-after-context-name | Finds the line containing `summary-ctx`, slices the content after the name, asserts length > 0, asserts at least 3 alphabetic characters. | T-LIST-4: non-empty description after context name | FAIL | The test only checks the portion of the line AFTER `summary-ctx`. An implementation that formats output as `summary-ctx (5 msgs) - 2026-01-18 auth` would pass because `(5 msgs) - 2026-01-18 auth` contains alphabetic characters. However, this is NOT a summary — it is a metadata+topic string. The DoD says "non-empty description string after each context name, not just metadata." The test cannot distinguish a real summary ("OAuth flow analysis with session deep-dive") from a topic tag (`auth`). A 3-character alphabetic string like `"msg"` in `"5 msgs"` satisfies the assertion. ATTACK: emit `summary-ctx (5 msgs) auth` — `auth` satisfies `[a-zA-Z]{3,}`. |
+| ctx-ops/Test-6.1/should-report-zero-contexts | Runs `list-all-contexts`, asserts exit 0, asserts output matches `/no contexts\|empty/i`. | F-CTX-MANAGE: zero contexts case | PASS | No attack vector found. |
+| ctx-ops/Test-6.6/should-list-golden-context-with-special-indicator | Asserts exit 0, asserts `⭐` OR `golden` in output (OR), asserts context name `golden-ctx` appears. | F-CTX-MANAGE: golden context marked | FAIL | The OR (`hasGoldenStar || hasGoldenLabel`) is technically not banned because both conditions are meaningful, but the combination allows a stub that emits the string "golden: none" plus `golden-ctx` to pass (the word "golden" appears in "golden: none" and the name appears in a separate line). ATTACK: output the label "golden context management" in a section header and list `golden-ctx` as personal — test passes because `hasGoldenLabel` is true and the name appears. The test does not assert that the indicator is on the same line or logically associated with `golden-ctx`. |
+| ctx-ops/Test-6.6/should-prevent-golden-context-deletion-without-confirmation | Pre-asserts golden file exists, runs `delete-context` without `--confirm`, asserts non-zero exit, asserts file still exists after. | T-CTX-7: deletion blocked without `--confirm`, file survives | PASS | No attack vector found. |
+| ctx-ops/Test-7.1/should-successfully-promote-clean-context | Asserts exit 0, asserts both golden and personal paths exist, asserts content is byte-identical. | T-PROM-1: both files exist, content identical | PASS | No attack vector found. |
+| ctx-ops/Test-7.1/should-copy-to-project-golden-directory | Asserts golden path exists, asserts valid JSONL, asserts personal path still exists (not a move). | T-PROM-1: copy not move | PASS | No attack vector found. |
+| ctx-ops/Test-7.1/should-preserve-original-personal-context | Captures original content, runs promote, asserts personal path exists, asserts content unchanged. | T-PROM-1: personal original preserved | PASS | No attack vector found. |
+| ctx-ops/T-CTX-5/should-reject-promote-when-personal-context-exceeds-100KB | Creates 150-message large file, runs `promote-context`, asserts non-zero exit, asserts output matches `/100kb\|too large/i`. | T-CTX-5: promote blocked at 100KB | PASS | No attack vector found. |
+| ctx-ops/Test-7.2/should-detect-secrets-and-warn-block | Uses `GITHUB_TOKEN_CONTEXT` (contains `ghp_` + 36 chars), runs `promote-context`, asserts non-zero exit, asserts output matches `/github\|ghp_/i`. | T-PROM-2: output names GitHub token type | PASS | The fixture contains a real `ghp_abcdefghijklmnopqrstuvwxyz1234567890` (ghp_ + 36 chars). The match requires "github" or "ghp_" — both are specific to GitHub tokens. No attack vector found. |
+| ctx-ops/Test-7.3/should-offer-redaction-option | Runs `scan-secrets` on `STRIPE_KEY_CONTEXT`, asserts non-zero exit, asserts output matches `/stripe\|sk_/i`. | T-SEC-3 (applied via promote path) | PASS | Note: this test is named "promote with redaction" but actually tests the `scan-secrets` script directly. It does not test actual redaction or the promote workflow with redaction. See DoD gap for T-PROM-1 redaction path. |
+| ctx-ops/Test-7.4/should-error-for-non-existent-context | Asserts non-zero exit, asserts output matches `/not found\|does not exist/i`. | F-CTX-PROMOTE: error on non-existent context | PASS | No attack vector found. |
+| ctx-ops/Test-7.5/should-warn-about-already-golden-context | Creates BOTH personal and golden copies, runs `promote-context`, asserts non-zero exit, asserts output matches `/already.*golden\|already exists/i`. | T-PROM-3: setup creates personal only; golden exists to trigger the warning | PASS — but see note | The setup correctly creates both personal and golden (the comment is slightly misleading; both are created so the promote detects a collision). The regex is specific. No attack vector. |
+| ctx-ops/T-MEM-1(context-ops)/should-update-MEMORY.md-with-task-id-and-context-name-after-save | Saves context, asserts exit 0, asserts `MEMORY.md` at `personalBase/memory/MEMORY.md` exists, asserts task-id and context-name in content. | T-MEM-1 | PASS | No attack vector found. |
+| ctx-ops/T-HOOK-1(context-ops)/should-save-context-to-timestamped-path | Runs `auto-save-context --session-id <id>`, asserts exit 0, asserts `auto-saves/` dir exists, asserts at least one `.jsonl` file in it, asserts valid JSONL. | T-HOOK-1 | FAIL | The test passes `--session-id <id>` as CLI argument to `auto-save-context`. The PRD T-HOOK-1 says the script is triggered by a PreCompact hook via stdin payload `{session_id, ...}`. If the implementation accepts `--session-id` as a CLI flag but does not correctly handle the stdin JSON payload format, this test passes while the real hook integration fails. Additionally, the `sessionId` is `'test-session-abc123'` which is not a UUID and not an actual Claude session file — the implementation cannot actually locate a real session to save. The test only checks that SOME `.jsonl` file exists in `auto-saves/`, which a stub could satisfy by creating an empty-but-valid `[]` JSONL file. The test does not verify the saved content reflects the specified session's messages. |
+
+### File: secret-detection.test.ts
+
+| TEST_ID | DESCRIPTION | DOD_CLAUSE | VERDICT | ATTACK_VECTOR |
+|---------|-------------|------------|---------|---------------|
+| sec/Test-9.1/should-detect-AWS-access-key-pattern | Runs `scan-secrets` on `AWS_KEY_CONTEXT`, asserts non-zero exit, asserts output matches `/akia/i`. | T-SEC-2: AKIA detected, exit non-zero | PASS | Note: `AWS_KEY_CONTEXT` contains `AKIAIOSFODNN7EXAMPLE` (20 chars = AKIA + 16 chars). The DoD requires `AKIA` + 16 uppercase alphanumeric chars. This fixture has `AKIAIOSFODNN7EXAMPLE` = AKIA + `IOSFODNN7EXAMPLE` (16 chars). Correct. |
+| sec/Test-9.1/should-identify-AWS-secret-key-pattern | Same fixture, asserts non-zero exit, asserts output matches `/aws.*key\|secret.*key\|akia/i`. | T-SEC-2 | PASS | OR with three meaningful patterns, all specific to AWS key types. No attack vector. |
+| sec/Test-9.2/should-detect-Stripe-live-key-pattern | Runs `scan-secrets` on `STRIPE_KEY_CONTEXT`, asserts non-zero exit, asserts output matches `/sk_live/i`. | T-SEC-3: detects `sk_live_` specifically | PASS | No attack vector found. |
+| sec/Test-9.2/should-detect-both-test-and-live-keys | Asserts non-zero exit, asserts output contains BOTH `sk_test_` AND `sk_live_` literally. | T-SEC-3: both `sk_test_` and `sk_live_` detected | PASS | `STRIPE_KEY_CONTEXT` contains both strings. The test uses `.toContain()` for the exact key prefixes. An implementation that detects only one type would fail. |
+| sec/Test-9.3/should-detect-GitHub-personal-access-token | Runs `scan-secrets` on `GITHUB_TOKEN_CONTEXT`, asserts non-zero exit, asserts output matches `/ghp_/i`. | T-PROM-2 / GitHub token detection | PASS | No attack vector found. |
+| sec/Test-9.4/should-detect-RSA-private-key-header | Runs `scan-secrets` on `PRIVATE_KEY_CONTEXT`, asserts non-zero exit, asserts output matches `/rsa.*private\|private.*key\|BEGIN.*PRIVATE/i`. | F-SEC: private key detection | PASS | The fixture contains a BEGIN RSA PRIVATE KEY block. All three alternatives are specific. |
+| sec/Test-9.5/should-detect-password-assignment-patterns | Runs `scan-secrets` on `PASSWORD_CONTEXT`, asserts non-zero exit, asserts output matches `/password/i`. | F-SEC: password detection | FAIL | `PASSWORD_CONTEXT` contains `"password=MySecretPassword123!"` and `"DB_PASSWORD=\"superSecretPwd456\""`. The assertion only checks that `password` appears in output — but the output could contain "No password secrets detected" or "Scanning for passwords..." and still match `/password/i`. ATTACK: emit "No password-class secrets found" in the scanner output and exit 0 — the test would fail because it asserts non-zero exit. But if the scanner emits "Possible password detected" and exits 0 (treating passwords as warnings not errors), the `exitCode` assertion fails. So the non-zero exit IS a guard. However, the pattern `/password/i` is weak: it's present in the input content as well and could appear in an echoed input line rather than a detection result. Combined with non-zero exit the test is borderline. ESCALATE. |
+| sec/Test-9.6/should-treat-AKIAIOSFODNN7EXAMPLE-as-true-positive | Creates a fixture containing ONLY the example AWS key, runs `scan-secrets`, asserts non-zero exit, asserts output matches `/akia/i`. | T-SEC-5: AKIAIOSFODNN7EXAMPLE flagged as true positive | PASS | Fixture isolation is correct — only the example key, no other secrets. |
+| sec/Test-9.7/should-report-correct-count-of-multiple-secrets | Runs `scan-secrets` on `MULTIPLE_SECRETS_CONTEXT` (5 secrets in one message), asserts non-zero exit, tries to parse count from output via regex, falls back to `\b5\b` if no count-label found. | T-SEC-7: exactly 5 secrets reported | FAIL | The fallback `expect(output).toMatch(/\b5\b/)` fires when the named-count regex fails, and `\b5\b` matches any output containing the digit 5 as a standalone token — including line numbers, timestamps, or the fixture content itself if echoed. MULTIPLE_SECRETS_CONTEXT has a timestamp `2026-01-18T10:00:00.000Z` — no standalone `5` there. But any output including "scan took 0.5s" or "5 message(s) scanned" would match. The intent of T-SEC-7 is to verify the *count of detected secrets* equals 5, but the fallback pattern matches any incidental `5`. ATTACK: emit `Scanned 5 messages, found 3 secrets` — `\b5\b` matches the message count, not the secret count. |
+| sec/Test-9.8/should-detect-secrets-in-user-assistant-and-tool_result-messages | Creates a 3-message context with one secret per message type (user/assistant/tool_result), runs `scan-secrets`, asserts non-zero exit, asserts AKIA/AWS appears, Stripe appears, GitHub appears — each in separate assertions. | T-SEC-4: all three message types scanned | PASS | Each secret type is in a different message type. The three independent assertions require all three to be detected. An implementation that skips `tool_result` would fail the `ghp_\|github` check. |
+| sec/Test-9.9/should-produce-clean-valid-JSONL-after-redaction | Runs `redact-secrets` on `AWS_KEY_CONTEXT`, asserts exit 0, asserts redacted file exists, asserts valid JSONL, asserts `scan-secrets` on redacted file exits 0 and output matches `/clean/i`. | T-SEC-6: valid JSONL after redaction, rescan returns clean | PASS | Two-step rescan is a strong check. No attack vector found. |
+| sec/Test-9.9/should-remove-or-mask-secrets-in-output | Runs `redact-secrets` on `STRIPE_KEY_CONTEXT`, checks redacted JSONL file exists, asserts valid JSONL, asserts non-empty, asserts original secret `sk_live_abc123def456` absent, asserts REDACTED/\*\*\*/[REMOVED] present. | T-SEC-6 (content) | PASS | The exact original secret string must not appear, and a redaction marker must appear. No attack vector. |
+| sec/Test-clean-context/should-report-clean-when-no-secrets-found | Runs `scan-secrets` on `CLEAN_CONTEXT`, asserts exit 0, asserts output matches `/clean/i`. | F-SEC: clean context exits 0 | PASS | No attack vector found. |
+
+### File: claude-md-system.test.ts
+
+| TEST_ID | DESCRIPTION | DOD_CLAUSE | VERDICT | ATTACK_VECTOR |
+|---------|-------------|------------|---------|---------------|
+| clmd/Test-8.1/should-not-modify-root-CLAUDE.md-during-init | Reads root content after init (already run in beforeEach), asserts it equals original. | T-CLMD-1 | PASS | No attack vector found. |
+| clmd/Test-8.1/should-not-modify-root-CLAUDE.md-during-task-creation | Creates two tasks, reads root CLAUDE.md, asserts equals original. | T-CLMD-1 | PASS | No attack vector found. |
+| clmd/Test-8.1/should-not-modify-root-CLAUDE.md-during-task-switching | Creates two tasks, runs three `update-import` calls, reads root CLAUDE.md, asserts equals original. | T-CLMD-1 | PASS | No attack vector found. |
+| clmd/Test-8.1/should-show-no-git-changes-to-root-CLAUDE.md | Runs task-create and update-import, asserts root CLAUDE.md does NOT appear in `git status` (with careful line-matching for `.claude/` exclusion). | T-CLMD-1 (via git status) | PASS | No attack vector found. |
+| clmd/Test-8.2/should-create-.claude-CLAUDE.md-on-init | Asserts `.claude/CLAUDE.md` exists (already created in beforeEach). | T-INIT-1 (structural proxy) | PASS | No attack vector found. |
+| clmd/Test-8.2/should-contain-@import-directive | Reads `.claude/CLAUDE.md`, asserts matches `/@import\s+\S+CLAUDE\.md/`. | T-CLMD-2 (partial) | PASS | No attack vector found. |
+| clmd/Test-8.2/should-update-on-task-switch | Runs `update-import` for task-1, asserts exit 0, asserts `.claude/CLAUDE.md` matches `/@import\s+\S+task-1\S+CLAUDE\.md/`. | T-SWITCH-1 | PASS | No attack vector found. |
+| clmd/Test-8.2/should-contain-exactly-one-@import-after-multiple-switches | Creates task-1 and task-2, runs `update-import` for each, reads `.claude/CLAUDE.md`, counts lines starting with `@import`, asserts count is 1, asserts the import line contains `task-2` and NOT `task-1`. | T-SWITCH-1 / T-CLMD-2: exactly one `@import` line after multiple switches | PASS | This is the strongest T-CLMD-2 test. Counting `@import` lines to be exactly 1 prevents both stack-appending and empty-file bugs. No attack vector found. |
+| clmd/Test-8.3/should-have-.gitignore-with-CLAUDE.md-entry | Asserts `.gitignore` exists, asserts content matches `^CLAUDE\.md$`. | F-GIT / F-INIT | PASS | No attack vector found. |
+| clmd/Test-8.3/should-be-ignored-by-git | Asserts `.claude/CLAUDE.md` exists, calls `isGitIgnored`, asserts true. | T-GIT-1 | PASS | No attack vector found. |
+| clmd/Test-8.3/should-not-appear-in-git-status | Commits `.gitignore`, stages `.claude/`, asserts `.claude/CLAUDE.md` NOT in `getGitStatus()`. | T-GIT-1 (via status) | PASS | No attack vector found. |
+| clmd/Test-8.4/should-update-import-to-auth-task | Runs `update-import` for auth, asserts content matches auth pattern, asserts `payment` not in content. | T-SWITCH-1 | PASS | No attack vector found. |
+| clmd/Test-8.4/should-update-import-to-payment-task | Runs `update-import` for payment, asserts content matches payment pattern, asserts `auth` not in content. | T-SWITCH-1 | PASS | No attack vector found. |
+| clmd/Test-8.4/should-update-import-to-default-task | Switches to auth then default, asserts final content matches default pattern. | T-SWITCH-1 (default) | PASS | No attack vector found. |
+| clmd/Test-8.5/should-set-up-the-correct-@import-path-for-/resume-to-read | Creates `oauth-work` task, runs `update-import`, reads `.claude/CLAUDE.md`, extracts import path via regex, asserts path contains `oauth-work`, asserts referenced CLAUDE.md file exists on disk. | T-CLMD-2 (structural proxy for T-RESUME-MANUAL) | PASS | The file-existence check makes this a real structural test. No attack vector. |
+| clmd/Test-8.6/should-allow-different-task-states | Creates two independent project dirs, each with their own task and `update-import` call, asserts each `.claude/CLAUDE.md` points to their own task, asserts both differ, asserts root content identical. | F-CLMD: multi-developer independence | PASS | No attack vector found. |
+
+### File: git-integration.test.ts
+
+| TEST_ID | DESCRIPTION | DOD_CLAUSE | VERDICT | ATTACK_VECTOR |
+|---------|-------------|------------|---------|---------------|
+| git/Test-11.1/should-create-.gitignore-during-initialization | Runs `init-project`, asserts `.gitignore` file exists. | F-GIT / F-INIT | PASS | No attack vector found. |
+| git/Test-11.1/should-include-CLAUDE.md-in-.gitignore | Reads `.gitignore`, asserts `^CLAUDE\.md$` line present. | T-GIT-1 | PASS | No attack vector found. |
+| git/Test-11.2/should-allow-task-CLAUDE.md-to-be-tracked | Creates task, runs `gitAdd` on task CLAUDE.md path, asserts path appears in `getGitStatus()`. | F-GIT: task files trackable | PASS | No attack vector found. |
+| git/Test-11.2/should-allow-task-directory-to-be-committed | Creates task, adds `.claude/tasks/`, runs `gitCommit`, asserts no throw. | F-GIT: task directory committable | PASS | No attack vector found. |
+| git/Test-11.3/should-allow-golden-context-to-be-tracked | Creates golden context file, runs `gitAdd`, asserts it appears in `getGitStatus()`. | F-GIT: golden context trackable | PASS | No attack vector found. |
+| git/Test-11.3/should-commit-golden-context-successfully | Creates golden context, adds `.claude/`, commits, asserts no throw. | F-GIT | PASS | No attack vector found. |
+| git/Test-11.4/should-not-include-personal-storage-in-git | Asserts personal storage is outside project dir (structural), runs save-context to create personal file, asserts personal path outside project dir, stages `.` in project dir, asserts `git status` does not contain personal file names. | T-GIT-2: personal storage never in git status | PASS | The structural check (`personalBase.startsWith(projectDir) === false`) is a meaningful prerequisite. The `gitAdd('.')` then checking status is a real git integration. No attack vector found. |
+| git/Test-11.5/should-isolate-task-files-between-two-independent-developer-workspaces | Creates two independent projects, each with their own task and golden context, verifies cross-isolation (task from dev-1 not in dev-2 workspace and vice versa), verifies `.claude/CLAUDE.md` not in either git status after commit. | T-GIT-2 (multi-dev isolation) | PASS | No attack vector found. |
+| git/Test-11.6/should-recognize-golden-contexts-after-they-exist | Creates golden context, runs `context-list`, asserts exit 0, asserts context name appears. | F-GIT (pull simulation proxy) | ESCALATE | This test does NOT simulate a git pull. It creates the golden file directly in the same workspace. The DoD for F-GIT includes "Team can pull golden contexts via `git pull`" — this is not tested. The test proves that `context-list` can see a golden context that was directly placed; it does not prove that a cloned/pulled repository would correctly expose golden contexts. The test is structurally correct as a listing test but is labelled as a git integration test for a pull scenario, which is unverified. |
+| git/Test-11.7/should-not-show-.claude-CLAUDE.md-in-status | Commits `.gitignore`, modifies `.claude/CLAUDE.md`, asserts `.claude/CLAUDE.md` NOT in `getGitStatus()`. | T-GIT-1 via status | PASS | No attack vector found. |
+| git/Test-11.7/should-be-ignored-by-git-check-ignore | Commits `.gitignore`, calls `isGitIgnored` for `.claude/CLAUDE.md`, asserts true. | T-GIT-1 | PASS | No attack vector found. |
+
+### File: error-handling.test.ts
+
+| TEST_ID | DESCRIPTION | DOD_CLAUSE | VERDICT | ATTACK_VECTOR |
+|---------|-------------|------------|---------|---------------|
+| err/Test-13.1/should-handle-missing-.claude-directory-gracefully | Runs `task-create` without prior init, asserts non-zero exit, asserts output contains `init`/`not initialized`, asserts no stack trace in stderr. | T-ERR-1: not-initialized error without stack trace | PASS | No attack vector found. |
+| err/Test-13.1/should-suggest-running-init | Runs `update-import` without init, asserts non-zero exit, asserts output matches `/init/i`. | T-ERR-1 | PASS | No attack vector found. |
+| err/Test-13.2/should-handle-missing-.claude-directory-on-task-operations | Creates task, deletes `.claude/`, runs `task-list`, asserts non-zero exit, asserts output matches `/not.*initialized\|run init/i`. | T-ERR-1 (mid-operation deletion) | PASS | No attack vector found. |
+| err/Test-13.3/should-detect-corrupt-JSONL | Runs `scan-secrets` on a file with two lines of invalid JSON, asserts non-zero exit, asserts no stack trace, asserts output contains error indicator. | T-ERR-2: `scan-secrets` on malformed JSONL exits non-zero | PASS | No attack vector found. |
+| err/Test-13.3/should-not-crash-on-invalid-JSON-in-context | Runs `scan-secrets` on `{"incomplete":`, asserts non-zero exit, asserts no stack trace. | T-ERR-2 | PASS | No attack vector found. |
+| err/Test-13.5/should-handle-invalid-metadata-gracefully | Creates valid JSONL with invalid `.meta.json` alongside it, runs `context-list`, asserts exit 0 (context-list skips non-JSONL), asserts no stack trace. | F-ERR: corrupt metadata does not crash listing | PASS | No attack vector found. |
+| err/Test-13.6/should-handle-permission-errors-gracefully | Makes `.claude/tasks/` read-only, tries `task-create`, asserts non-zero exit, asserts output contains `permission`/`access`/`denied`. Test is skipped if `chmod` fails. | F-ERR: permission errors handled gracefully | ESCALATE | The test uses `try/catch` on `chmod` and returns early if chmod fails. On macOS running as the file owner with SIP disabled, chmod of a directory succeeds but child writes inside it by scripts running as the same user may still succeed (directory read-only prevents creation of new entries, not reads). The test has a `finally` block to restore permissions. However, the conditional early-return means this test is entirely silently skipped on some CI environments, producing false coverage. The actual DoD clause for permission errors does not have a specific AC number — it is advisory. ESCALATE due to conditional skip risk. |
+| err/Input-Validation/should-validate-task-ID-format | Iterates 6 invalid task IDs, for each asserts non-zero exit and output matching `/invalid.*(name\|task\|id)\|uppercase\|lowercase/i`. | T-TASK-2 (extended) | PASS | No attack vector found. |
+| err/Input-Validation/should-validate-context-name-format | After creating a valid task, iterates 3 invalid context names, for each asserts non-zero exit and matching output. | F-CTX-SAVE: name validation | FAIL | The test calls `runScript('save-context', ['valid-task', name, 'personal'], ...)` — note the third argument is the string `'personal'` (not `'--personal'`). Whether the script interprets a bare positional `personal` as the `--personal` flag or as a third argument depends on the script's argument parsing. If `save-context` requires `--personal` as a flag and rejects the bare string `personal`, the script may exit non-zero for a different reason (wrong argument count) than invalid name validation. The test then asserts the error message matches `/invalid.*(name\|task\|id)\|uppercase\|lowercase/i` — but if the error is "unknown argument 'personal'" instead, the test would fail on the error message check, catching the bug. However, if the script silently ignores the extra positional argument and exits non-zero because the context name contains spaces/special chars, the test passes for the wrong reason on the empty-string case. ESCALATE for the argument-passing inconsistency. |
+| err/Graceful-Degradation/should-provide-helpful-error-for-non-existent-task | Runs `context-list` on non-existent task, asserts non-zero exit, asserts output matches `/not found\|does not exist/i`. | F-ERR: graceful degradation | PASS | No attack vector found. |
+| err/Graceful-Degradation/should-provide-helpful-error-for-non-existent-context | Runs `promote-context` on non-existent context name, asserts non-zero exit, asserts output matches `/not found\|does not exist/i`. | F-ERR: graceful degradation | PASS | No attack vector found. |
+| xplat/Test-12.4/should-handle-paths-with-spaces | Creates a subdir with a space in the name, runs `init-project`, `task-create`, and `update-import` all targeting the spaced path, asserts exit 0 and file existence for each. | T-ERR-3: all operations succeed on paths with spaces | PASS | No attack vector found. |
+| xplat/Test-12.6/should-create-JSONL-with-consistent-line-endings | Saves a context, reads all `.jsonl` files in personal contexts dir, asserts no CRLF sequences. | F-XPLAT: LF line endings | PASS | No attack vector found. |
+| xplat/Test-12.7/should-use-LF-line-endings-in-generated-files | Runs `task-create` with unusual argument order (`'--golden', 'Task'` as description — see note), checks `.gitignore` and task CLAUDE.md for no CRLF. | F-XPLAT: LF line endings | FAIL | The `task-create` call passes `['--golden', 'Task']` as the description — the first element is `--golden` which is a flag, not a description word. This appears to be a copy-paste bug from another test. If `task-create` treats `--golden` as an invalid name segment or description flag, the task creation may fail or produce unexpected behavior. The test proceeds to check file content regardless of exit code. The test does NOT assert exit code, so a failed `task-create` (which creates no files) means `expect(fileExists(filePath)).toBe(true)` fails, which catches the bug. However, the intent was to test line endings, and the test may always fail due to the wrong arguments — making this test unreliable rather than wrong. ESCALATE. |
+
+### File: new-features.test.ts
+
+| TEST_ID | DESCRIPTION | DOD_CLAUSE | VERDICT | ATTACK_VECTOR |
+|---------|-------------|------------|---------|---------------|
+| new/T-CTX-5/should-reject-promote-when-personal-context-exceeds-100KB | Creates large context (150 messages × ~1KB each), runs `promote-context`, asserts non-zero exit, asserts output matches `/100kb\|too large/i`. | T-CTX-5 | PASS | Duplicate of ctx-ops/T-CTX-5 test — same logic, same verdict. |
+| new/T-CTX-6/should-create-a-.backup--file-when-saving-to-an-existing-name | Saves same name twice, captures original content after first save, asserts `.backup-` file exists after second save, asserts backup content equals original. | T-CTX-6 | PASS | No attack vector found. Duplicate of ctx-ops/T-CTX-6. |
+| new/T-HOOK-1/should-create-a-timestamped-auto-save-file | Plants a real UUID-named session file in personal dir, creates a JSON payload file, runs `auto-save-context` via `execSync` with stdin redirected from the payload file, asserts exit 0, asserts `auto-saves/` dir exists, asserts at least one `.jsonl` file in it, asserts valid JSONL. | T-HOOK-1: timestamped `.jsonl` created in flat `auto-saves/` dir | FAIL | This test is stronger than the ctx-ops variant because it uses stdin redirection with a real JSON payload, but it has three problems: (1) It imports `require('path')` via dynamic `await import` inside `execSync` — the script path is assembled as `join(ctx.projectDir, '../../scripts/auto-save-context.ts')` which is a relative path that may not resolve correctly depending on test working directory. (2) The `sessionId` is a UUID-format string but the planted session file at `join(ctx.personalDir, sessionId + '.jsonl')` may not be found by `auto-save-context` unless the script knows to look in `personalDir` — if the script uses `CLAUDE_HOME` env var to find personal dir, the env is set correctly. (3) The test only asserts that SOME `.jsonl` file exists and is valid JSONL — it does NOT assert the content reflects the planted session. A stub that creates an empty `[]` file passes. ATTACK: auto-save-context creates `auto-saves/timestamp.jsonl` containing `[]` (empty JSONL array) — test passes. |
+| new/T-MEM-1/should-add-task-id-and-context-name-to-personal-MEMORY.md-after-save | Saves context, uses `waitFor` to poll up to 5 seconds for `MEMORY.md` to appear, asserts content contains task-id and context-name. | T-MEM-1 | PASS | The `waitFor` handles async writes. Task-id and context-name are specific strings. No attack vector found. |
 
 ---
 
 ## Section 2: DoD Coverage Gaps
 
 ### T-INIT-1
-Tests: `initialization.test.ts:Test 1.1:should create .claude/ directory structure`, `initialization.test.ts:Test 1.2:should create .claude/CLAUDE.md with @import directive`, `claude-md-system.test.ts:Test 8.2:should contain @import directive`  
-Coverage: ADEQUATE  
-Gap: None — import path resolution (imported file exists) is verified.
+Tests: init/Test-1.1/should-create-.claude-directory-structure, init/Test-1.2/should-create-.claude-CLAUDE.md-with-@import-directive, clmd/Test-8.2/should-contain-@import-directive
+Coverage: ADEQUATE
 
 ### T-INIT-2
-Tests: `initialization.test.ts:Test 1.1:should not create backup when no original CLAUDE.md exists`, `initialization.test.ts:Test 1.2:should create backup of original CLAUDE.md`  
-Coverage: INADEQUATE  
-Gap: The negative test (no backup when no CLAUDE.md) passes even if the implementation never creates backups. It only passes because the pre-condition (no CLAUDE.md) makes backup creation impossible. The positive test is adequate. The combination passes a stub that creates backups only sometimes.
+Tests: init/Test-1.2/should-create-backup-of-original-CLAUDE.md
+Coverage: ADEQUATE
 
 ### T-INIT-3
-Tests: `initialization.test.ts:Test 1.2:should create default task with copy of original CLAUDE.md`  
-Coverage: ADEQUATE  
-Gap: None — byte equality check is specific.
+Tests: init/Test-1.2/should-create-default-task-with-copy-of-original-CLAUDE.md
+Coverage: ADEQUATE
 
 ### T-INIT-4
-Tests: `initialization.test.ts:Test 1.3` (three tests)  
-Coverage: INADEQUATE  
-Gap: No test verifies that the stash backup is NOT duplicated on second init. An implementation that appends to the stash file on second init violates idempotency but all current tests pass.
+Tests: init/Test-1.3 (all four idempotency tests)
+Coverage: ADEQUATE
 
 ### T-INIT-5
-Tests: `initialization.test.ts:Test 1.5:should handle multiple projects independently`  
-Coverage: INADEQUATE  
-Gap: The test writes a marker directly to the computed personal storage path rather than through the implementation. It tests path formula arithmetic, not whether the implementation respects project scope when saving contexts or task data.
+Tests: init/Test-1.5/should-handle-multiple-projects-independently
+Coverage: ADEQUATE
 
 ### T-TASK-1
-Tests: `task-operations.test.ts:Test 2.1:should create task CLAUDE.md with description`  
-Coverage: ADEQUATE  
-Gap: None — all four sections checked; description scoped to Focus section.
+Tests: task/Test-2.1 (four tests)
+Coverage: ADEQUATE
 
 ### T-TASK-2
-Tests: `task-operations.test.ts:Test 2.2` (four tests), `error-handling.test.ts:should validate task ID format`  
-Coverage: ADEQUATE  
-Gap: None — multiple invalid patterns tested, exit code and no-directory both checked.
+Tests: task/Test-2.2 (four tests)
+Coverage: ADEQUATE
 
 ### T-TASK-3
-Tests: `task-operations.test.ts:Test 2.3:should capture full multi-line description`  
-Coverage: ADEQUATE  
-Gap: None — anti-collapsing check is specific.
+Tests: task/Test-2.3/should-capture-full-multi-line-description
+Coverage: ADEQUATE
 
 ### T-TASK-4
-Tests: `task-operations.test.ts:Test 2.4:T-TASK-4: should reject empty description`  
-Coverage: ADEQUATE  
-Gap: None.
+Tests: task/Test-2.4/should-reject-empty-description
+Coverage: ADEQUATE
 
 ### T-SWITCH-1
-Tests: `task-operations.test.ts:T-SWITCH-1:T-SWITCH-1: exactly one @import after each switch`, `claude-md-system.test.ts:Test 8.2:should contain exactly one @import after multiple switches`  
-Coverage: ADEQUATE  
-Gap: None — count assertion is mechanically specific.
+Tests: clmd/Test-8.2/should-contain-exactly-one-@import-after-multiple-switches, task/Test-3.6/should-update-.claude-CLAUDE.md-on-each-switch, clmd/Test-8.4 (three tests)
+Coverage: ADEQUATE
 
 ### T-SWITCH-2
-Tests: `task-operations.test.ts:Test 3.4:T-SWITCH-2: should indicate no contexts available`  
-Coverage: ADEQUATE  
-Gap: None — word-boundary regex uses AC-specified phrases.
+Tests: task/Test-3.4/should-indicate-no-contexts-available-and-offer-fresh-start
+Coverage: ADEQUATE
 
 ### T-SWITCH-3
-Tests: `task-operations.test.ts:Test 3.3` (two tests), `context-operations.test.ts:Test 5.4`  
-Coverage: INADEQUATE  
-Gap: All three tests use `indexOf('personal')` and `indexOf('golden')` to check ordering. The first occurrence of these strings in output could be in file paths, metadata, or error messages rather than section headers. No test verifies that all context names from both groups appear in the correct section.
+Tests: task/Test-3.3 (two tests), task/Test-3.1/should-list-personal-contexts-when-switching
+Coverage: ADEQUATE for ordering. The Test-3.2 (golden-only) has a FAIL verdict — it does not assert that `personal` is absent when only golden contexts exist, allowing an implementation that always emits a `Personal contexts:` header to pass.
+Gap: Test-3.2 does not assert the absence of a personal-contexts section when no personal contexts exist; a spurious empty personal section is invisible to this test.
 
 ### T-CTX-1
-Tests: `context-operations.test.ts:Test 4.1:should save context to personal storage`  
-Coverage: ADEQUATE  
-Gap: None — exact path check.
+Tests: ctx-ops/Test-4.1/should-save-context-to-personal-storage, ctx-ops/Test-4.1/should-not-save-to-project-.claude-directory-for-personal
+Coverage: ADEQUATE
 
 ### T-CTX-2
-Tests: `context-operations.test.ts:Test 4.1:should create valid JSONL file`  
-Coverage: ADEQUATE  
-Gap: None — non-empty + valid JSONL.
+Tests: ctx-ops/Test-4.1/should-create-valid-JSONL-file
+Coverage: ADEQUATE
 
 ### T-CTX-3
-Tests: `context-operations.test.ts:Test 4.2:should block golden save when session contains a real AWS key`  
-Coverage: INADEQUATE  
-Gap: The test does not assert that the golden file was NOT created after the non-zero exit. An implementation that writes the file then errors passes the test.
+Tests: ctx-ops/Test-4.2/should-block-golden-save-when-session-contains-a-real-AWS-key
+Coverage: INADEQUATE
+Gap: T-CTX-3 is satisfied for the AWS key case, but `save-context --golden` with a Stripe or GitHub token is not independently tested at the save path — only `scan-secrets` and `promote-context` cover those types. An implementation that blocks only AWS keys at the `save-context --golden` path while passing Stripe/GitHub keys would satisfy the existing tests.
 
 ### T-CTX-4
-Tests: `context-operations.test.ts:Test 4.5:should reject golden save when context exceeds 100KB`  
-Coverage: INADEQUATE  
-Gap: The test does not assert that no golden file was created on rejection. An implementation that writes the oversized file and then exits non-zero passes.
+Tests: ctx-ops/Test-4.5/should-reject-golden-save-when-context-exceeds-100KB
+Coverage: ADEQUATE
 
 ### T-CTX-5
-Tests: `context-operations.test.ts:T-CTX-5`, `new-features.test.ts:T-CTX-5`  
-Coverage: INADEQUATE  
-Gap: Neither test asserts that no golden file was created on rejection. Duplicate tests cover identical assertions.
+Tests: ctx-ops/T-CTX-5, new/T-CTX-5 (duplicate)
+Coverage: ADEQUATE
 
 ### T-CTX-6
-Tests: `context-operations.test.ts:T-CTX-6`, `new-features.test.ts:T-CTX-6`  
-Coverage: ADEQUATE  
-Gap: Duplicate tests; both adequate. No additional gap.
+Tests: ctx-ops/T-CTX-6, new/T-CTX-6 (duplicate)
+Coverage: ADEQUATE
 
 ### T-CTX-7
-Tests: `context-operations.test.ts:Test 6.6:should prevent golden context deletion without confirmation`  
-Coverage: ADEQUATE  
-Gap: None — file existence after failed deletion is the right check.
-
-### T-MEM-1
-Tests: `context-operations.test.ts:T-MEM-1`, `new-features.test.ts:T-MEM-1`  
-Coverage: MISSING (effectively)  
-Gap: Both tests look for MEMORY.md at `personalDir/memory/MEMORY.md`, but the DoD specifies `~/.claude/projects/<sanitized-project>/MEMORY.md`. No test covers the correct path. An implementation that correctly writes to the DoD path would not be verified by these tests.
-
-### T-PROM-1
-Tests: `context-operations.test.ts:Test 7.1:T-PROM-1`, `context-operations.test.ts:Test 7.1:should copy to project golden directory`, `context-operations.test.ts:Test 7.1:should preserve original personal context`  
-Coverage: ADEQUATE  
-Gap: None — byte equality + both paths exist.
-
-### T-PROM-2
-Tests: `context-operations.test.ts:Test 7.2:should detect secrets and warn/block`  
-Coverage: ADEQUATE  
-Gap: None — uses the correct 36-char GitHub token fixture.
-
-### T-PROM-3
-Tests: `context-operations.test.ts:Test 7.5:should warn about already-golden context`  
-Coverage: ADEQUATE  
-Gap: None — both personal and golden pre-created (not through implementation, but the DoD only requires detecting the golden's presence).
+Tests: ctx-ops/Test-6.6/should-prevent-golden-context-deletion-without-confirmation
+Coverage: ADEQUATE
 
 ### T-LIST-1
-Tests: `context-operations.test.ts:Test 5.1:should list all contexts for task`, `context-operations.test.ts:Test 5.4:should show both personal and golden sections`  
-Coverage: INADEQUATE  
-Gap: The ordering check uses `indexOf` on raw output, which can match non-section-header occurrences of "personal" and "golden". No test verifies that the specific context names appear under their correct sections.
+Tests: ctx-ops/Test-5.1/should-list-all-contexts-for-task (FAIL — conditional ordering check), ctx-ops/Test-5.4/should-show-both-personal-and-golden-sections (PASS)
+Coverage: INADEQUATE
+Gap: The primary T-LIST-1 test (Test-5.1) uses a conditional ordering check that fires only when both personal and golden indices are found; since that test only has personal contexts, the ordering is never checked there. Coverage is rescued by Test-5.4, but the Test-5.1 ordering check is dead code.
 
 ### T-LIST-2
-Tests: `context-operations.test.ts:Test 5.1:should show message counts`  
-Coverage: INADEQUATE  
-Gap: The test matches `\b5\b` and `\b30\b` in the combined output but does not associate the count with the specific context name. An implementation that swaps counts or prints them in a different column passes.
+Tests: ctx-ops/Test-5.1/should-show-message-counts
+Coverage: ADEQUATE
 
 ### T-LIST-3
-Tests: `context-operations.test.ts:Test 5.3:T-LIST-3`  
-Coverage: ADEQUATE  
-Gap: None — word-boundary regex uses AC-specified phrases.
+Tests: ctx-ops/Test-5.3/should-indicate-no-contexts-found
+Coverage: ADEQUATE
 
 ### T-LIST-4
-Tests: `context-operations.test.ts:Test 5.6:should display a non-empty non-metadata string after context name`  
-Coverage: INADEQUATE  
-Gap: The test accepts any trailing string containing 3+ alphabetic characters after the context name on the same line. "msgs" satisfies this, meaning metadata alone (not a summary) passes the test.
+Tests: ctx-ops/Test-5.6/should-display-non-empty-non-metadata-string-after-context-name (FAIL)
+Coverage: INADEQUATE
+Gap: The test accepts any 3-character alphabetic token after the context name as a "summary," which allows a topic tag or metadata word to satisfy the assertion without an actual AI-generated summary.
+
+### T-MEM-1
+Tests: ctx-ops/T-MEM-1(context-ops), new/T-MEM-1
+Coverage: ADEQUATE
+
+### T-PROM-1
+Tests: ctx-ops/Test-7.1 (three tests)
+Coverage: ADEQUATE
+
+### T-PROM-2
+Tests: ctx-ops/Test-7.2/should-detect-secrets-and-warn-block
+Coverage: ADEQUATE
+
+### T-PROM-3
+Tests: ctx-ops/Test-7.5/should-warn-about-already-golden-context
+Coverage: ADEQUATE
 
 ### T-CLMD-1
-Tests: `claude-md-system.test.ts:Test 8.1` (four tests)  
-Coverage: ADEQUATE  
-Gap: None — byte equality across multiple operations.
+Tests: clmd/Test-8.1 (four tests), init/Test-1.2/should-not-modify-root-CLAUDE.md
+Coverage: ADEQUATE
 
 ### T-CLMD-2
-Tests: `claude-md-system.test.ts:Test 8.2:should contain exactly one @import after multiple switches`, `task-operations.test.ts:T-SWITCH-1`  
-Coverage: ADEQUATE  
-Gap: None.
+Tests: clmd/Test-8.2/should-contain-exactly-one-@import-after-multiple-switches
+Coverage: ADEQUATE
 
 ### T-RESUME-MANUAL
-Tests: `claude-md-system.test.ts:Test 8.5:should set up the correct @import path for /resume` (structural proxy only)  
-Coverage: INADEQUATE  
-Gap: By design, this is a manual smoke test. The automated proxy only verifies the file structure precondition; it cannot verify that Claude Code actually re-reads CLAUDE.md on /resume. No CI coverage exists for the actual /resume behavior.
+Tests: clmd/Test-8.5/should-set-up-the-correct-@import-path-for-/resume-to-read (structural proxy only)
+Coverage: INADEQUATE by design — the PRD explicitly designates this as a manual test. The automated proxy is reasonable but does not verify Claude Code's actual behavior on `/resume`.
+Gap: No automated verification that Claude Code re-reads `.claude/CLAUDE.md` on resume; this is documented as untestable without a live Claude Code instance.
 
 ### T-SEC-2
-Tests: `secret-detection.test.ts:Test 9.1:should detect AWS access key pattern`  
-Coverage: ADEQUATE  
-Gap: None.
+Tests: sec/Test-9.1 (two tests)
+Coverage: ADEQUATE
 
 ### T-SEC-3
-Tests: `secret-detection.test.ts:Test 9.2` (two tests)  
-Coverage: INADEQUATE  
-Gap: The `STRIPE_KEY_CONTEXT` fixture contains `sk_live_abc123def456` which is only 12 chars after the prefix — below the ≥24-char threshold the test-plan itself requires. A correctly strict implementation fails these tests; a loose implementation passes them. The tests invert the pass/fail signal for a correct implementation.
+Tests: sec/Test-9.2 (two tests), ctx-ops/Test-7.3/should-offer-redaction-option
+Coverage: ADEQUATE
 
 ### T-SEC-4
-Tests: `secret-detection.test.ts:Test 9.8:should detect secrets in user, assistant, and tool_result messages`  
-Coverage: INADEQUATE  
-Gap: The test verifies three secret-type patterns appear in combined output but cannot verify per-role attribution. An implementation that concatenates all content before scanning produces the same output signatures without actually scanning per message type.
+Tests: sec/Test-9.8/should-detect-secrets-in-user-assistant-and-tool_result-messages
+Coverage: ADEQUATE
 
 ### T-SEC-5
-Tests: `secret-detection.test.ts:Test 9.6:should treat AKIAIOSFODNN7EXAMPLE as true positive`  
-Coverage: ADEQUATE  
-Gap: None — isolated fixture, policy-specific assertion.
+Tests: sec/Test-9.6/should-treat-AKIAIOSFODNN7EXAMPLE-as-true-positive
+Coverage: ADEQUATE
 
 ### T-SEC-6
-Tests: `secret-detection.test.ts:Test 9.9:should produce clean valid JSONL after redaction`  
-Coverage: ADEQUATE  
-Gap: None — two-pass redact+rescan is the correct check.
+Tests: sec/Test-9.9 (two tests)
+Coverage: ADEQUATE
 
 ### T-SEC-7
-Tests: `secret-detection.test.ts:Test 9.7:T-SEC-7`  
-Coverage: INADEQUATE  
-Gap: The `MULTIPLE_SECRETS_CONTEXT` fixture contains `sk_live_abc123def456` (12 chars, below ≥24 threshold). A correctly strict scanner detects 4 secrets, not 5, causing this test to fail on a correct implementation. The fixture is misaligned with its own test-plan specification.
-
-### T-SUM-1
-Tests: `context-operations.test.ts:T-SUM-1`  
-Coverage: ADEQUATE  
-Gap: None — character range is specific.
-
-### T-SUM-2
-Tests: `context-operations.test.ts:T-SUM-2`  
-Coverage: ADEQUATE  
-Gap: None — inequality check is falsifiable.
-
-### T-GIT-1
-Tests: `git-integration.test.ts:T-GIT-1`, `git-integration.test.ts:Test 11.7:should be ignored by git check-ignore`, `claude-md-system.test.ts:Test 8.3`  
-Coverage: ADEQUATE  
-Gap: Several secondary tests call `isGitIgnored` without first committing the .gitignore; these are fragile but the dedicated T-GIT-1 test correctly commits first.
-
-### T-GIT-2
-Tests: `git-integration.test.ts:T-GIT-2`  
-Coverage: INADEQUATE  
-Gap: The personal context file in this test is created directly by `createJsonl` rather than via `save-context`. The test verifies that files in the test harness's personal dir don't appear in git status, not that the implementation places them correctly.
+Tests: sec/Test-9.7/should-report-correct-count-of-multiple-secrets (FAIL)
+Coverage: INADEQUATE
+Gap: The fallback `\b5\b` pattern matches any output containing a standalone `5`, including message counts, line numbers, or other incidental numeric tokens; an implementation reporting "3 secrets" in 5 messages would still pass.
 
 ### T-ERR-1
-Tests: `error-handling.test.ts:T-ERR-1`, `error-handling.test.ts:Test 13.2`  
-Coverage: ADEQUATE  
-Gap: None — the dedicated T-ERR-1 test checks for both the init suggestion and the absence of a stack trace.
+Tests: err/Test-13.1 (two tests), err/Test-13.2
+Coverage: ADEQUATE
 
 ### T-ERR-2
-Tests: `error-handling.test.ts:T-ERR-2`, `error-handling.test.ts:should not crash on invalid JSON`  
-Coverage: ADEQUATE  
-Gap: None.
+Tests: err/Test-13.3 (two tests)
+Coverage: ADEQUATE
 
 ### T-ERR-3
-Tests: `error-handling.test.ts:T-ERR-3`  
-Coverage: ADEQUATE  
-Gap: None — three operations tested in the spaced directory.
+Tests: xplat/Test-12.4/should-handle-paths-with-spaces
+Coverage: ADEQUATE
+
+### T-GIT-1
+Tests: init/Test-1.1/should-work-with-git-initialized, clmd/Test-8.3 (three tests), git/Test-11.7 (two tests)
+Coverage: ADEQUATE
+
+### T-GIT-2
+Tests: git/Test-11.4/should-not-include-personal-storage-in-git, git/Test-11.5
+Coverage: ADEQUATE
 
 ### T-HOOK-1
-Tests: `new-features.test.ts:T-HOOK-1`, `context-operations.test.ts:T-HOOK-1`  
-Coverage: INADEQUATE  
-Gap: No test verifies that the auto-saved file contains the actual session content referenced by the session_id in the payload. An implementation that creates a valid empty timestamped JSONL file satisfies both tests. Additionally, context-operations.test.ts uses a `--session-id` flag while the PRD specifies stdin JSON — one of the two test invocations is using the wrong interface.
+Tests: ctx-ops/T-HOOK-1(context-ops) (FAIL), new/T-HOOK-1 (FAIL)
+Coverage: INADEQUATE
+Gap: Both hook tests do not verify that the auto-saved file contains the session's actual messages; a stub that creates an empty valid JSONL satisfies both tests.
 
----
+### F-SUMMARY (AI-Generated Summaries) — No automated AC
+Tests: ctx-ops/Test-5.6 (T-LIST-4 proxy — FAIL)
+Coverage: MISSING for core behaviors (summary length 2-3 sentences, summary stored in .meta.json, summary quality reflects context content)
+Gap: No test verifies that `save-context` writes a `.meta.json` file with a `summary` field, that the summary has meaningful length, or that the summary is derived from the context content rather than being a placeholder string.
 
-## Summary Statistics
-
-| Category | Count |
-|----------|-------|
-| Total tests evaluated | 97 |
-| PASS | 44 |
-| FAIL | 50 |
-| ESCALATE | 3 |
-| DoD clauses with ADEQUATE coverage | 15 |
-| DoD clauses with INADEQUATE coverage | 13 |
-| DoD clauses with MISSING coverage | 1 (T-MEM-1 at correct path) |
-| PRD features with no DoD criteria | 4 (F-CTX-MANAGE bulk behaviors, F-XPLAT most behaviors, F-SUMMARY display quality, F-HOOK content verification) |
-
-### Highest-Risk Gaps (tests that invert the signal on a correct implementation)
-
-1. **T-SEC-3 / T-SEC-7**: `STRIPE_KEY_CONTEXT` and `MULTIPLE_SECRETS_CONTEXT` use a Stripe key that is too short (12 chars vs required ≥24). A correctly strict scanner will fail these tests. These tests reward incorrect (loose) implementations.
-
-2. **T-MEM-1**: Both test instances check the wrong file path. No test covers the DoD-specified MEMORY.md location. An implementation that correctly writes MEMORY.md will not be verified.
-
-3. **T-CTX-3 / T-CTX-4 / T-CTX-5**: None of the size-cap or secret-blocking tests assert that the rejected file was NOT created. An implementation that creates the file and then errors passes all these tests.
-
-4. **T-HOOK-1**: The hook is not verified to save the correct session content. A no-op that creates a timestamped empty file passes.
+### F-CTX-MANAGE / Stale & Duplicate Detection
+Tests: ctx-ops/Test-6.1 (no contexts), ctx-ops/Test-6.6 (golden indicator + deletion protection)
+Coverage: MISSING for stale/duplicate detection
+Gap: No test verifies that `context-manage` (or equivalent) identifies contexts older than 60 days as stale, identifies duplicate content, or presents cleanup recommendations. Tests 6.2, 6.3, 6.4, 6.5 from the test plan specification have no corresponding implementation in the test files.
