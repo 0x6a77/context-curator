@@ -201,9 +201,10 @@ describe('Secret Detection Tests (Group 9)', () => {
       const result = await runScript('scan-secrets', [contextPath], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       expect(result.exitCode).not.toBe(0);
-      // T-SEC-7: count must match \b5\b — not a broad \d+ match.
-      // Conditional fallbacks are banned per test-plan quality rules.
-      expect(result.stdout).toMatch(/\b5\b/);
+      // T-SEC-7: '5' must appear specifically as a secret count, not just any standalone 5.
+      // Pattern requires 5 to be adjacent to 'secret(s)' to prevent false matches on
+      // unrelated numbers in scan output (e.g. "5 messages scanned").
+      expect(result.stdout).toMatch(/\b5\b.*secret|secret.*\b5\b|found\s+5\s+|5\s+secrets?\s+found/i);
     });
   });
 

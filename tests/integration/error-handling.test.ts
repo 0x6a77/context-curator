@@ -214,7 +214,7 @@ describe('Error Handling Tests (Group 13)', () => {
       for (const name of invalidNames) {
         const result = await runScript(
           'save-context',
-          ['valid-task', name, 'personal'],
+          ['valid-task', name, '--personal'],
           ctx.projectDir
         );
         

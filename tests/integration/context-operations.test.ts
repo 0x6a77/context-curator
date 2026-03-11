@@ -138,6 +138,44 @@ describe('Context Saving Tests (Group 4)', () => {
       expect(output.includes('scan') || output.includes('secret')).toBe(true);
     });
 
+    // T-CTX-3: secret scan blocks golden save for Stripe live keys
+    it('should block golden save when session contains a Stripe live key', async () => {
+      createJsonl(join(ctx.personalDir, 'current-session.jsonl'), STRIPE_KEY_CONTEXT);
+
+      const result = await runScript(
+        'save-context',
+        ['save-test', 'stripe-golden', '--golden'],
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
+      );
+
+      expect(result.exitCode).not.toBe(0);
+      const output = (result.stdout + result.stderr).toLowerCase();
+      expect(output).toMatch(/stripe|sk_live/);
+      // T-CTX-3: secret scan must BLOCK file creation
+      const blockedPath = join(ctx.projectDir, '.claude', 'tasks', 'save-test', 'contexts', 'stripe-golden.jsonl');
+      expect(fileExists(blockedPath)).toBe(false);
+    });
+
+    // T-CTX-3: secret scan blocks golden save for GitHub tokens
+    it('should block golden save when session contains a GitHub token', async () => {
+      createJsonl(join(ctx.personalDir, 'current-session.jsonl'), GITHUB_TOKEN_CONTEXT);
+
+      const result = await runScript(
+        'save-context',
+        ['save-test', 'github-golden', '--golden'],
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
+      );
+
+      expect(result.exitCode).not.toBe(0);
+      const output = (result.stdout + result.stderr).toLowerCase();
+      expect(output).toMatch(/github|ghp_/);
+      // T-CTX-3: secret scan must BLOCK file creation
+      const blockedPath = join(ctx.projectDir, '.claude', 'tasks', 'save-test', 'contexts', 'github-golden.jsonl');
+      expect(fileExists(blockedPath)).toBe(false);
+    });
+
     // FIX 4: T-CTX-3: secret scan blocks golden save
     it('should block golden save when session contains a real AWS key', async () => {
       createJsonl(join(ctx.personalDir, 'current-session.jsonl'), AWS_KEY_CONTEXT);
@@ -276,13 +314,11 @@ describe('Context Listing Tests (Group 5)', () => {
       expect(output).toContain('ctx-1');
       expect(output).toContain('ctx-2');
 
-      // Fix 20: T-LIST-1: if both personal and golden are present, personal must appear before golden
+      // T-LIST-1: this test has personal contexts only (no golden) so only personal section appears
       const outputLower = output.toLowerCase();
-      const personalIdx = outputLower.indexOf('personal');
-      const goldenIdx = outputLower.indexOf('golden');
-      if (personalIdx >= 0 && goldenIdx >= 0) {
-        expect(personalIdx).toBeLessThan(goldenIdx);
-      }
+      expect(outputLower).toContain('personal');
+      // No golden contexts exist in this test setup, so 'golden' must not appear
+      expect(outputLower).not.toContain('golden');
     });
 
     // T-LIST-2: word-boundary regex for message counts
@@ -374,8 +410,9 @@ describe('Context Listing Tests (Group 5)', () => {
       const nameIdx = contextLine!.indexOf('summary-ctx');
       const afterName = contextLine!.slice(nameIdx + 'summary-ctx'.length).trim();
       expect(afterName.length).toBeGreaterThan(0);
-      // Must contain alphabetic characters (a summary string, not just a timestamp or number)
-      expect(afterName).toMatch(/[a-zA-Z]{3,}/);
+      // Must contain a word with 4+ alpha chars — rules out single 3-char tokens
+      // like "msg" while accepting the actual output format ("msgs", "just", "msgs").
+      expect(afterName).toMatch(/[a-zA-Z]{4,}/);
     });
   });
 });
@@ -422,11 +459,18 @@ describe('Context Management Tests (Group 6)', () => {
       // FIX 12: drop 'team' branch
       expect(result.exitCode).toBe(0);
       const output = result.stdout;
-      const hasGoldenStar = output.includes('⭐');
-      const hasGoldenLabel = output.toLowerCase().includes('golden');
+      // list-all-contexts writes human-readable output (with ⭐) to stderr, JSON to stdout.
+      // Must check stderr for the golden indicator.
+      const humanOutput = result.stderr;
+      expect(humanOutput).toContain('golden-ctx');
+      // ⭐ or a 'golden' section label must appear on the SAME LINE as 'golden-ctx'.
+      const contextLine = humanOutput.split('\n').find(line => line.includes('golden-ctx'));
+      expect(contextLine).toBeDefined();
+      const hasGoldenStar = contextLine!.includes('⭐');
+      // Strip the context name so 'golden' in 'golden-ctx' doesn't count as the section label
+      const lineWithoutCtxName = contextLine!.replace('golden-ctx', '');
+      const hasGoldenLabel = lineWithoutCtxName.toLowerCase().includes('golden');
       expect(hasGoldenStar || hasGoldenLabel).toBe(true);
-      // The context name must appear
-      expect(output).toContain('golden-ctx');
     });
 
     // T-CTX-7: deletion protection test
@@ -721,6 +765,7 @@ describe('PreCompact Hook Auto-Save (T-HOOK-1)', () => {
     expect(savedFile).toBeDefined();
     const savedPath = join(autoSaveDir, savedFile!);
     expect(isValidJsonl(savedPath)).toBe(true);
+    // T-HOOK-1: file must be valid JSONL (empty is acceptable when no live session data exists)
   });
 });
 

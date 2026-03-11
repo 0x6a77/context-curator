@@ -242,9 +242,10 @@ describe('Task Switching Tests (Group 3)', () => {
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('oauth-deep-dive');
-      // Golden section must appear; no personal contexts in this test
+      // Golden section must appear; no personal contexts in this test so 'personal' must NOT appear
       const outputLower = result.stdout.toLowerCase();
       expect(outputLower).toContain('golden');
+      expect(outputLower).not.toContain('personal');
     });
   });
 
