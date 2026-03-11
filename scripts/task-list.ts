@@ -7,9 +7,17 @@
  */
 
 import fs from 'fs/promises';
+import path from 'path';
 import { listTasks, listContexts, getCurrentTask, formatDate, fileExists } from '../src/utils.js';
 
 async function main() {
+  const cwd = process.cwd();
+  const claudeDir = path.join(cwd, '.claude');
+  if (!await fileExists(claudeDir)) {
+    console.error('❌ Not initialized. Run init-project first.');
+    process.exit(1);
+  }
+
   const taskId = process.argv[2];
   const currentTask = await getCurrentTask();
   

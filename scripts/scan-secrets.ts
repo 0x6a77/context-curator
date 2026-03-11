@@ -47,8 +47,20 @@ async function main() {
   
   try {
     const content = await fs.readFile(filePath, 'utf-8');
+
+    // Validate JSONL — reject corrupt files with a clean error
+    const lines = content.split('\n').filter(l => l.trim() !== '');
+    for (let i = 0; i < lines.length; i++) {
+      try {
+        JSON.parse(lines[i]);
+      } catch {
+        console.error(`❌ Invalid JSON on line ${i + 1}: malformed JSONL file`);
+        process.exit(1);
+      }
+    }
+
     const matches = scanForSecrets(content);
-    
+
     if (matches.length === 0) {
       console.log('clean');
     } else {

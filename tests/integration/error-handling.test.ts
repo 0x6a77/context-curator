@@ -147,8 +147,11 @@ describe('Error Handling Tests (Group 13)', () => {
     });
 
     it('should handle permission errors gracefully', async () => {
+      // Skip when running as root — root bypasses read-only directory restrictions
+      if (process.getuid && process.getuid() === 0) return;
+
       const tasksDir = join(ctx.projectDir, '.claude', 'tasks');
-      
+
       // Make directory read-only (skip on Windows or if not possible)
       try {
         chmodSync(tasksDir, 0o444);

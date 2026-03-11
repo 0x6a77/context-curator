@@ -3,7 +3,7 @@
  */
 
 import { execSync, spawn } from 'child_process';
-import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync, mkdirSync, realpathSync } from 'fs';
 import { join, resolve } from 'path';
 import { tmpdir } from 'os';
 
@@ -35,8 +35,10 @@ export function sanitizePath(path: string): string {
  * Create an isolated test environment with its own project and personal directories
  */
 export function createTestEnvironment(name: string = 'test'): TestContext {
-  const projectDir = mkdtempSync(join(tmpdir(), `cc-test-${name}-`));
-  const personalBase = mkdtempSync(join(tmpdir(), `cc-personal-${name}-`));
+  // realpathSync resolves macOS /tmp→/private/tmp symlink so that mkdtemp
+  // result matches what subprocess process.cwd() returns.
+  const projectDir = realpathSync(mkdtempSync(join(tmpdir(), `cc-test-${name}-`)));
+  const personalBase = realpathSync(mkdtempSync(join(tmpdir(), `cc-personal-${name}-`)));
   const sanitizedProject = sanitizePath(projectDir);
   const personalDir = join(personalBase, 'projects', sanitizedProject);
   mkdirSync(personalDir, { recursive: true });

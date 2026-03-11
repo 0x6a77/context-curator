@@ -215,8 +215,13 @@ const positionalArgs = args.filter(arg => !arg.startsWith('--') && arg !== sessi
 
 const [taskId, contextName] = positionalArgs;
 
-if (!taskId || !contextName) {
-  console.error('Usage: save-context <task-id> <context-name> [--golden|--personal] [--session-id <uuid>]');
+if (!taskId || !taskId.trim()) {
+  console.error('❌ Invalid task ID: cannot be empty');
+  process.exit(1);
+}
+if (!contextName || !contextName.trim()) {
+  console.error('❌ Invalid context name: cannot be empty');
+  console.error('   Use lowercase letters, numbers, and hyphens only');
   process.exit(1);
 }
 

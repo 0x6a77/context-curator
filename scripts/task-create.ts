@@ -21,8 +21,18 @@ async function main() {
   const taskId = positional[0];
   const description = positional[1] ?? '';
 
-  if (!taskId) {
-    console.error('Usage: task-create <task-id> <description> [--personal]');
+  const cwd = process.cwd();
+
+  if (!taskId || !taskId.trim()) {
+    console.error('❌ Invalid task ID: cannot be empty');
+    console.error('   Use lowercase letters, numbers, and hyphens only');
+    process.exit(1);
+  }
+
+  // Require .claude/ to exist (project must be initialized first)
+  const claudeDir = path.join(cwd, '.claude');
+  if (!await fileExists(claudeDir)) {
+    console.error('❌ Not initialized. Run init-project first.');
     process.exit(1);
   }
 
@@ -42,7 +52,6 @@ async function main() {
   }
 
   // Determine target directory
-  const cwd = process.cwd();
   const tasksDir = isPersonal ? getPersonalTasksDir(cwd) : getGoldenTasksDir(cwd);
   const taskDir = path.join(tasksDir, taskId);
   const claudeMdPath = path.join(taskDir, 'CLAUDE.md');
