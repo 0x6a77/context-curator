@@ -293,14 +293,15 @@ describe('Context Listing Tests (Group 5)', () => {
   });
 
   describe('Test 5.3: List When No Contexts Exist', () => {
-    it('should indicate no contexts found', async () => {
+    it('T-LIST-3: should indicate no contexts found using one of the AC-specified phrases', async () => {
       await runScript('task-create', ['no-contexts', 'Empty task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const result = await runScript('context-list', ['no-contexts'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
-      const output = result.stdout.toLowerCase();
-      // FIX 9: specific pattern match (DoD allows "no contexts", "empty", or "fresh")
-      expect(output).toMatch(/no contexts|empty|fresh/i);
+      expect(result.exitCode).toBe(0);
+      // T-LIST-3: output must contain one of exactly the three AC-specified phrases with word boundaries.
+      // Broad /empty/ (without word boundary) is banned — it matches unrelated words.
+      expect(result.stdout).toMatch(/\bfresh\b|\bempty\b|\bno contexts\b/i);
     });
   });
 
@@ -462,7 +463,8 @@ describe('Context Promotion Tests (Group 7)', () => {
       createJsonl(join(personalDir, 'clean-ctx.jsonl'), CLEAN_CONTEXT);
     });
 
-    it('should successfully promote clean context', async () => {
+    // T-PROM-1: after promote-context, both personal original and golden copy exist; contents byte-for-byte identical
+    it('T-PROM-1: should successfully promote clean context', async () => {
       const result = await runScript(
         'promote-context',
         ['promote-test', 'clean-ctx'],
@@ -691,5 +693,90 @@ describe('PreCompact Hook Auto-Save (T-HOOK-1)', () => {
     expect(savedFile).toBeDefined();
     const savedPath = join(autoSaveDir, savedFile!);
     expect(isValidJsonl(savedPath)).toBe(true);
+  });
+});
+
+// ==========================================================================
+// T-SUM-1 and T-SUM-2: AI-Generated Summary Tests
+//
+// These ACs require that save-context generates and stores a summary string
+// in a .meta.json file alongside the saved .jsonl context.
+// The current implementation does NOT generate summaries — no .meta.json is
+// written by save-context. These tests document the gap and will pass once
+// the feature is implemented.
+// ==========================================================================
+
+describe('T-SUM-1 and T-SUM-2: AI-Generated Summary Tests', () => {
+  let ctx: TestContext;
+
+  beforeEach(async () => {
+    ctx = createTestEnvironment('summary');
+    writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test Project\n');
+    await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    await runScript('task-create', ['sum-task', 'Summary tests'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+  });
+
+  afterEach(() => {
+    ctx.cleanup();
+  });
+
+  // T-SUM-1: A saved context's summary must be between 20 and 500 characters.
+  // Requires save-context to write a .meta.json with a "summary" field.
+  it('T-SUM-1: saved context meta.json must contain a summary between 20 and 500 characters', async () => {
+    createJsonl(join(ctx.personalDir, 'current-session.jsonl'), SMALL_CONTEXT);
+
+    const result = await runScript(
+      'save-context',
+      ['sum-task', 'sum-ctx-1', '--personal'],
+      ctx.projectDir,
+      { CLAUDE_HOME: ctx.personalBase }
+    );
+    expect(result.exitCode).toBe(0);
+
+    const metaPath = join(ctx.personalDir, 'tasks', 'sum-task', 'contexts', 'sum-ctx-1.meta.json');
+    expect(fileExists(metaPath)).toBe(true);
+
+    const meta = JSON.parse(readFile(metaPath));
+    expect(typeof meta.summary).toBe('string');
+    expect(meta.summary.length).toBeGreaterThanOrEqual(20);
+    expect(meta.summary.length).toBeLessThanOrEqual(500);
+  });
+
+  // T-SUM-2: Two contexts from clearly different conversations must produce
+  // different summary strings — summaries must not be hardcoded.
+  // Requires save-context to write a .meta.json with a "summary" field.
+  it('T-SUM-2: two contexts from different conversations must produce different summary strings', async () => {
+    // Save first context (auth topic)
+    createJsonl(join(ctx.personalDir, 'current-session.jsonl'), SMALL_CONTEXT);
+    const r1 = await runScript(
+      'save-context',
+      ['sum-task', 'sum-ctx-auth', '--personal'],
+      ctx.projectDir,
+      { CLAUDE_HOME: ctx.personalBase }
+    );
+    expect(r1.exitCode).toBe(0);
+
+    // Save second context (database migration topic)
+    const { createMediumContext } = await import('../fixtures/sample-contexts');
+    createJsonl(join(ctx.personalDir, 'current-session.jsonl'), createMediumContext());
+    const r2 = await runScript(
+      'save-context',
+      ['sum-task', 'sum-ctx-db', '--personal'],
+      ctx.projectDir,
+      { CLAUDE_HOME: ctx.personalBase }
+    );
+    expect(r2.exitCode).toBe(0);
+
+    const metaAuth = join(ctx.personalDir, 'tasks', 'sum-task', 'contexts', 'sum-ctx-auth.meta.json');
+    const metaDb = join(ctx.personalDir, 'tasks', 'sum-task', 'contexts', 'sum-ctx-db.meta.json');
+
+    expect(fileExists(metaAuth)).toBe(true);
+    expect(fileExists(metaDb)).toBe(true);
+
+    const summaryAuth = JSON.parse(readFile(metaAuth)).summary as string;
+    const summaryDb = JSON.parse(readFile(metaDb)).summary as string;
+
+    // T-SUM-2: summaries must not be identical (not hardcoded)
+    expect(summaryAuth).not.toBe(summaryDb);
   });
 });

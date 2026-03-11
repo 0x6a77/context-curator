@@ -34,7 +34,8 @@ describe('Error Handling Tests (Group 13)', () => {
   });
 
   describe('Test 13.1: Run /task Without Initialization', () => {
-    it('should handle missing .claude directory gracefully', async () => {
+    // T-ERR-1: Any script run without init exits non-zero with output containing "initialized" or "init" — not a stack trace
+    it('T-ERR-1: should handle missing .claude directory gracefully', async () => {
       // Don't run init-project
       const result = await runScript('task-create', ['some-task', 'desc'], ctx.projectDir);
 
@@ -83,8 +84,8 @@ describe('Error Handling Tests (Group 13)', () => {
       await runScript('task-create', ['task-1', 'Task'], ctx.projectDir);
     });
 
-    // Fix 37: Strengthen stack trace check and add error message assertion
-    it('should detect corrupt JSONL', async () => {
+    // T-ERR-2: scan-secrets on malformed JSONL exits non-zero (not 0)
+    it('T-ERR-2: should detect corrupt JSONL', async () => {
       const contextDir = join(ctx.personalDir, 'tasks', 'task-1', 'contexts');
       mkdirSync(contextDir, { recursive: true });
       const badPath = join(contextDir, 'corrupt.jsonl');
@@ -260,8 +261,8 @@ describe('Cross-Platform Compatibility Tests (Group 12)', () => {
   });
 
   describe('Test 12.4: Project Path with Spaces', () => {
-    // Fix 39: Expand to cover all operations (task-create and update-import too)
-    it('should handle paths with spaces', async () => {
+    // T-ERR-3: All operations work when project path contains a space; exitCode === 0 AND output file existence
+    it('T-ERR-3: should handle paths with spaces', async () => {
       const spacePath = join(ctx.projectDir, 'my project');
       mkdirSync(spacePath, { recursive: true });
       writeFileSync(join(spacePath, 'CLAUDE.md'), '# Project with spaces\n');

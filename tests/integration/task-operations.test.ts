@@ -170,8 +170,8 @@ describe('Task Creation Tests (Group 2)', () => {
   });
 
   describe('Test 2.4: Create Task with Empty Description', () => {
-    // FIX 11: DoD requires non-zero exit for empty description; remove conditional accept
-    it('should reject empty description', async () => {
+    // T-TASK-4: task-create with empty description exits non-zero AND creates no task directory
+    it('T-TASK-4: should reject empty description', async () => {
       const taskId = 'minimal-task';
       const result = await runScript('task-create', [taskId, ''], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
@@ -263,8 +263,8 @@ describe('Task Switching Tests (Group 3)', () => {
       createJsonl(join(goldenDir, 'golden-1.jsonl'), createSampleMessages(20));
     });
 
-    // Fix 13: Verify ordering (personal before golden)
-    it('should list both personal and golden contexts', async () => {
+    // T-SWITCH-3: When both personal and golden contexts exist, personal contexts are listed before golden
+    it('T-SWITCH-3: should list both personal and golden contexts', async () => {
       const result = await runScript('task-list', ['mixed-work'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const output = result.stdout.toLowerCase();
@@ -294,8 +294,8 @@ describe('Task Switching Tests (Group 3)', () => {
       await runScript('task-create', ['empty-task', 'No contexts'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
     });
 
-    // FIX 15: Replace OR chain with specific regex match
-    it('should indicate no contexts available and offer fresh start', async () => {
+    // T-SWITCH-2: When a task has no contexts, output contains "fresh", "empty", or "no contexts" and exits 0
+    it('T-SWITCH-2: should indicate no contexts available and offer fresh start', async () => {
       const result = await runScript('task-list', ['empty-task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       expect(result.exitCode).toBe(0);
@@ -371,5 +371,54 @@ describe('Task Switching Tests (Group 3)', () => {
       expect(fileExists(workingMdPath)).toBe(true);
       expect(fileContains(workingMdPath, 'task-a')).toBe(true);
     });
+  });
+});
+
+// ==========================================================================
+// T-SWITCH-1: Additional strict test — exactly one @import after each switch
+// ==========================================================================
+
+describe('T-SWITCH-1: Exactly one @import after each task switch', () => {
+  let ctx: TestContext;
+
+  beforeEach(async () => {
+    ctx = createTestEnvironment('switch1');
+    writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test Project\n');
+    await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    await runScript('task-create', ['sw1-task-a', 'Task A'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    await runScript('task-create', ['sw1-task-b', 'Task B'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    await runScript('task-create', ['sw1-task-c', 'Task C'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+  });
+
+  afterEach(() => {
+    ctx.cleanup();
+  });
+
+  it('T-SWITCH-1: .claude/CLAUDE.md must contain exactly one @import pointing to the selected task after each switch', async () => {
+    const workingMdPath = join(ctx.projectDir, '.claude', 'CLAUDE.md');
+
+    function assertSingleImport(taskId: string): void {
+      const content = readFile(workingMdPath);
+      const importLines = content.split('\n').filter((l: string) => l.trim().startsWith('@import'));
+      expect(importLines.length).toBe(1);
+      expect(importLines[0]).toContain(taskId);
+    }
+
+    const r1 = await runScript('update-import', ['sw1-task-a'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    expect(r1.exitCode).toBe(0);
+    assertSingleImport('sw1-task-a');
+
+    const r2 = await runScript('update-import', ['sw1-task-b'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    expect(r2.exitCode).toBe(0);
+    assertSingleImport('sw1-task-b');
+
+    const r3 = await runScript('update-import', ['sw1-task-c'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    expect(r3.exitCode).toBe(0);
+    assertSingleImport('sw1-task-c');
+
+    // Switch back — still exactly one @import
+    const r4 = await runScript('update-import', ['sw1-task-a'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    expect(r4.exitCode).toBe(0);
+    assertSingleImport('sw1-task-a');
   });
 });

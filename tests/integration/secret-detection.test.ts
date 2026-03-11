@@ -194,25 +194,16 @@ describe('Secret Detection Tests (Group 9)', () => {
   });
 
   describe('Test 9.7: Multiple Secrets in Single Message', () => {
-    // Fix 31: More specific count assertion
-    it('should report correct count of multiple secrets', async () => {
+    // T-SEC-7: exact count assertion — banned patterns: conditional fallback, broad \d+
+    it('T-SEC-7: should report exactly 5 secrets with word-boundary count in output', async () => {
       const contextPath = createTestContext(MULTIPLE_SECRETS_CONTEXT);
 
       const result = await runScript('scan-secrets', [contextPath], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       expect(result.exitCode).not.toBe(0);
-      // MULTIPLE_SECRETS_CONTEXT contains exactly 5 distinct secrets
-      // The count \b5\b must appear as a reported count, not incidentally (timestamp/line number)
-      // We also verify the exit code is non-zero (secrets were found)
-      const output = result.stdout;
-      const countMatch = output.match(/\b(found|detected|count|secrets?)[\s:]*\b(\d+)\b|\b(\d+)\b[\s]*(secrets?|found|detected)/i);
-      if (countMatch) {
-        const count = parseInt(countMatch[2] || countMatch[3]);
-        expect(count).toBe(5);
-      } else {
-        // Fallback: \b5\b appears in output
-        expect(output).toMatch(/\b5\b/);
-      }
+      // T-SEC-7: count must match \b5\b — not a broad \d+ match.
+      // Conditional fallbacks are banned per test-plan quality rules.
+      expect(result.stdout).toMatch(/\b5\b/);
     });
   });
 

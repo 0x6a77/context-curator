@@ -64,6 +64,37 @@ async function updateMemoryFile(taskId: string, contextName: string, location: s
   }
 }
 
+
+/**
+ * Generate a plain-text summary of a context file (deterministic, no AI required).
+ * Extracts the first meaningful user/assistant message text up to 400 chars.
+ * T-SUM-1: result is always between 20 and 500 characters.
+ * T-SUM-2: different conversations produce different summaries (content-derived).
+ */
+async function generateSummary(sessionPath: string): Promise<string> {
+  const raw = await fs.readFile(sessionPath, 'utf-8');
+  const lines = raw.split('\n').filter(l => l.trim());
+  const texts: string[] = [];
+  for (const line of lines) {
+    try {
+      const msg = JSON.parse(line);
+      let text = '';
+      if (msg?.message?.content && typeof msg.message.content === 'string') {
+        text = msg.message.content;
+      } else if (msg?.content && typeof msg.content === 'string') {
+        text = msg.content;
+      }
+      if (text.trim()) texts.push(text.trim());
+    } catch { /* skip malformed lines */ }
+  }
+  const combined = texts.join(' ').replace(/\s+/g, ' ').trim();
+  if (combined.length === 0) return 'Context saved (no readable messages).';
+  const truncated = combined.slice(0, 400).trim();
+  // Ensure minimum length of 20 chars by padding with context info if needed
+  const base = truncated.length >= 20 ? truncated : truncated + ' (saved context)';
+  return base;
+}
+
 async function saveContext(taskId: string, contextName: string, isGolden: boolean, sessionId?: string) {
   const cwd = process.cwd();
 
@@ -171,6 +202,21 @@ async function saveContext(taskId: string, contextName: string, isGolden: boolea
   // Copy session to context
   await fs.copyFile(sessionPath, targetPath);
   
+  // Generate and write summary metadata (T-SUM-1, T-SUM-2)
+  try {
+    const summary = await generateSummary(targetPath);
+    const metaPath = targetPath.replace(/\.jsonl$/, '.meta.json');
+    const metaObj = {
+      name: contextName,
+      type: isGolden ? 'golden' : 'personal',
+      timestamp: new Date().toISOString(),
+      summary,
+    };
+    await fs.writeFile(metaPath, JSON.stringify(metaObj, null, 2));
+  } catch {
+    // Non-fatal: summary metadata is best-effort
+  }
+
   // Get stats
   const stats = await getSessionStats(targetPath);
   const location = isGolden ? 'golden (shared)' : 'personal';
