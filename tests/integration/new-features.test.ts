@@ -4,8 +4,8 @@
  * Covers features added in the adversarial remediation plan:
  * - T-CTX-5: 100KB cap on promote-context
  * - T-CTX-6: Overwrite protection (backup file created)
- * - T-HOOK-1: PreCompact hook auto-save
  * - T-MEM-1: MEMORY.md updated after save-context
+ * NOTE: T-HOOK-1 duplicate removed — primary coverage with content verification is in context-operations.test.ts
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -120,67 +120,6 @@ describe('T-CTX-6: Overwrite protection', () => {
     // Backup must contain the original content
     const backupContent = readFile(join(contextsDir, backupFiles[0]));
     expect(backupContent).toBe(originalContent);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// T-HOOK-1: PreCompact hook — auto-save-context creates timestamped file
-// ---------------------------------------------------------------------------
-
-describe('T-HOOK-1: PreCompact hook auto-save', () => {
-  let ctx: TestContext;
-
-  beforeEach(async () => {
-    ctx = createTestEnvironment('hook1');
-    writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test\n');
-    await runScript('init-project', [], ctx.projectDir);
-    await runScript('task-create', ['hook1-task', 'Hook test'], ctx.projectDir);
-  });
-
-  afterEach(() => ctx.cleanup());
-
-  it('should create a timestamped auto-save file when called with a session_id payload', async () => {
-    // Plant a mock session file in the personal project dir
-    const sessionId = '12345678-1234-1234-1234-123456789abc';
-    const sessionPath = join(ctx.personalDir, `${sessionId}.jsonl`);
-    createJsonl(sessionPath, SMALL_CONTEXT);
-
-    // Write the hook payload to a temp file and pipe it to the script via stdin
-    const payload = JSON.stringify({ session_id: sessionId, project_dir: ctx.projectDir });
-    const payloadFile = join(ctx.projectDir, 'hook-payload.json');
-    writeFileSync(payloadFile, payload);
-
-    // Run auto-save-context with stdin from the payload file
-    const { execSync } = await import('child_process');
-    const scriptPath = join(ctx.projectDir, '../../scripts/auto-save-context.ts');
-    // Use runScript but we need stdin — use execSync directly
-    let exitCode = 0;
-    try {
-      execSync(
-        `npx tsx "${require('path').resolve(__dirname, '../../scripts/auto-save-context.ts')}" < "${payloadFile}"`,
-        {
-          cwd: ctx.projectDir,
-          env: { ...process.env, CLAUDE_HOME: ctx.personalBase },
-          stdio: ['pipe', 'pipe', 'pipe'],
-        }
-      );
-    } catch (e: any) {
-      exitCode = e.status ?? 1;
-    }
-
-    // Script exits 0 on success (or on non-fatal errors, to not block compaction)
-    expect(exitCode).toBe(0);
-
-    // T-HOOK-1: timestamped file must exist in the flat auto-saves/ directory
-    const autoSaveDir = join(ctx.personalBase, 'auto-saves');
-    expect(existsSync(autoSaveDir)).toBe(true);
-    const files = readdirSync(autoSaveDir);
-    const autoFiles = files.filter(f => f.endsWith('.jsonl'));
-    expect(autoFiles.length).toBeGreaterThanOrEqual(1);
-
-    // The auto-saved file must be valid JSONL
-    const autoPath = join(autoSaveDir, autoFiles[0]);
-    expect(isValidJsonl(autoPath)).toBe(true);
   });
 });
 

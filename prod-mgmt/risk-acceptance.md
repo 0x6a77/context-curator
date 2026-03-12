@@ -41,7 +41,40 @@ EXPIRY:       YYYY-MM-DD | named condition | PERMANENT
 
 ## Active Risk Acceptances
 
-(none)
+RA_ID:        RA-001
+SCOPE:        error-handling.test.ts:Test 13.6 "should handle permission errors gracefully"
+FINDING:      Test has early-return guards for root user and chmod failure. When CI runs as root,
+              the permission-denial scenario never executes and the test silently passes vacuously.
+              This is a conditional skip pattern that could mask real permission-handling failures.
+SEVERITY:     LOW
+DISPOSITION:  ACCEPTED
+RATIONALE:    Permission tests are inherently environment-dependent. CI pipelines should not run
+              as root, and the early-return guard is the standard practice for platform-conditional
+              tests. The underlying feature (graceful permission error handling) is covered by
+              manual verification on non-root environments. Adding a hard failure for root would
+              break legitimate CI environments that have no other option.
+APPROVED_BY:  jeffw
+APPROVED_DATE: 2026-03-12
+EXPIRY:       2026-09-12
+
+---
+
+RA_ID:        RA-002
+SCOPE:        T-RESUME-MANUAL
+FINDING:      No automated test exists for T-RESUME-MANUAL. The structural proxy test
+              (claude-md-system.test.ts:Test 8.5) covers the automated side (@import path setup),
+              but no evidence exists that the manual end-to-end resume flow has been executed
+              or logged.
+SEVERITY:     LOW
+DISPOSITION:  ACCEPTED
+RATIONALE:    T-RESUME-MANUAL tests that Claude Code's /resume command reads the @import path
+              correctly — this depends on Claude Code internals that cannot be automated in
+              integration tests. The structural proxy (Test 8.5) confirms the @import is wired
+              correctly. The manual step is a UX validation that requires a live Claude Code
+              session. Accepted pending a documented manual test run before next major release.
+APPROVED_BY:  jeffw
+APPROVED_DATE: 2026-03-12
+EXPIRY:       v2.0-release
 
 ---
 

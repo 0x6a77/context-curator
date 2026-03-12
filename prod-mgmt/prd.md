@@ -586,7 +586,7 @@ git push
 | T-CTX-3 | `save-context --golden` on a session with a real AWS key exits non-zero or produces a prompt; exit 0 with no prompt is a failure |
 | T-CTX-4 | `save-context --golden` on a 150KB session exits non-zero with output containing "100KB" or "too large" |
 | T-CTX-6 | `save-context` called twice with the same name creates a `.backup-` file; the backup contains the original content |
-| T-MEM-1 | After `save-context`, the personal memory MEMORY.md contains the task-id and context-name saved |
+| T-MEM-1 | After `save-context`, the file `<personalDir>/memory/MEMORY.md` contains the task-id and context-name saved |
 
 ### F-CTX-LIST · Context Listing (`/context-list [task-id]`)
 

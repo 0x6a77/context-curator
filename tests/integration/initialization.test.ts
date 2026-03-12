@@ -248,12 +248,12 @@ describe('Project Initialization Tests', () => {
       expect(contentAfterSecond).toBe(contentAfterFirst);
 
       // T-INIT-4 stash idempotency: second init must NOT create a duplicate stash backup.
-      // The stash directory should contain exactly one backup file for the original CLAUDE.md.
+      // The stash directory MUST exist (beforeEach creates root CLAUDE.md, so init always stashes it).
+      // Assert unconditionally — a conditional guard would allow a buggy impl to pass vacuously.
       const stashDir = join(ctx.personalDir, '.stash');
-      if (existsSync(stashDir)) {
-        const stashFiles = readdirSync(stashDir).filter((f: string) => f.includes('CLAUDE'));
-        expect(stashFiles.length).toBe(1);
-      }
+      expect(existsSync(stashDir)).toBe(true);
+      const stashFiles = readdirSync(stashDir).filter((f: string) => f.includes('CLAUDE'));
+      expect(stashFiles.length).toBe(1);
     });
   });
 
