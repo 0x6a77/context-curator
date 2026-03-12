@@ -321,16 +321,22 @@ describe('Context Listing Tests (Group 5)', () => {
       expect(outputLower).not.toContain('golden');
     });
 
-    // T-LIST-2: word-boundary regex for message counts
-    // FIX 8: SMALL_CONTEXT has 5 messages, createMediumContext() returns 30 messages
-    it('should show message counts', async () => {
+    // T-LIST-2: message count must appear on the same line as the specific context name
+    it('T-LIST-2: should show correct message count adjacent to each context name', async () => {
       const result = await runScript('context-list', ['list-test'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       expect(result.exitCode).toBe(0);
-      const output = result.stdout;
-      // Should show the exact message counts with word boundaries
-      expect(output).toMatch(new RegExp(`\\b5\\b`));
-      expect(output).toMatch(new RegExp(`\\b30\\b`));
+      const lines = result.stdout.split('\n');
+
+      // ctx-1 has 5 messages (SMALL_CONTEXT) — count must be on the same line as the name
+      const ctx1Line = lines.find(l => l.includes('ctx-1'));
+      expect(ctx1Line).toBeDefined();
+      expect(ctx1Line).toMatch(/\b5\b/);
+
+      // ctx-2 has 30 messages (createMediumContext) — count must be on the same line as the name
+      const ctx2Line = lines.find(l => l.includes('ctx-2'));
+      expect(ctx2Line).toBeDefined();
+      expect(ctx2Line).toMatch(/\b30\b/);
     });
   });
 
@@ -390,29 +396,37 @@ describe('Context Listing Tests (Group 5)', () => {
 
   // T-LIST-4: AI-generated summary display
   describe('Test 5.6: AI-Generated Summary Display (T-LIST-4)', () => {
-    beforeEach(() => {
-      const personalDir = join(ctx.personalDir, 'tasks', 'list-test', 'contexts');
-      mkdirSync(personalDir, { recursive: true });
-      createJsonl(join(personalDir, 'summary-ctx.jsonl'), SMALL_CONTEXT);
+    // Use save-context (not direct file creation) so that meta.json with summary is generated
+    beforeEach(async () => {
+      createJsonl(join(ctx.personalDir, 'current-session.jsonl'), SMALL_CONTEXT);
+      await runScript('save-context', ['list-test', 'summary-ctx', '--personal'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
     });
 
-    it('should display a non-empty non-metadata string after context name', async () => {
-      const result = await runScript('context-list', ['list-test'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    // T-LIST-4: context-list must display a content-derived description, not just metadata tokens
+    it('T-LIST-4: should display content-derived summary alongside context name, not just metadata', async () => {
+      // Verify meta.json was written with a content-derived summary
+      const metaPath = join(ctx.personalDir, 'tasks', 'list-test', 'contexts', 'summary-ctx.meta.json');
+      expect(fileExists(metaPath)).toBe(true);
+      const meta = JSON.parse(readFile(metaPath));
+      expect(typeof meta.summary).toBe('string');
+      // Summary must contain a keyword from SMALL_CONTEXT content (authentication/oauth/token/auth)
+      // This proves the summary is content-derived, not a hardcoded or metadata-only string
+      expect(meta.summary.toLowerCase()).toMatch(/authentication|oauth|token|auth/);
 
+      // context-list must display the summary alongside the context name
+      const result = await runScript('context-list', ['list-test'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       expect(result.exitCode).toBe(0);
       const output = result.stdout;
-      // Context name must appear
       expect(output).toContain('summary-ctx');
-      // Find the line containing the context name
+
+      // The line containing the context name must include the summary separator and content word
       const contextLine = output.split('\n').find(line => line.includes('summary-ctx'));
       expect(contextLine).toBeDefined();
-      // After the context name there should be content that is not purely numeric/date metadata
-      const nameIdx = contextLine!.indexOf('summary-ctx');
-      const afterName = contextLine!.slice(nameIdx + 'summary-ctx'.length).trim();
-      expect(afterName.length).toBeGreaterThan(0);
-      // Must contain a word with 4+ alpha chars — rules out single 3-char tokens
-      // like "msg" while accepting the actual output format ("msgs", "just", "msgs").
-      expect(afterName).toMatch(/[a-zA-Z]{4,}/);
+      // Summary is appended as ' — <content>' so the separator must be present
+      expect(contextLine).toContain('—');
+      // The content after '—' must contain a content-derived word, not just metadata
+      const afterDash = contextLine!.split('—').slice(1).join('—');
+      expect(afterDash.toLowerCase()).toMatch(/authentication|oauth|token|auth/);
     });
   });
 });
@@ -651,20 +665,22 @@ describe('Context Promotion Tests (Group 7)', () => {
   });
 
   describe('Test 7.5: Promote Already-Golden Context', () => {
-    // T-PROM-3: create BOTH personal and golden to trigger correct "already exists" path
-    beforeEach(() => {
-      // Create personal context (source for promotion)
+    // T-PROM-3: setup creates personal context ONLY — golden is created by the first promotion,
+    // proving the implementation detects the already-golden state rather than just file existence
+    beforeEach(async () => {
       const personalDir = join(ctx.personalDir, 'tasks', 'promote-test', 'contexts');
       mkdirSync(personalDir, { recursive: true });
       createJsonl(join(personalDir, 'already-golden.jsonl'), SMALL_CONTEXT);
-
-      // Also create golden context (to trigger the "already exists" warning)
-      const goldenDir = join(ctx.projectDir, '.claude', 'tasks', 'promote-test', 'contexts');
-      mkdirSync(goldenDir, { recursive: true });
-      createJsonl(join(goldenDir, 'already-golden.jsonl'), SMALL_CONTEXT);
+      // First promotion: creates the golden copy legitimately
+      const firstPromo = await runScript('promote-context', ['promote-test', 'already-golden'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      expect(firstPromo.exitCode).toBe(0);
+      // Confirm golden now exists (proving the first promotion worked)
+      const goldenPath = join(ctx.projectDir, '.claude', 'tasks', 'promote-test', 'contexts', 'already-golden.jsonl');
+      expect(fileExists(goldenPath)).toBe(true);
     });
 
-    it('should warn about already-golden context', async () => {
+    // T-PROM-3: second promotion attempt must fail because golden already exists
+    it('T-PROM-3: should warn and fail when context is already golden', async () => {
       const result = await runScript(
         'promote-context',
         ['promote-test', 'already-golden'],
@@ -672,7 +688,6 @@ describe('Context Promotion Tests (Group 7)', () => {
         { CLAUDE_HOME: ctx.personalBase }
       );
 
-      // FIX 20: specific pattern match
       expect(result.exitCode).not.toBe(0);
       const output = result.stdout.toLowerCase() + result.stderr.toLowerCase();
       expect(output).toMatch(/already.*golden|already exists/i);
@@ -730,15 +745,17 @@ describe('PreCompact Hook Auto-Save (T-HOOK-1)', () => {
     ctx.cleanup();
   });
 
-  it('should save context to timestamped path when called with session_id payload via stdin', async () => {
-    const sessionId = 'test-session-abc123';
-    // T-HOOK-1: PRD specifies stdin JSON payload: {"session_id":"...","project_dir":"..."}
-    // The --session-id CLI flag is NOT the specified interface; use stdin pipe.
+  it('T-HOOK-1: should save session content to timestamped file in auto-saves/', async () => {
+    // Plant a real UUID session file so auto-save-context has content to copy
+    const sessionUuid = 'aabbccdd-1122-3344-5566-778899aabbcc';
+    createJsonl(join(ctx.personalDir, `${sessionUuid}.jsonl`), SMALL_CONTEXT);
+
     const { execSync } = require('child_process');
     const { resolve: resolvePath } = require('path');
     const { writeFileSync: wfs } = require('fs');
 
-    const payload = JSON.stringify({ session_id: sessionId, project_dir: ctx.projectDir });
+    // Pass the UUID via stdin JSON payload (the specified hook interface)
+    const payload = JSON.stringify({ session_id: sessionUuid, project_dir: ctx.projectDir });
     const payloadFile = join(ctx.projectDir, 'hook-payload.json');
     wfs(payloadFile, payload);
 
@@ -764,8 +781,13 @@ describe('PreCompact Hook Auto-Save (T-HOOK-1)', () => {
     const savedFile = files.find((f: string) => f.endsWith('.jsonl'));
     expect(savedFile).toBeDefined();
     const savedPath = join(autoSaveDir, savedFile!);
+
+    // T-HOOK-1: saved file must contain the session content, not be an empty placeholder
     expect(isValidJsonl(savedPath)).toBe(true);
-    // T-HOOK-1: file must be valid JSONL (empty is acceptable when no live session data exists)
+    const savedContent = readFile(savedPath);
+    expect(savedContent.trim().length).toBeGreaterThan(0);
+    // Content from SMALL_CONTEXT must appear (proves it copied the planted session, not an empty file)
+    expect(savedContent).toContain('authentication');
   });
 });
 
@@ -849,7 +871,12 @@ describe('T-SUM-1 and T-SUM-2: AI-Generated Summary Tests', () => {
     const summaryAuth = JSON.parse(readFile(metaAuth)).summary as string;
     const summaryDb = JSON.parse(readFile(metaDb)).summary as string;
 
-    // T-SUM-2: summaries must not be identical (not hardcoded)
+    // T-SUM-2: summaries must differ AND each must contain a keyword from its source content.
+    // This proves summaries are content-derived, not random UUIDs or timestamps.
     expect(summaryAuth).not.toBe(summaryDb);
+    // SMALL_CONTEXT is about authentication/OAuth — summary must reflect that
+    expect(summaryAuth.toLowerCase()).toMatch(/authentication|oauth|token|auth/);
+    // createMediumContext is about database migration — summary must reflect that
+    expect(summaryDb.toLowerCase()).toMatch(/database|migration|postgresql|schema|column|index/);
   });
 });

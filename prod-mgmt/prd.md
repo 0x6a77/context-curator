@@ -975,6 +975,13 @@ Generates concise AI summaries (key topics, accomplishments, decisions) for ever
 6. Verify summary stored in context metadata
 7. Verify summary displayed in `/context-list`
 
+**Acceptance Criteria:**
+
+| Test ID | Criterion |
+|---------|-----------|
+| T-SUM-1 | After `save-context`, a `.meta.json` file exists alongside the `.jsonl` with a `summary` string between 20 and 500 characters |
+| T-SUM-2 | Two contexts saved from clearly different conversations produce different `summary` strings; each summary must contain at least one keyword from its source conversation content |
+
 ### F-GIT · Git Integration
 
 Maintains a minimal and conflict-free git footprint: task CLAUDE.md files and golden contexts are committed; the auto-generated `.claude/CLAUDE.md` and all personal contexts stay out of version control entirely.

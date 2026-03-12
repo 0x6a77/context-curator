@@ -336,14 +336,23 @@ describe('Task Switching Tests (Group 3)', () => {
       expect(content).toMatch(/@import\s+\S+default\S+CLAUDE\.md/);
     });
 
-    // Fix 15: Narrow to specific pattern to avoid trivial matches
-    it('should indicate vanilla mode restored', async () => {
+    // T-SWITCH-6: output must confirm vanilla state AND @import must actually point to default/CLAUDE.md
+    it('T-SWITCH-6: should confirm vanilla mode restored and verify @import points to default task', async () => {
       const result = await runScript('update-import', ['default'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
+      expect(result.exitCode).toBe(0);
+
+      // Text output must mention vanilla/default/restored state
       const output = result.stdout.toLowerCase();
-      // T-CLMD-1: output must indicate the default/vanilla state was restored
-      // Use a specific enough pattern to avoid trivial matches
       expect(output).toMatch(/vanilla|restored/);
+
+      // AND the @import must actually point to default/CLAUDE.md — proves the switch happened,
+      // not just that output contains the right words
+      const workingMdPath = join(ctx.projectDir, '.claude', 'CLAUDE.md');
+      expect(fileExists(workingMdPath)).toBe(true);
+      const content = readFile(workingMdPath);
+      expect(content).toMatch(/@import\s+\S+default\S+CLAUDE\.md/);
+      expect(content).not.toContain('some-task');
     });
   });
 
@@ -380,6 +389,67 @@ describe('Task Switching Tests (Group 3)', () => {
       expect(fileExists(workingMdPath)).toBe(true);
       expect(fileContains(workingMdPath, 'task-a')).toBe(true);
     });
+  });
+});
+
+// ==========================================================================
+// T-SWITCH-4 and T-SWITCH-5: Sessions vs named contexts separation
+// ==========================================================================
+
+describe('T-SWITCH-4 / T-SWITCH-5: Sessions must not appear as named contexts', () => {
+  let ctx: TestContext;
+
+  beforeEach(async () => {
+    ctx = createTestEnvironment('switch45');
+    writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test Project\n');
+    await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    await runScript('task-create', ['sessions-task', 'Task with sessions but no contexts'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+
+    // Plant UUID session files in the personal project dir (simulates active Claude Code sessions)
+    const uuidA = 'aaaabbbb-cccc-dddd-eeee-ffffaaaabbbb';
+    const uuidB = 'bbbbcccc-dddd-eeee-ffff-aaaabbbbcccc';
+    writeFileSync(join(ctx.personalDir, `${uuidA}.jsonl`), JSON.stringify({ role: 'user', content: 'session content a' }) + '\n');
+    writeFileSync(join(ctx.personalDir, `${uuidB}.jsonl`), JSON.stringify({ role: 'user', content: 'session content b' }) + '\n');
+  });
+
+  afterEach(() => {
+    ctx.cleanup();
+  });
+
+  // T-SWITCH-4: context-list --json must return contexts:[] when sessions exist but no named contexts saved
+  it('T-SWITCH-4: context-list --json returns empty contexts array even when UUID sessions exist', async () => {
+    const result = await runScript('context-list', ['sessions-task', '--json'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+
+    expect(result.exitCode).toBe(0);
+
+    const data = JSON.parse(result.stdout);
+
+    // sessions field should contain the UUID files
+    expect(data.sessions.length).toBeGreaterThan(0);
+
+    // contexts field must be empty — UUID session files must NEVER appear here
+    expect(data.contexts).toEqual([]);
+  });
+
+  // T-SWITCH-5: human-readable output must not present UUID session files under a Personal/Golden contexts label
+  it('T-SWITCH-5: human-readable output does not show UUID sessions under Personal or Golden contexts sections', async () => {
+    const result = await runScript('context-list', ['sessions-task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+
+    expect(result.exitCode).toBe(0);
+    const output = result.stdout;
+    const outputLower = output.toLowerCase();
+
+    // Sessions section IS expected (the UUID files are real sessions)
+    expect(outputLower).toContain('sessions');
+
+    // Personal contexts and Golden contexts sections must NOT appear (no named contexts saved)
+    expect(outputLower).not.toContain('personal contexts');
+    expect(outputLower).not.toContain('golden contexts');
+
+    // UUID-format strings must not appear as numbered selectable items (e.g. "1. aaaabbbb-...")
+    // They may appear truncated in the Sessions section, but never as "N. <uuid>" numbered options
+    const numberedUuidPattern = /^\s*\d+\.\s+[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/im;
+    expect(output).not.toMatch(numberedUuidPattern);
   });
 });
 
