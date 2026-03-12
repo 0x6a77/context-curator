@@ -493,6 +493,17 @@ Run: /resume <uuid>
 6. Switch between tasks multiple times
 7. Verify `.claude/CLAUDE.md` updates correctly on each switch
 
+**Acceptance Criteria:**
+
+| Test ID    | Criterion |
+|------------|-----------|
+| T-SWITCH-1 | After switching tasks A→B→C→A, `.claude/CLAUDE.md` contains **exactly one** `@import` line on each switch, pointing to the selected task's `CLAUDE.md` |
+| T-SWITCH-2 | When a task has no saved contexts, `context-list` exits 0 and output contains "no contexts" or "fresh" |
+| T-SWITCH-3 | When a task has both personal and golden contexts, all context names appear in output with personal contexts listed before golden contexts |
+| T-SWITCH-4 | `context-list --json` for a task with active sessions but no saved contexts returns `contexts: []` (empty array) — session UUIDs must never appear in the `contexts` field |
+| T-SWITCH-5 | When `contexts` is empty, the switch UI displays a "no contexts" message and does NOT present UUID session files as numbered selectable options |
+| T-SWITCH-6 | Switching to `default` task sets `@import` to point to `default/CLAUDE.md` and script output confirms the switch (e.g. "vanilla" or "restored") |
+
 ### F-CTX-SAVE · Context Saving (`/context-save <n>`)
 
 Saves the current Claude Code session as a named personal or golden context, including AI-generated summary and metadata. Personal contexts stay local; golden contexts are committed to git for team sharing.

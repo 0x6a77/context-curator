@@ -90,28 +90,47 @@ Then continue to Step 5.
 
 ## Step 4b: If Task Exists - List Contexts
 
-Run the context listing script:
+Run the context listing script in JSON mode:
 
 ```bash
-node ~/.claude/context-curator/dist/scripts/context-list.js "$TASK_ID"
+node ~/.claude/context-curator/dist/scripts/context-list.js "$TASK_ID" --json
 ```
 
-If there are contexts, present them to the user:
+Parse the JSON output. It has two distinct fields — **do not confuse them**:
+- `sessions` — active UUID session files from `~/.claude/projects/<project-id>/`. These are raw Claude Code sessions, NOT named saved contexts. **Never present these as context options.**
+- `contexts` — named saved contexts for this specific task (personal or golden). These are what the user selects from.
+
+Each entry in `contexts` has: `name`, `location` ("personal" or "golden"), `messages`, `tokens`, `lastModified`.
+
+**If `contexts` is empty** (no named contexts saved yet):
+
+Tell the user and proceed to a fresh start — do NOT show sessions as a substitute:
+
+```
+No saved contexts for task '<task-id>' yet.
+
+Starting fresh.
+```
+
+Skip ahead; no context will be loaded.
+
+**If `contexts` is not empty:**
+
+Filter by `location` and present them numbered — personal first, then golden:
 
 ```
 Which context to load?
 
 Personal contexts:
-1. my-progress (15 msgs) - 2 days ago
+1. my-progress        15 msgs - 2 days ago
 
 Golden contexts (team shared):
-2. oauth-deep-dive (47 msgs) - 5 days ago - by: alice ⭐
+2. oauth-deep-dive    47 msgs - 5 days ago ⭐
 
 Enter number, or press Enter for fresh start:
 ```
 
-If user selects a context, note the context name.
-If user presses Enter or says "fresh", use no context.
+Wait for the user's response. If the user enters a number, record the `name` field of that context. If the user presses Enter or says "fresh", proceed with no context.
 
 ## Step 5: Update @import
 

@@ -4,3 +4,7 @@ dist/
 *.log
 .DS_Store
 /.context-curator/
+
+.claude/
+!.claude/tasks/**
+!.claude/settings.json
