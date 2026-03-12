@@ -1,449 +1,182 @@
-# Adversarial Test Inventory
-
-## DoD / PRD Audit
-
-### PRD Sections Missing Acceptance Criteria
-
-All PRD feature sections now have Acceptance Criteria tables. No missing AC sections.
-
-Note: F-CTX-MANAGE has T-CTX-7 defined but remaining behaviors (interactive cleanup, dry-run, merge, archive) have no AC clauses — tracked separately in Section 2.
-
-### Falsifiability Check — Defined DoD Clauses
-
-All defined DoD clauses (T-INIT-1 through T-INIT-5, T-TASK-1 through T-TASK-4, T-CTX-1 through T-CTX-7, T-LIST-1 through T-LIST-4, T-PROM-1 through T-PROM-3, T-CLMD-1, T-CLMD-2, T-SEC-2 through T-SEC-7, T-GIT-1, T-GIT-2, T-ERR-1 through T-ERR-3, T-HOOK-1, T-MEM-1) are written as falsifiable assertions. No non-falsifiable DoD language found in defined clauses.
-
----
-
-## Section 1 — Test Inventory
-
-| TEST_ID | DESCRIPTION | DOD_CLAUSE | VERDICT | ATTACK_VECTOR |
-|---------|-------------|------------|---------|---------------|
-| initialization.test.ts:Test-1.1-create-structure | Runs init-project on empty dir; asserts exit 0, .claude/ dirs exist, .claude/CLAUDE.md contains @import pointing to tasks/default/CLAUDE.md, imported path exists on disk. | T-INIT-1 | PASS | An implementation that hardcodes `@import ./tasks/default/CLAUDE.md` without reading any input would pass; the test checks path existence but not that the path is dynamically derived. Insufficient to FAIL on its own given other tests. |
-| initialization.test.ts:Test-1.1-gitignore-content | Asserts .claude/.gitignore contains line matching `/^CLAUDE\.md$/m`. | F-INIT (no specific AC) / proximate T-GIT-1 | PASS | An implementation that writes only "CLAUDE.md\n" to the gitignore file satisfies this. No attack vector beyond vacuous compliance. |
-| initialization.test.ts:Test-1.1-no-backup-without-claudemd | Asserts exit 0, stash path does not exist, default task CLAUDE.md exists. | T-INIT-1 (partial) | PASS | No attack vector found. |
-| initialization.test.ts:Test-1.1-git-initialized | Initializes git, runs init-project, asserts isGitIgnored returns true for .claude/CLAUDE.md. | T-GIT-1 (proximate) | PASS | No attack vector found; git check-ignore call is real. |
-| initialization.test.ts:Test-1.2-no-modify-root | Asserts root CLAUDE.md content unchanged after init. | T-CLMD-1 | PASS | No attack vector found. |
-| initialization.test.ts:Test-1.2-create-backup | Asserts backup does not exist before script; asserts exit 0; asserts backup exists with byte-identical content to original. | T-INIT-2 | PASS | No attack vector found; pre-condition check prevents self-fulfilling setup. |
-| initialization.test.ts:Test-1.2-default-task-copy | Asserts default task CLAUDE.md does not exist before script; asserts exit 0; asserts content equals original byte-for-byte. | T-INIT-3 | PASS | No attack vector found. |
-| initialization.test.ts:Test-1.2-import-directive | Asserts .claude/CLAUDE.md does not exist before; asserts exit 0; asserts @import pointing to tasks/default/CLAUDE.md; asserts imported path exists. | T-INIT-1 | PASS | No attack vector found. |
-| initialization.test.ts:Test-1.3-both-succeed | Runs init twice; asserts exit 0 both times; asserts file contents identical between runs. | T-INIT-4 | PASS | No attack vector found. |
-| initialization.test.ts:Test-1.3-no-dup-dirs | Runs init twice; asserts .claude/CLAUDE.md exists; asserts tasks dir contains exactly one 'default' entry; asserts content identity. | T-INIT-4 | PASS | No attack vector found. |
-| initialization.test.ts:Test-1.3-already-initialized | Runs init twice with CLAUDE_HOME; asserts both exit 0 and content identical. | T-INIT-4 | PASS | No attack vector found. |
-| initialization.test.ts:Test-1.3-no-dup-stash | Runs init twice; asserts content identity; asserts stash dir has exactly one CLAUDE backup file. | T-INIT-4 | PASS | No attack vector found. |
-| initialization.test.ts:Test-1.4-preserve-content | Creates .claude/ with existing-file.txt before init; asserts existing file still present afterward. | F-INIT (idempotent) | PASS | No attack vector found. |
-| initialization.test.ts:Test-1.4-create-missing | Creates .claude/ without init files; asserts init creates missing .gitignore and default task. | F-INIT (idempotent) | PASS | No attack vector found. |
-| initialization.test.ts:Test-1.5-multi-project | Inits two projects; creates task in project 1; saves context via implementation; asserts context in project 1 personal dir and not in project 2 personal dir. | T-INIT-5 | PASS | No attack vector found; uses implementation to save (not direct file creation). |
-| task-operations.test.ts:Test-2.1-create-structure | Asserts exit 0, task dirs exist, CLAUDE.md and contexts dir created. | T-TASK-1 (partial) | PASS | No attack vector found. |
-| task-operations.test.ts:Test-2.1-claude-md-content | Asserts exit 0, task CLAUDE.md has all four required sections (# Task:, ## Focus, ## Key Areas, ## Guidelines), and "oauth" appears under ## Focus specifically. | T-TASK-1 | PASS | No attack vector found; section-anchored check prevents generic content from passing. |
-| task-operations.test.ts:Test-2.1-import-directive | Asserts exit 0, .claude/CLAUDE.md contains @import matching oauth-refactor/CLAUDE.md. | T-TASK-1 (structural proxy for T-CLMD-2) | PASS | No attack vector found. |
-| task-operations.test.ts:Test-2.1-confirm-complete | Redundant structural check: asserts exit 0 and # Task: / ## Focus sections exist. | T-TASK-1 | PASS | Duplicate of Test-2.1-claude-md-content; no additional coverage. |
-| task-operations.test.ts:Test-2.2-reject-spaces | Asserts exit non-zero, output matches invalid name pattern, task dir does not exist. | T-TASK-2 | PASS | No attack vector found. |
-| task-operations.test.ts:Test-2.2-reject-uppercase | Asserts exit non-zero, neither 'OAuthRefactor' nor 'oauthrefactor' dir created. | T-TASK-2 | PASS | No attack vector found. |
-| task-operations.test.ts:Test-2.2-reject-special | Asserts exit non-zero, dir with special chars not created. | T-TASK-2 | PASS | No attack vector found. |
-| task-operations.test.ts:Test-2.2-no-dir-invalid | Asserts exit non-zero, no dir for 'OAuth Refactor' or 'oauth refactor'. | T-TASK-2 | PASS | No attack vector found. |
-| task-operations.test.ts:Test-2.3-multiline-desc | Asserts exit 0, all three keywords (oauth, session, token) appear under ## Focus section specifically. | T-TASK-3 | PASS | No attack vector found; section-anchored check is sound. |
-| task-operations.test.ts:T-TASK-4-empty-desc | Asserts exit non-zero and task dir does not exist for empty description. | T-TASK-4 | PASS | No attack vector found. |
-| task-operations.test.ts:Test-3.1-list-personal | Asserts exit 0, 'my-progress' in output, 'personal' section present, 'golden' NOT present. | T-SWITCH-3 (partial) | PASS | No attack vector found. |
-| task-operations.test.ts:Test-3.2-list-golden | Asserts exit 0, 'oauth-deep-dive' in output, 'golden' present, 'personal' NOT present. | T-SWITCH-3 (partial) | PASS | No attack vector found. |
-| task-operations.test.ts:T-SWITCH-3-list-both | Asserts all three context names present, section labels present, personal-1 index < golden-1 index. | T-SWITCH-3 | PASS | No attack vector found. |
-| task-operations.test.ts:Test-3.3-personal-before-golden | Asserts personal-1 appears before golden-1 by index comparison. | T-LIST-1 (ordering) | PASS | No attack vector found. |
-| task-operations.test.ts:T-SWITCH-2-no-contexts | Asserts exit 0 and output matches /no contexts\|fresh/i. | T-SWITCH-2 | PASS | No attack vector found. |
-| task-operations.test.ts:Test-3.4-switch-empty-allows | Asserts update-import exits 0 for task with no contexts. | T-SWITCH-2 (partial) | PASS | No attack vector found. |
-| task-operations.test.ts:Test-3.5-switch-default | Asserts exit 0, @import specifically resolves to default/CLAUDE.md. | T-SWITCH-6 (partial) | PASS | No attack vector found. |
-| task-operations.test.ts:T-SWITCH-6-vanilla-mode | Asserts exit 0, output matches /vanilla\|restored/, AND @import points to default/CLAUDE.md. | T-SWITCH-6 | PASS | Both the text claim and the @import content are checked; a hardcoded string satisfying the text without actually switching would fail the @import assertion. No attack vector found. |
-| task-operations.test.ts:Test-3.6-multiple-switches | Asserts after each of four update-import calls: exit 0, file exists, correct task name in content, prior task name absent. | T-CLMD-2 | PASS | No attack vector found. |
-| task-operations.test.ts:T-SWITCH-1-single-import | After four switches through tasks a/b/c/a, asserts exactly one @import line each time pointing to the correct task. | T-SWITCH-1 | PASS | No attack vector found. |
-| task-operations.test.ts:T-SWITCH-4-json-empty-contexts | Plants two UUID session files; runs context-list --json; asserts sessions.length > 0 and contexts equals []. | T-SWITCH-4 | PASS | No attack vector found; sessions and contexts are checked independently and the empty-array assertion is strict. |
-| task-operations.test.ts:T-SWITCH-5-no-uuid-in-ctx-output | Plants UUID sessions; runs context-list (human-readable); asserts Sessions section IS present; asserts no "Personal contexts"/"Golden contexts" sections appear; asserts no numbered UUID pattern (e.g. "1. aaaabbbb-...") in output. | T-SWITCH-5 | PASS | No attack vector found; Sessions section presence confirms script ran; absence of named-context section headers and numbered UUID pattern confirm sessions are not presented as selectable contexts. |
-| context-operations.test.ts:T-CTX-1-personal-path | Asserts exit 0, file at exact personal storage path, isValidJsonl. | T-CTX-1 | PASS | No attack vector found. |
-| context-operations.test.ts:T-CTX-2-valid-jsonl | Asserts exit 0, file exists, isValidJsonl, non-empty. | T-CTX-2 | PASS | No attack vector found. |
-| context-operations.test.ts:Test-4.1-not-to-golden-dir | Asserts personal file exists; asserts golden-path file does not exist. | T-CTX-1 | PASS | No attack vector found. |
-| context-operations.test.ts:Test-4.2-save-golden-dir | Asserts exit 0, file at project .claude/ golden path, isValidJsonl. | T-CTX-2 (golden variant) | PASS | No attack vector found. |
-| context-operations.test.ts:Test-4.2-scan-mention | Uses CLEAN_CONTEXT; asserts output contains 'scan' or 'secret'. | T-CTX-3 (weak proxy) | ESCALATE | An implementation that prints "Scanning for secrets..." before unconditionally proceeding would pass regardless of whether it actually scans. The golden-path blocking tests (below) provide stronger coverage, but this test is independently vacuous for a stub that announces scanning without performing it. |
-| context-operations.test.ts:Test-4.2-block-stripe | Uses STRIPE_KEY_CONTEXT; asserts exit non-zero, output matches /stripe\|sk_live/, golden file does not exist. | T-CTX-3 | PASS | No attack vector found; file-existence check is the DoD enforcer. |
-| context-operations.test.ts:Test-4.2-block-github | Uses GITHUB_TOKEN_CONTEXT; asserts exit non-zero, output matches /github\|ghp_/, golden file does not exist. | T-CTX-3 | PASS | No attack vector found. |
-| context-operations.test.ts:T-CTX-3-aws | Uses AWS_KEY_CONTEXT; asserts exit non-zero, output matches /aws\|akia/, golden file does not exist. | T-CTX-3 | PASS | No attack vector found. |
-| context-operations.test.ts:Test-4.3-invalid-name | Asserts exit non-zero, error output matches invalid name pattern, file not created. | F-CTX-SAVE (name validation) | PASS | No attack vector found. |
-| context-operations.test.ts:Test-4.5-empty-context | Asserts exit non-zero, no Node.js stack trace in stderr. | T-CTX-4 (partial) | PASS | No attack vector found. |
-| context-operations.test.ts:T-CTX-4-golden-size-cap | Pre-asserts file exceeds 100KB; asserts exit non-zero, output matches /100KB\|too large/i, golden file does not exist. | T-CTX-4 | PASS | No attack vector found; file-size pre-assertion prevents fixture failure. |
-| context-operations.test.ts:T-CTX-6-overwrite | Saves twice; asserts backup file exists with .backup- in name; asserts backup content equals original. | T-CTX-6 | PASS | No attack vector found. |
-| context-operations.test.ts:T-LIST-1-list-all | Asserts exit 0, ctx-1 and ctx-2 in output, 'personal' present, 'golden' absent (no golden in setup). | T-LIST-1 | PASS | No attack vector found. |
-| context-operations.test.ts:T-LIST-2-message-counts | Finds line containing ctx-1; asserts \b5\b appears on that line; finds line containing ctx-2; asserts \b30\b appears on that line. | T-LIST-2 | PASS | Count assertion is anchored to the specific context name line. An implementation producing wrong counts adjacent to the context name would fail. No attack vector found. |
-| context-operations.test.ts:T-LIST-3-no-contexts | Asserts exit 0, output matches /\bfresh\b\|\bempty\b\|\bno contexts\b/i. | T-LIST-3 | PASS | No attack vector found; word boundaries and specific phrase list are adequate. |
-| context-operations.test.ts:T-LIST-1-ordering | Asserts personal-ctx index < golden-ctx index in output. | T-LIST-1 | PASS | No attack vector found. |
-| context-operations.test.ts:Test-5.5-nonexistent-task | Asserts exit non-zero, output matches /not found\|does not exist/i. | F-CTX-LIST (error behavior) | PASS | No attack vector found. |
-| context-operations.test.ts:T-LIST-4-summary-display | Uses save-context to create fixture (generating meta.json); finds line with 'summary-ctx'; asserts text after '—' separator matches /authentication\|oauth\|token\|auth/i. | T-LIST-4 | PASS | Content-specific keyword assertion prevents metadata tokens like "msgs"/"just" from satisfying the test. The save-context fixture generates a real meta.json with content-derived summary. An implementation printing only metadata would fail the keyword match. No attack vector found. |
-| context-operations.test.ts:Test-6.1-manage-no-contexts | Asserts exit 0, output matches /\bno contexts\b\|\bempty\b/i. | F-CTX-MANAGE (no specific AC) | PASS | No DoD clause for this behavior. Test logic sound. |
-| context-operations.test.ts:Test-6.6-golden-indicator | Asserts stderr contains 'golden-ctx'; finds line; asserts ⭐ or 'golden' label on same line after removing context name. | F-CTX-MANAGE (no specific AC) | PASS | No attack vector found; name-removal prevents false match on 'golden-ctx' itself. |
-| context-operations.test.ts:T-CTX-7-golden-protection | Asserts golden file exists before attempt; calls delete-context without --confirm; asserts exit non-zero; asserts file still exists. | T-CTX-7 | PASS | No attack vector found. |
-| context-operations.test.ts:T-PROM-1-promote-clean | Asserts exit 0, golden file exists, personal file exists, golden content equals personal content. | T-PROM-1 | PASS | No attack vector found; byte-equality check is sound. |
-| context-operations.test.ts:Test-7.1-copy-to-golden | Asserts golden exists, isValidJsonl, personal still exists. | T-PROM-1 | PASS | No attack vector found. |
-| context-operations.test.ts:Test-7.1-preserve-original | Captures content before promote; asserts personal content unchanged after. | T-PROM-1 | PASS | No attack vector found. |
-| context-operations.test.ts:T-CTX-5-promote-size | Creates >100KB personal context; asserts exit non-zero, output matches /100kb\|too large/i, golden file does not exist. | T-CTX-5 | PASS | No attack vector found. |
-| context-operations.test.ts:T-PROM-2-github-token | Uses GITHUB_TOKEN_CONTEXT; asserts exit non-zero, output matches /github\|ghp_/i. | T-PROM-2 | PASS | No attack vector found. |
-| context-operations.test.ts:Test-7.3-redaction-offer | Runs scan-secrets on stripe context; asserts exit non-zero, output matches /stripe\|sk_/i. | T-PROM-2 (proximate) | PASS | No attack vector found. |
-| context-operations.test.ts:Test-7.4-nonexistent-context | Asserts exit non-zero, output matches /not found\|does not exist/i. | F-CTX-PROMOTE (error behavior) | PASS | No attack vector found. |
-| context-operations.test.ts:T-PROM-3-already-golden | beforeEach creates personal context only; calls promote-context once to create golden legitimately (first call exits 0); test calls promote-context again and asserts exit non-zero, output matches /already.*golden\|already exists/i. | T-PROM-3 | PASS | Setup uses the implementation itself to reach the golden state (no direct artifact planting). An implementation that creates golden on first call but silently no-ops on second call would fail the exit-code assertion. No attack vector found. |
-| context-operations.test.ts:T-MEM-1-memory-update | Asserts exit 0, MEMORY.md exists at personalDir/memory/MEMORY.md, contains task-id and context-name. | T-MEM-1 | PASS | No attack vector found; both strings must appear. |
-| context-operations.test.ts:T-HOOK-1-auto-save | Plants UUID session file at personalDir/<uuid>.jsonl with SMALL_CONTEXT; pipes stdin payload with matching session-id; asserts exit 0; asserts a .jsonl file exists in auto-saves/; asserts isValidJsonl; asserts saved content contains "authentication" from SMALL_CONTEXT. | T-HOOK-1 | PASS | Content verification prevents empty-file bypass. An implementation creating an empty auto-saves file would fail the "authentication" assertion. No attack vector found. |
-| context-operations.test.ts:T-SUM-1-summary-length | Asserts meta.json exists, summary is a string, length between 20 and 500 chars. | T-SUM-1 | PASS | T-SUM-1 now defined in PRD AC. A hardcoded 100-char string satisfies length bounds, but T-SUM-2's keyword assertions would catch non-content-derived hardcoded strings. Together they provide adequate coverage. No independent attack vector. |
-| context-operations.test.ts:T-SUM-2-different-summaries | Saves two contexts from different fixtures; asserts summaries are not equal; asserts summaryAuth matches /authentication\|oauth\|token\|auth/i; asserts summaryDb matches /database\|migration\|postgresql\|schema\|column\|index/i. | T-SUM-2 | PASS | Keyword assertions prove content-derivation — random UUIDs or timestamps would fail both keyword matches. Different sources produce different content-specific summaries. No attack vector found. |
-| git-integration.test.ts:Test-11.1-gitignore-created | Asserts .claude/.gitignore exists after init. | F-GIT | PASS | No attack vector found. |
-| git-integration.test.ts:Test-11.1-gitignore-content | Asserts /^CLAUDE\.md$/m in gitignore content. | T-GIT-1 (proximate) | PASS | No attack vector found. |
-| git-integration.test.ts:Test-11.2-task-tracked | Calls gitAdd on task CLAUDE.md path; asserts git status contains it. | F-GIT | PASS | No attack vector found. |
-| git-integration.test.ts:Test-11.2-task-committed | Calls gitCommit; asserts no throw. | F-GIT | PASS | Weak — only checks no exception. No assertion on commit success or content. Implementation that creates uncommittable files could still pass if gitCommit catches errors. Not independently FAIL given other tests. |
-| git-integration.test.ts:Test-11.3-golden-tracked | Creates golden file; gitAdd; asserts git status contains filename. | F-GIT | PASS | No attack vector found. |
-| git-integration.test.ts:Test-11.3-golden-committed | gitAdd + gitCommit; asserts no throw. | F-GIT | PASS | Same weakness as Test-11.2-task-committed. |
-| git-integration.test.ts:Test-11.4-personal-not-committed | Asserts personal base is outside project dir; saves context; asserts personal path outside project dir; stages everything in project; asserts 'my-work' and 'personal-ctx' not in git status. | T-GIT-2 | PASS | Structural isolation check is sound. |
-| git-integration.test.ts:Test-11.5-no-git-conflicts | Two dev workspaces; each creates different task and golden context; asserts cross-isolation (each project only has its own task); asserts .claude/CLAUDE.md not in either git status. | T-GIT-2 | PASS | No attack vector found. |
-| git-integration.test.ts:Test-11.6-recognize-golden | Creates golden file directly; runs context-list; asserts exit 0 and filename in output. | F-GIT | PASS | No attack vector found. |
-| git-integration.test.ts:Test-11.7-not-in-status | Commits gitignore; modifies .claude/CLAUDE.md; asserts .claude/CLAUDE.md not in git status. | T-CLMD-1 (proximate) | PASS | No attack vector found. |
-| git-integration.test.ts:Test-11.7-check-ignore | Commits gitignore; asserts isGitIgnored. | T-GIT-1 | PASS | No attack vector found. |
-| git-integration.test.ts:T-GIT-1 | Commits .claude/.gitignore; asserts isGitIgnored(.claude/CLAUDE.md) is true. | T-GIT-1 | PASS | No attack vector found. |
-| git-integration.test.ts:T-GIT-2 | Creates task; saves context via implementation; stages all project files; asserts no personal storage path or 'tgit-ctx' in git status. | T-GIT-2 | PASS | No attack vector found. |
-| secret-detection.test.ts:T-SEC-2-aws-key | Asserts exit non-zero, output matches /akia/i. | T-SEC-2 | PASS | No attack vector found; AKIA prefix is specific to AWS access keys. |
-| secret-detection.test.ts:Test-9.1-aws-secret-key | Asserts exit non-zero, output matches /aws.*key\|secret.*key\|akia/i. | T-SEC-2 | PASS | No attack vector found. |
-| secret-detection.test.ts:T-SEC-3-live-key | Asserts exit non-zero, output matches /sk_live/i. | T-SEC-3 | PASS | No attack vector found. |
-| secret-detection.test.ts:T-SEC-3-both-keys | Asserts exit non-zero, output contains 'sk_test_' and 'sk_live_' literally. | T-SEC-3 | PASS | No attack vector found; requires both prefixes in output. |
-| secret-detection.test.ts:Test-9.3-github-pat | Asserts exit non-zero, output matches /ghp_/i. | T-SEC (F-SEC general) | PASS | No attack vector found. |
-| secret-detection.test.ts:Test-9.4-rsa-private | Asserts exit non-zero, output matches /rsa.*private\|private.*key\|BEGIN.*PRIVATE/i. | F-SEC | PASS | No attack vector found. |
-| secret-detection.test.ts:Test-9.5-password | Asserts exit non-zero, output matches /password/i. | F-SEC | PASS | No attack vector found. |
-| secret-detection.test.ts:T-SEC-5-example-key | Creates context with ONLY AKIAIOSFODNN7EXAMPLE; asserts exit non-zero, output matches /akia/i. | T-SEC-5 | PASS | No attack vector found; isolated fixture ensures this specific string is what's detected. |
-| secret-detection.test.ts:T-SEC-7-count-five | Asserts exit non-zero; asserts output matches /\b5\b.*secrets?\|secrets?.*\b5\b\|5\s+secrets?\s+found/i. | T-SEC-7 | PASS | Removed the vacuous `found\s+5\s+` branch that could match non-secret counts. All remaining branches require "secret" adjacent to "5". An implementation reporting "found 5 warnings" would no longer satisfy any branch. No attack vector found. |
-| secret-detection.test.ts:T-SEC-4-all-types | Creates context with one secret per message type (user/assistant/tool_result); asserts all three patterns appear in output. | T-SEC-4 | PASS | No attack vector found. |
-| secret-detection.test.ts:T-SEC-6-rescan-clean | Redacts context; asserts exit 0, file exists, isValidJsonl; asserts rescan exits 0 and output matches /clean/i. | T-SEC-6 | PASS | No attack vector found. |
-| secret-detection.test.ts:Test-9.9-redact-mask | Asserts redacted file exists, isValidJsonl, non-empty, original secret string absent, redaction marker present. | T-SEC-6 | PASS | No attack vector found. |
-| secret-detection.test.ts:Test-clean-detection | Asserts exit 0, output matches /clean/i for CLEAN_CONTEXT. | F-SEC | PASS | No attack vector found. |
-| error-handling.test.ts:T-ERR-1 | Runs task-create without init; asserts exit non-zero, output matches /init\|not initialized/i, no stack trace. | T-ERR-1 | PASS | No attack vector found. |
-| error-handling.test.ts:Test-13.1-suggest-init | Runs update-import without init; asserts exit non-zero, output matches /init/i. | T-ERR-1 | PASS | No attack vector found. |
-| error-handling.test.ts:Test-13.2-missing-claude-dir | Creates task then deletes .claude/; asserts task-list exits non-zero with init message. | T-ERR-1 | PASS | No attack vector found. |
-| error-handling.test.ts:T-ERR-2 | Creates file with malformed JSON; runs scan-secrets; asserts exit non-zero, no stack trace, output matches /invalid\|corrupt\|malformed\|parse.*error\|json/i. | T-ERR-2 | PASS | No attack vector found. |
-| error-handling.test.ts:Test-13.3-no-crash-invalid-json | Creates file with incomplete JSON; asserts exit non-zero, no stack trace. | T-ERR-2 | PASS | No attack vector found. |
-| error-handling.test.ts:Test-13.5-invalid-metadata | Creates valid JSONL with invalid .meta.json; asserts context-list exits 0, no stack trace. | F-ERR | PASS | No attack vector found. |
-| error-handling.test.ts:Test-13.6-permission | Makes tasks dir read-only; asserts exit non-zero with permission message; skips if root. | F-ERR | PASS | No attack vector found; skip-if-root is acceptable. |
-| error-handling.test.ts:Test-validate-task-ids | Loops six invalid IDs; asserts each exits non-zero with specific error pattern. | T-TASK-2 | PASS | No attack vector found. |
-| error-handling.test.ts:Test-validate-context-names | Loops three invalid names; asserts each exits non-zero with specific error pattern. | F-CTX-SAVE (name validation) | PASS | No attack vector found. |
-| error-handling.test.ts:Test-nonexistent-task-error | Asserts exit non-zero, output matches /not found\|does not exist/i. | F-CTX-LIST | PASS | No attack vector found. |
-| error-handling.test.ts:Test-nonexistent-context-error | Asserts exit non-zero, output matches /not found\|does not exist/i. | F-CTX-PROMOTE | PASS | No attack vector found. |
-| error-handling.test.ts:T-ERR-3 | Init, task-create, and update-import all run in path with a space; asserts each exits 0 and creates expected file. | T-ERR-3 | PASS | No attack vector found. |
-| error-handling.test.ts:Test-12.6-line-endings-jsonl | Creates session, saves context, reads all .jsonl files in contexts dir, asserts no \r\n. | F-XPLAT | PASS | No attack vector found. |
-| error-handling.test.ts:Test-12.7-line-endings-generated | Asserts .gitignore and task CLAUDE.md do not contain \r\n. | F-XPLAT | PASS | No attack vector found. |
-| claude-md-system.test.ts:Test-8.1-no-modify-init | Asserts root CLAUDE.md equals originalContent after init. | T-CLMD-1 | PASS | No attack vector found. |
-| claude-md-system.test.ts:Test-8.1-no-modify-create | Asserts root CLAUDE.md unchanged after two task creations. | T-CLMD-1 | PASS | No attack vector found. |
-| claude-md-system.test.ts:Test-8.1-no-modify-switch | Asserts root CLAUDE.md unchanged after multiple switches including back to default. | T-CLMD-1 | PASS | No attack vector found. |
-| claude-md-system.test.ts:Test-8.1-no-git-changes | Asserts no git status line ends with 'CLAUDE.md' outside .claude/. | T-CLMD-1 | PASS | No attack vector found. |
-| claude-md-system.test.ts:Test-8.2-created | Asserts .claude/CLAUDE.md exists after init. | T-CLMD-2 | PASS | No attack vector found. |
-| claude-md-system.test.ts:Test-8.2-import-present | Asserts .claude/CLAUDE.md contains @import. | T-CLMD-2 | PASS | No attack vector found. |
-| claude-md-system.test.ts:Test-8.2-update-switch | Asserts exit 0, .claude/CLAUDE.md contains @import pointing to task-1. | T-CLMD-2 | PASS | No attack vector found. |
-| claude-md-system.test.ts:Test-8.2-one-import | After two switches, asserts exactly one @import line, pointing to task-2, not task-1. | T-CLMD-2 | PASS | No attack vector found. |
-| claude-md-system.test.ts:Test-8.3-gitignore-content | Asserts .gitignore has CLAUDE.md entry. | T-GIT-1 (proximate) | PASS | No attack vector found. |
-| claude-md-system.test.ts:Test-8.3-git-ignored | Asserts isGitIgnored. | T-GIT-1 | PASS | No attack vector found. |
-| claude-md-system.test.ts:Test-8.3-not-in-status | Commits gitignore; modifies file; asserts .claude/CLAUDE.md not staged. | T-CLMD-1 / T-GIT-1 | PASS | No attack vector found. |
-| claude-md-system.test.ts:Test-8.4-switch-auth | Asserts @import points to auth, not payment. | T-CLMD-2 | PASS | No attack vector found. |
-| claude-md-system.test.ts:Test-8.4-switch-payment | Asserts @import points to payment, not auth. | T-CLMD-2 | PASS | No attack vector found. |
-| claude-md-system.test.ts:Test-8.4-switch-default | After switching to auth, switches to default; asserts @import points to default. | T-CLMD-2 | PASS | No attack vector found. |
-| claude-md-system.test.ts:T-CLMD-2-resume-proxy | Asserts .claude/CLAUDE.md @import contains 'oauth-work'; asserts referenced CLAUDE.md exists on disk. | T-CLMD-2 | PASS | Verifies the structural proxy only (file path correct). Cannot verify that /resume actually reads it — as documented. No attack vector for the structural claim. |
-| claude-md-system.test.ts:Test-8.6-multi-dev | Two dev workspaces switch to different tasks; asserts each .claude/CLAUDE.md contains its own task name; asserts they differ; asserts root CLAUDE.md identical. | T-CLMD-1 / T-CLMD-2 | PASS | No attack vector found. |
-| new-features.test.ts:T-CTX-5-dup | Duplicate of context-operations.test.ts T-CTX-5. Identical assertions. | T-CTX-5 | PASS | Duplicate coverage; no additional adversarial value. |
-| new-features.test.ts:T-CTX-6-dup | Duplicate of context-operations.test.ts T-CTX-6. Identical assertions. | T-CTX-6 | PASS | Duplicate coverage; no additional adversarial value. |
-| new-features.test.ts:T-HOOK-1-dup | Plants UUID session file at personalDir/<uuid>.jsonl with SMALL_CONTEXT; pipes stdin payload; asserts exit 0; asserts auto-saves/ has a .jsonl file; asserts isValidJsonl; asserts saved content contains "authentication". | T-HOOK-1 | PASS | Content verification matches context-operations version. No attack vector found. Duplicate coverage. |
-| new-features.test.ts:T-MEM-1-dup | waitFor up to 5s for MEMORY.md; asserts contains task-id and context-name. | T-MEM-1 | PASS | Duplicate of context-operations version with async handling. No additional attack vector. |
-
----
-
-## Section 2 — DoD Coverage Gaps
-
-### T-INIT-1 — `init-project` creates `.claude/CLAUDE.md` with @import line
-
-Tests: initialization.test.ts:Test-1.1-create-structure, Test-1.2-import-directive
-
-Coverage: ADEQUATE
-
-### T-INIT-2 — `init-project` copies root CLAUDE.md byte-for-byte to stash; backup must not exist before script
-
-Tests: initialization.test.ts:Test-1.2-create-backup
-
-Coverage: ADEQUATE
-
-### T-INIT-3 — `.claude/tasks/default/CLAUDE.md` content equals root CLAUDE.md character-for-character
-
-Tests: initialization.test.ts:Test-1.2-default-task-copy
-
-Coverage: ADEQUATE
-
-### T-INIT-4 — Running `init-project` twice exits 0 both times with identical file contents
-
-Tests: initialization.test.ts:Test-1.3-both-succeed, Test-1.3-no-dup-dirs, Test-1.3-already-initialized, Test-1.3-no-dup-stash
-
-Coverage: ADEQUATE
-
-### T-INIT-5 — Writing to project A's personal dir does not make it visible in project B's personal dir
-
-Tests: initialization.test.ts:Test-1.5-multi-project
-
-Coverage: ADEQUATE
-
-### T-TASK-1 — `task-create` produces CLAUDE.md with all required sections
-
-Tests: task-operations.test.ts:Test-2.1-create-structure, Test-2.1-claude-md-content, Test-2.1-import-directive, Test-2.1-confirm-complete
-
-Coverage: ADEQUATE
-
-### T-TASK-2 — `task-create` with uppercase name exits non-zero AND creates no task directory
-
-Tests: task-operations.test.ts:Test-2.2-reject-spaces, Test-2.2-reject-uppercase, Test-2.2-reject-special, Test-2.2-no-dir-invalid; error-handling.test.ts:Test-validate-task-ids
-
-Coverage: ADEQUATE
-
-### T-TASK-3 — `task-create` with multi-line description preserves all lines in Focus section
-
-Tests: task-operations.test.ts:Test-2.3-multiline-desc
-
-Coverage: ADEQUATE
-
-### T-TASK-4 — `task-create` with empty description exits non-zero and creates no task directory
-
-Tests: task-operations.test.ts:T-TASK-4-empty-desc
-
-Coverage: ADEQUATE
-
-### T-SWITCH-1 — After task switches A→B→C→A, `.claude/CLAUDE.md` has exactly one `@import` pointing to selected task
-
-Tests: task-operations.test.ts:T-SWITCH-1-single-import, Test-3.6-multiple-switches, claude-md-system.test.ts:Test-8.2-one-import
-
-Coverage: ADEQUATE
-
-### T-SWITCH-2 — When a task has no saved contexts, `context-list` exits 0 and output contains "no contexts" or "fresh"
-
-Tests: task-operations.test.ts:T-SWITCH-2-no-contexts, Test-3.4-switch-empty-allows
-
-Coverage: ADEQUATE
-
-### T-SWITCH-3 — When task has both personal and golden contexts, all names appear with personal contexts listed before golden
-
-Tests: task-operations.test.ts:T-SWITCH-3-list-both, Test-3.3-personal-before-golden, Test-3.1-list-personal, Test-3.2-list-golden
-
-Coverage: ADEQUATE
-
-### T-SWITCH-4 — `context-list --json` returns `contexts: []` when sessions exist but no named contexts saved
-
-Tests: task-operations.test.ts:T-SWITCH-4-json-empty-contexts
-
-Coverage: ADEQUATE
-
-### T-SWITCH-5 — When `contexts` is empty, output does not present UUID session files under Personal or Golden contexts sections
-
-Tests: task-operations.test.ts:T-SWITCH-5-no-uuid-in-ctx-output
-
-Coverage: ADEQUATE
-
-### T-SWITCH-6 — Switching to `default` task: `@import` points to `default/CLAUDE.md` AND output confirms the switch
-
-Tests: task-operations.test.ts:T-SWITCH-6-vanilla-mode, Test-3.5-switch-default
-
-Coverage: ADEQUATE
-
-### T-CTX-1 — `save-context --personal` creates file at exact personal path
-
-Tests: context-operations.test.ts:T-CTX-1-personal-path, Test-4.1-not-to-golden-dir
-
-Coverage: ADEQUATE
-
-### T-CTX-2 — Saved context parses as valid JSONL; assertion unconditional
-
-Tests: context-operations.test.ts:T-CTX-2-valid-jsonl, Test-4.2-save-golden-dir
-
-Coverage: ADEQUATE
-
-### T-CTX-3 — `save-context --golden` on session with real secret exits non-zero with no file created
-
-Tests: context-operations.test.ts:Test-4.2-block-stripe, Test-4.2-block-github, T-CTX-3-aws
-
-Coverage: ADEQUATE — three distinct secret types tested, all verify file non-existence.
-
-### T-CTX-4 — `save-context --golden` on 150KB session exits non-zero with "100KB" or "too large" in output
-
-Tests: context-operations.test.ts:T-CTX-4-golden-size-cap
-
-Coverage: ADEQUATE
-
-### T-CTX-5 — `promote-context` on 150KB personal context exits non-zero with "100KB" or "too large"
-
-Tests: context-operations.test.ts:T-CTX-5-promote-size, new-features.test.ts:T-CTX-5-dup
-
-Coverage: ADEQUATE (duplicate tests)
-
-### T-CTX-6 — `save-context` twice with same name creates a `.backup-` file containing original content
-
-Tests: context-operations.test.ts:T-CTX-6-overwrite, new-features.test.ts:T-CTX-6-dup
-
-Coverage: ADEQUATE (duplicate tests)
-
-### T-CTX-7 — `delete-context` on a golden context exits non-zero without `--confirm`; file still exists
-
-Tests: context-operations.test.ts:T-CTX-7-golden-protection
-
-Coverage: ADEQUATE
-
-### T-LIST-1 — `context-list` output: personal contexts appear before golden; specific context names appear
-
-Tests: context-operations.test.ts:T-LIST-1-list-all, T-LIST-1-ordering; task-operations.test.ts:T-SWITCH-3-list-both, Test-3.3-personal-before-golden
-
-Coverage: ADEQUATE for ordering. Gap: T-LIST-1-list-all does not test the mixed-type case because it uses personal-only setup; however T-LIST-1-ordering covers the mixed case.
-
-### T-LIST-2 — `context-list` shows exact message count matching `\b<N>\b`
-
-Tests: context-operations.test.ts:T-LIST-2-message-counts
-
-Coverage: ADEQUATE — Test finds the line containing ctx-1 and asserts \b5\b on that line; finds line containing ctx-2 and asserts \b30\b on that line. Count is anchored to the specific context name, preventing false passes from unrelated output.
-
-### T-LIST-3 — When no contexts exist, output contains "fresh", "empty", or "no contexts"
-
-Tests: context-operations.test.ts:T-LIST-3-no-contexts
-
-Coverage: ADEQUATE
-
-### T-LIST-4 — `context-list` shows a non-empty description string after each context name, not just metadata
-
-Tests: context-operations.test.ts:T-LIST-4-summary-display
-
-Coverage: ADEQUATE — Test uses save-context to create fixture (which generates meta.json with content-derived summary). Context-list.ts reads meta.json and appends ` — <summary>` after context name. Test asserts text after '—' matches /authentication|oauth|token|auth/i — a domain-specific keyword that cannot be produced by metadata tokens alone.
-
-### T-PROM-1 — After `promote-context`, both personal original and golden copy exist; byte-for-byte identical
-
-Tests: context-operations.test.ts:T-PROM-1-promote-clean, Test-7.1-copy-to-golden, Test-7.1-preserve-original
-
-Coverage: ADEQUATE
-
-### T-PROM-2 — `promote-context` on context with `ghp_` + 36 alphanumeric chars: output names specific secret type
-
-Tests: context-operations.test.ts:T-PROM-2-github-token
-
-Coverage: ADEQUATE
-
-### T-PROM-3 — `promote-context` when golden already exists exits non-zero or warns; setup creates personal context only
-
-Tests: context-operations.test.ts:T-PROM-3-already-golden
-
-Coverage: ADEQUATE — beforeEach creates personal context only; first promote-context call exits 0 and creates golden legitimately; test calls promote-context again and asserts exit non-zero. No self-fulfilling setup; implementation must handle double-promotion semantically.
-
-### T-CLMD-1 — After any task operation, root CLAUDE.md content equals pre-operation content
-
-Tests: claude-md-system.test.ts:Test-8.1-no-modify-init, Test-8.1-no-modify-create, Test-8.1-no-modify-switch, Test-8.1-no-git-changes; initialization.test.ts:Test-1.2-no-modify-root
-
-Coverage: ADEQUATE
-
-### T-CLMD-2 — After two task switches, `.claude/CLAUDE.md` contains exactly one `@import` line
-
-Tests: claude-md-system.test.ts:Test-8.2-one-import, Test-8.2-update-switch, T-CLMD-2-resume-proxy; task-operations.test.ts:T-SWITCH-1-single-import
-
-Coverage: ADEQUATE for import count. Gap: T-CLMD-2-resume-proxy verifies path is correct but cannot test that /resume reads it (documented as manual-only).
-
-### T-RESUME-MANUAL — MANUAL: After `/task <id>` + `/resume <session>`, Claude's response references task CLAUDE.md content
-
-Tests: None (manual only)
-
-Coverage: MISSING — By design; automated proxy is T-CLMD-2.
-
-### T-SEC-2 — `scan-secrets` on file with `AKIA` + 16 uppercase alphanumeric chars exits non-zero; output contains "AWS" or "AKIA"
-
-Tests: secret-detection.test.ts:T-SEC-2-aws-key, Test-9.1-aws-secret-key
-
-Coverage: ADEQUATE
-
-### T-SEC-3 — `scan-secrets` detects both `sk_test_` and `sk_live_`; output names specific key type
-
-Tests: secret-detection.test.ts:T-SEC-3-live-key, T-SEC-3-both-keys
-
-Coverage: ADEQUATE — both-keys test requires exact prefixes in output.
-
-### T-SEC-4 — Context with one secret each in user, assistant, tool_result: all three reported
-
-Tests: secret-detection.test.ts:T-SEC-4-all-types
-
-Coverage: ADEQUATE
-
-### T-SEC-5 — `AKIAIOSFODNN7EXAMPLE` is treated as a true positive
-
-Tests: secret-detection.test.ts:T-SEC-5-example-key
-
-Coverage: ADEQUATE — isolated fixture contains only this string.
-
-### T-SEC-6 — After `redact-secrets`, every line parses as JSON; second `scan-secrets` returns "clean"
-
-Tests: secret-detection.test.ts:T-SEC-6-rescan-clean, Test-9.9-redact-mask
-
-Coverage: ADEQUATE
-
-### T-SEC-7 — `scan-secrets` on context with exactly 5 secrets reports count matching `\b5\b`
-
-Tests: secret-detection.test.ts:T-SEC-7-count-five
-
-Coverage: ADEQUATE — Removed the vacuous `found\s+5\s+` branch. Remaining branches all require "secret" adjacent to "5": `/\b5\b.*secrets?|secrets?.*\b5\b|5\s+secrets?\s+found/i`. "found 5 warnings" no longer satisfies any branch.
-
-### T-GIT-1 — `git check-ignore .claude/CLAUDE.md` exits 0 after init in real git repo
-
-Tests: git-integration.test.ts:T-GIT-1, Test-11.7-check-ignore; claude-md-system.test.ts:Test-8.3-git-ignored
-
-Coverage: ADEQUATE
-
-### T-GIT-2 — After full workflow, `git status --porcelain` does not list any personal storage path
-
-Tests: git-integration.test.ts:T-GIT-2, Test-11.4-personal-not-committed, Test-11.5-no-git-conflicts
-
-Coverage: ADEQUATE
-
-### T-ERR-1 — Any script without init exits non-zero with "initialized" or "init" in output; not a stack trace
-
-Tests: error-handling.test.ts:T-ERR-1, Test-13.1-suggest-init, Test-13.2-missing-claude-dir
-
-Coverage: ADEQUATE
-
-### T-ERR-2 — `scan-secrets` on malformed JSONL exits non-zero
-
-Tests: error-handling.test.ts:T-ERR-2, Test-13.3-no-crash-invalid-json
-
-Coverage: ADEQUATE
-
-### T-ERR-3 — All operations work when project path contains a space; exitCode === 0 AND output file existence
-
-Tests: error-handling.test.ts:T-ERR-3
-
-Coverage: ADEQUATE
-
-### T-HOOK-1 — `auto-save-context` with mock stdin payload creates timestamped `.jsonl` file in flat `auto-saves/` directory
-
-Tests: context-operations.test.ts:T-HOOK-1-auto-save, new-features.test.ts:T-HOOK-1-dup
-
-Coverage: ADEQUATE — Both tests plant a real UUID session file with SMALL_CONTEXT and assert that saved file contains "authentication" from that content. Empty file bypass is prevented. Both tests are equivalent; duplicate coverage.
-
-### T-MEM-1 — After `save-context`, MEMORY.md contains task-id and context-name
-
-Tests: context-operations.test.ts:T-MEM-1-memory-update, new-features.test.ts:T-MEM-1-dup
-
-Coverage: ADEQUATE — both strings must appear. No structural format verified beyond presence.
-
-### T-SUM-1 — After save-context, `.meta.json` exists with summary string between 20 and 500 characters
-
-Tests: context-operations.test.ts:T-SUM-1-summary-length
-
-Coverage: ADEQUATE — T-SUM-1 is now defined in PRD AC for F-SUMMARY. Length bounds are asserted. T-SUM-2's keyword assertions prevent trivially hardcoded strings from satisfying both clauses together.
-
-### T-SUM-2 — Two contexts from different conversations produce different summaries; each contains a keyword from the source content
-
-Tests: context-operations.test.ts:T-SUM-2-different-summaries
-
-Coverage: ADEQUATE — T-SUM-2 is now defined in PRD AC for F-SUMMARY. Tests assert summaryAuth matches /authentication|oauth|token|auth/i and summaryDb matches /database|migration|postgresql|schema|column|index/i. Random/timestamp summaries cannot satisfy domain-specific keyword requirements.
-
-### F-CTX-MANAGE — Interactive cleanup, dry-run previews, stale/duplicate detection, merge, archive operations
-
-Only AC defined: T-CTX-7 (golden deletion protection). All other Expected Behaviors for F-CTX-MANAGE have no DoD clause:
-- Interactive cleanup flow
-- Stale context identification
-- Duplicate context identification  
-- Dry-run preview before deletion
-- Merge operation
-- Archive operation
-- Recommendation presentation
-
-Coverage: MISSING for all behaviors except T-CTX-7.
+# Test Inventory
+
+| TEST_ID | DESCRIPTION | AC_CLAUSE | COVERAGE_RATIONALE | VERDICT |
+|---------|-------------|-----------|-------------------|---------|
+| initialization.test.ts:Test 1.1 "should create .claude/ directory structure" | Runs init-project on a fresh project and checks that .claude/, .gitignore, default task CLAUDE.md exist, and that .claude/CLAUDE.md contains an @import pointing to the default task. | T-INIT-1 | Directly verifies T-INIT-1: the createTestEnvironment provides a fresh dir so pre-condition holds implicitly. The @import existence and target are verified. Covers the clause. | PASS |
+| initialization.test.ts:Test 1.1 "should create .gitignore with CLAUDE.md entry" | Runs init-project and checks .claude/.gitignore contains CLAUDE.md on its own line. | T-INIT-1 (partial) | Covers the .gitignore sub-requirement of init. Not a standalone AC but contributes to T-INIT-1. | PASS |
+| initialization.test.ts:Test 1.1 "should not create backup when no original CLAUDE.md exists" | Runs init-project without a root CLAUDE.md and asserts no stash backup is created; also asserts default task was created (non-vacuous). | T-INIT-2 (negative case) | Verifies the inverse: no backup when no CLAUDE.md. Adds a positive check that default task was created. Covers the negative path of T-INIT-2. | PASS |
+| initialization.test.ts:Test 1.1 "should work with git initialized" | Inits git first, runs init-project, checks .claude/CLAUDE.md is git-ignored. | T-GIT-1 (partial) | Tests git-ignore behavior after init in a real git repo. Partial coverage of T-GIT-1. | PASS |
+| initialization.test.ts:Test 1.2 "should not modify root CLAUDE.md" | Creates root CLAUDE.md with known content, runs init-project, asserts root content unchanged. | T-CLMD-1 | Directly verifies root CLAUDE.md is not modified during init. Covers T-CLMD-1 for the init operation only. | PASS |
+| initialization.test.ts:Test 1.2 "should create backup of original CLAUDE.md" | Asserts backup does NOT exist before script runs, runs init-project, then asserts backup exists with identical content. | T-INIT-2 | Directly satisfies T-INIT-2: pre-condition checked, byte-for-byte equality verified, not self-fulfilling. | PASS |
+| initialization.test.ts:Test 1.2 "should create default task with copy of original CLAUDE.md" | Asserts default task CLAUDE.md does NOT exist before script, runs init-project, asserts content equals root CLAUDE.md character-for-character. | T-INIT-3 | Directly satisfies T-INIT-3: character-for-character equality. | PASS |
+| initialization.test.ts:Test 1.2 "should create .claude/CLAUDE.md with @import directive" | Pre-condition checked (file must not exist), runs init-project, asserts @import exists pointing to default task, and that the imported file exists on disk. | T-INIT-1 | Directly satisfies T-INIT-1 with pre-condition and post-condition. | PASS |
+| initialization.test.ts:Test 1.3 "should succeed on both initializations" | Runs init-project twice, asserts both exit 0, and .claude/CLAUDE.md content is identical between runs. | T-INIT-4 | Directly satisfies T-INIT-4: both exit 0, identical file contents. | PASS |
+| initialization.test.ts:Test 1.3 "should not create duplicate directories" | Runs init-project twice, asserts only one default task directory and identical .claude/CLAUDE.md content. | T-INIT-4 | Covers the directory-duplication aspect of idempotency. Content identity also checked. | PASS |
+| initialization.test.ts:Test 1.3 "should indicate already initialized on second run" | Runs init-project twice, asserts both exit 0 and identical file contents. | T-INIT-4 | Redundant with the prior T-INIT-4 test. No new coverage. | PASS |
+| initialization.test.ts:Test 1.3 "should produce identical files on second run and not duplicate stash" | Runs init-project twice, checks content identity and stash directory has exactly 1 CLAUDE backup file. Uses if (existsSync(stashDir)) guard around the stash count assertion. | T-INIT-4 | The stash count assertion is inside an if (existsSync(stashDir)) guard. If stashDir does not exist, the assertion is silently skipped. This violates test rule T2 (no conditional assertions on file existence). A buggy implementation that fails to create the stash directory would cause this test to pass vacuously. | FAIL |
+| initialization.test.ts:Test 1.4 "should preserve existing .claude/ content" | Creates .claude/existing-file.txt before init, runs init-project, asserts file still exists with original content. | (no explicit AC) | No specific AC clause for preserving existing .claude/ content. Covers an expected behavior listed in the PRD but without a formal AC. | PASS |
+| initialization.test.ts:Test 1.4 "should still create missing initialization files" | Creates .claude/ dir before init, runs init-project, asserts .gitignore and default task CLAUDE.md created. | T-INIT-1 (partial) | Covers init behavior when .claude/ already exists. | PASS |
+| initialization.test.ts:Test 1.5 "should handle multiple projects independently" | Creates two test environments, inits both, runs save-context through the implementation in project 1, asserts file exists in project 1's personal storage and does NOT exist in project 2's. | T-INIT-5 | Directly satisfies T-INIT-5: cross-project isolation verified through the implementation (not just path arithmetic). | PASS |
+| task-operations.test.ts:Test 2.1 "should create task directory structure" | Runs task-create with valid name, asserts exit 0, task dir exists, CLAUDE.md exists, contexts dir exists. | T-TASK-1 (partial) | Verifies directory structure but does not check all four required CLAUDE.md sections. Partial coverage. | PASS |
+| task-operations.test.ts:Test 2.1 "should create task CLAUDE.md with description" | Runs task-create, asserts CLAUDE.md contains all four required section headers and that 'oauth' appears under the Focus section. | T-TASK-1 | Directly satisfies T-TASK-1: all required sections verified, description word checked in Focus section. | PASS |
+| task-operations.test.ts:Test 2.1 "should update .claude/CLAUDE.md with import directive" | Runs task-create, asserts .claude/CLAUDE.md has @import pointing to the new task. | T-TASK-1 (partial) | Verifies the @import wiring after task creation. Contributes to T-TASK-1 coverage. | PASS |
+| task-operations.test.ts:Test 2.1 "should confirm task structure is complete after create" | Runs task-create, checks exit 0, CLAUDE.md exists with # Task: and ## Focus sections. | T-TASK-1 | Redundant with the prior T-TASK-1 test. Subset of assertions. | PASS |
+| task-operations.test.ts:Test 2.2 "should reject task name with spaces" | Runs task-create with 'OAuth Refactor', asserts non-zero exit, error message, no directory created. | T-TASK-2 | Covers T-TASK-2 for spaces. | PASS |
+| task-operations.test.ts:Test 2.2 "should reject task name with uppercase" | Runs task-create with 'OAuthRefactor', asserts non-zero exit, no directory created (checks both original and lowercase variants). | T-TASK-2 | Directly satisfies T-TASK-2: uppercase name exits non-zero AND no task directory created. | PASS |
+| task-operations.test.ts:Test 2.2 "should reject task name with special characters" | Runs task-create with 'oauth@refactor!', asserts non-zero exit, no directory created. | T-TASK-2 (extension) | Extends T-TASK-2 coverage to special characters. | PASS |
+| task-operations.test.ts:Test 2.2 "should not create directory for invalid task" | Runs task-create with 'OAuth Refactor', asserts non-zero exit, no directory at either casing. | T-TASK-2 | Redundant with spaces test above. | PASS |
+| task-operations.test.ts:Test 2.3 "should capture full multi-line description" | Runs task-create with multi-line description, asserts all three keywords (oauth, session, token) appear in the Focus section. | T-TASK-3 | Directly satisfies T-TASK-3: multi-line description preserved in Focus section. Checks three keywords from three separate lines, proving all lines were captured. | PASS |
+| task-operations.test.ts:Test 2.4 "T-TASK-4: should reject empty description" | Runs task-create with empty string description, asserts non-zero exit and no task directory created. | T-TASK-4 | Directly satisfies T-TASK-4. | PASS |
+| task-operations.test.ts:Test 3.1 "should list personal contexts when switching" | Creates task with personal context, runs task-list, asserts 'my-progress' appears, 'personal' section present, 'golden' absent. | T-SWITCH-3 (partial) | Covers the personal-only scenario. Does not test mixed personal+golden ordering. | PASS |
+| task-operations.test.ts:Test 3.2 "should list golden contexts when switching" | Creates task with golden context only, runs task-list, asserts 'oauth-deep-dive' appears, 'golden' section present, 'personal' absent. | T-SWITCH-3 (partial) | Covers golden-only scenario. | PASS |
+| task-operations.test.ts:Test 3.3 "T-SWITCH-3: should list both personal and golden contexts" | Creates mixed contexts, runs task-list, asserts all three names appear, both section labels present, personal-1 indexOf < golden-1 indexOf. | T-SWITCH-3 | Directly satisfies T-SWITCH-3: all names appear, personal listed before golden. | PASS |
+| task-operations.test.ts:Test 3.3 "should show personal contexts before golden" | Same setup as T-SWITCH-3 test, asserts personal-1 appears before golden-1. | T-SWITCH-3, T-LIST-1 | Redundant with T-SWITCH-3 test above. | PASS |
+| task-operations.test.ts:Test 3.4 "T-SWITCH-2: should indicate no contexts available" | Creates task with no contexts, runs task-list, asserts exit 0 and output matches /no contexts|fresh/. | T-SWITCH-2 | Directly satisfies T-SWITCH-2. | PASS |
+| task-operations.test.ts:Test 3.4 "should still allow task switch" | Runs update-import on a task with no contexts, asserts exit 0. | T-SWITCH-2 (extension) | Verifies the switch mechanism works even without contexts. | PASS |
+| task-operations.test.ts:Test 3.5 "should switch to default task" | Runs update-import with 'default', asserts exit 0 and @import contains 'default'. | T-SWITCH-6 (partial) | Verifies @import update but does not check output for "vanilla" or "restored" confirmation. | PASS |
+| task-operations.test.ts:Test 3.5 "T-SWITCH-6: should confirm vanilla mode restored" | Runs update-import with 'default', asserts output matches /vanilla|restored/ AND @import points to default, AND 'some-task' not present. | T-SWITCH-6 | Directly satisfies T-SWITCH-6: output confirmation plus @import verification. | PASS |
+| task-operations.test.ts:Test 3.6 "should update .claude/CLAUDE.md on each switch" | Switches between task-a, task-b, task-c, task-a, asserting each time the correct task name is in .claude/CLAUDE.md and the previous is gone. Uses fileContains rather than counting @import lines. | T-SWITCH-1 (partial) | Covers the switch pattern but does not assert exactly one @import line. The dedicated T-SWITCH-1 test does that. | PASS |
+| task-operations.test.ts:T-SWITCH-4 test | Plants UUID session files, runs context-list --json, parses JSON, asserts sessions array is non-empty and contexts array is empty. | T-SWITCH-4 | Directly satisfies T-SWITCH-4: sessions present, contexts empty array. | PASS |
+| task-operations.test.ts:T-SWITCH-5 test | Plants UUID session files, runs context-list human-readable, asserts 'sessions' section exists, 'personal contexts'/'golden contexts' sections do NOT exist, no numbered UUID options appear. | T-SWITCH-5 | Directly satisfies T-SWITCH-5: UUID session files do not appear as numbered selectable context options. | PASS |
+| task-operations.test.ts:T-SWITCH-1 test | Creates three tasks, switches A->B->C->A, after each switch asserts exactly one @import line in .claude/CLAUDE.md pointing to the correct task. | T-SWITCH-1 | Directly satisfies T-SWITCH-1: exactly one @import after each switch in the A->B->C->A pattern. | PASS |
+| context-operations.test.ts:Test 4.1 "should save context to personal storage" | Creates session file, runs save-context --personal, asserts exit 0, file exists at expected personal path, valid JSONL. | T-CTX-1 | Directly satisfies T-CTX-1: file at exact personal path. | PASS |
+| context-operations.test.ts:Test 4.1 "should create valid JSONL file" | Runs save-context --personal, asserts exit 0, file exists, valid JSONL, non-empty content. | T-CTX-2 | Directly satisfies T-CTX-2: valid JSONL asserted unconditionally. | PASS |
+| context-operations.test.ts:Test 4.1 "should not save to project .claude/ directory for personal" | Runs save-context --personal, asserts personal file exists at personal path and does NOT exist at golden path. | T-CTX-1 (extension) | Verifies personal/golden path separation. | PASS |
+| context-operations.test.ts:Test 4.2 "should save context to project directory for golden" | Creates clean context, runs save-context --golden, asserts exit 0, file at golden path, valid JSONL. | T-CTX-3 (partial) | Covers golden save happy path with clean context. | PASS |
+| context-operations.test.ts:Test 4.2 "should run secret scan before saving golden" | Runs save-context --golden with clean context, asserts output contains 'scan' or 'secret'. | T-CTX-3 (partial) | Verifies scan runs on golden save. The OR is acceptable -- both words are specific to the feature. | PASS |
+| context-operations.test.ts:Test 4.2 "should block golden save when session contains a Stripe live key" | Creates STRIPE_KEY_CONTEXT, runs save-context --golden, asserts non-zero exit, output matches /stripe|sk_live/, golden file does NOT exist. | T-CTX-3 | Covers T-CTX-3 for Stripe keys: non-zero exit, file not created. | PASS |
+| context-operations.test.ts:Test 4.2 "should block golden save when session contains a GitHub token" | Creates GITHUB_TOKEN_CONTEXT, runs save-context --golden, asserts non-zero exit, output matches /github|ghp_/, golden file does NOT exist. | T-CTX-3 | Covers T-CTX-3 for GitHub tokens. | PASS |
+| context-operations.test.ts:Test 4.2 "should block golden save when session contains a real AWS key" | Creates AWS_KEY_CONTEXT, runs save-context --golden, asserts non-zero exit, output matches /aws|akia/, golden file does NOT exist. | T-CTX-3 | Directly satisfies T-CTX-3 as written (AWS key). File non-existence is verified. | PASS |
+| context-operations.test.ts:Test 4.3 "should reject context name with invalid characters" | Runs save-context with name 'my work!', asserts non-zero exit, error message about invalid name, no file created. | (no explicit AC) | No explicit AC for context name validation. Covers expected behavior from PRD. | PASS |
+| context-operations.test.ts:Test 4.5 "should handle empty context gracefully" | Creates empty JSONL, runs save-context, asserts non-zero exit and no Node.js stack trace. | (no explicit AC) | Tests empty context rejection. No formal AC clause for this edge case. | PASS |
+| context-operations.test.ts:Test 4.5 "should reject golden save when context exceeds 100KB" | Creates 150-message context >100KB (verified), runs save-context --golden, asserts non-zero exit, output matches /100KB|too large/, golden file does NOT exist. | T-CTX-4 | Directly satisfies T-CTX-4: oversized session rejected with specific error, file not created. Pre-condition size assertion prevents vacuous pass. | PASS |
+| context-operations.test.ts:T-CTX-6 "should create a backup file when saving to an existing name" | Saves context twice with same name, asserts backup file exists with .backup- in name, backup contains original content. | T-CTX-6 | Directly satisfies T-CTX-6: backup created, contains original content. | PASS |
+| context-operations.test.ts:Test 5.1 "should list all contexts for task" | Creates two personal contexts, runs context-list, asserts both names appear, 'personal' section present, 'golden' absent. | T-LIST-1 (partial) | Covers listing with personal-only contexts. Does not test ordering with golden. | PASS |
+| context-operations.test.ts:Test 5.1 "T-LIST-2: should show correct message count" | Creates contexts with known counts (5 and 30), runs context-list, asserts each count on the same line as the context name using word-boundary regex. | T-LIST-2 | Directly satisfies T-LIST-2: exact message count with word boundary, co-located with context name. | PASS |
+| context-operations.test.ts:Test 5.3 "T-LIST-3: should indicate no contexts found" | Creates task with no contexts, runs context-list, asserts exit 0 and output matches /\bfresh\b|\bempty\b|\bno contexts\b/. | T-LIST-3 | Directly satisfies T-LIST-3 with word-boundary regex. | PASS |
+| context-operations.test.ts:Test 5.4 "should show both personal and golden sections" | Creates one personal and one golden context, runs context-list, asserts both names, both section labels, and personal-ctx indexOf < golden-ctx indexOf. | T-LIST-1 | Directly satisfies T-LIST-1: personal before golden, specific names appear. | PASS |
+| context-operations.test.ts:Test 5.5 "should error for non-existent task" | Runs context-list for 'nonexistent-task', asserts non-zero exit and descriptive error. | (no explicit AC) | No explicit AC for this error case. | PASS |
+| context-operations.test.ts:Test 5.6 "T-LIST-4: should display content-derived summary" | Verifies meta.json has summary with auth keyword, then context-list displays it after a dash separator on the same line as the context name. | T-LIST-4 | Directly satisfies T-LIST-4: content-derived description string displayed alongside context name. | PASS |
+| context-operations.test.ts:Test 6.1 "should report zero contexts" | Runs list-all-contexts with no contexts, asserts exit 0 and output matches /\bno contexts\b|\bempty\b/. | (no explicit AC) | No explicit AC. | PASS |
+| context-operations.test.ts:Test 6.6 "should list golden context with special indicator" | Creates golden context, runs list-all-contexts, checks stderr for golden-ctx with star or 'golden' label. | (no explicit AC) | Tests golden indicator display. No standalone AC for this. | PASS |
+| context-operations.test.ts:Test 6.6 "should prevent golden context deletion without confirmation" | Asserts golden file exists, runs delete-context without --confirm, asserts non-zero exit, golden file still exists. | T-CTX-7 | Directly satisfies T-CTX-7: delete-context on golden exits non-zero without --confirm, file still exists. | PASS |
+| context-operations.test.ts:Test 7.1 "T-PROM-1: should successfully promote clean context" | Creates personal context, runs promote-context, asserts exit 0, both golden and personal copies exist, byte-for-byte identical. | T-PROM-1 | Directly satisfies T-PROM-1. | PASS |
+| context-operations.test.ts:Test 7.1 "should copy to project golden directory" | Runs promote-context, asserts golden file exists, valid JSONL, personal file still exists. | T-PROM-1 (extension) | Redundant with T-PROM-1 test. Adds JSONL validation. | PASS |
+| context-operations.test.ts:Test 7.1 "should preserve original personal context" | Captures personal content before promote, runs promote-context, asserts personal file still exists with identical content. | T-PROM-1 (extension) | Redundant -- byte-for-byte preservation covered above. | PASS |
+| context-operations.test.ts:T-CTX-5 "should reject promote when personal context exceeds 100KB" | Creates >100KB context, runs promote-context, asserts non-zero exit, output matches /100kb|too large/, golden file does NOT exist. | T-CTX-5 | Directly satisfies T-CTX-5. | PASS |
+| context-operations.test.ts:Test 7.2 "should detect secrets and warn/block" | Creates GITHUB_TOKEN_CONTEXT, runs promote-context, asserts non-zero exit, output matches /github|ghp_/. | T-PROM-2 | Directly satisfies T-PROM-2: GitHub token type specifically identified. | PASS |
+| context-operations.test.ts:Test 7.3 "should offer redaction option" | Creates STRIPE_KEY_CONTEXT, runs scan-secrets on it, asserts non-zero exit and output matches /stripe|sk_/. | T-PROM-2 (extension) | Tests scan-secrets directly, not promote-context. Partial coverage of redaction offering. | PASS |
+| context-operations.test.ts:Test 7.4 "should error for non-existent context" | Runs promote-context for 'nonexistent', asserts non-zero exit and descriptive error. | (no explicit AC) | No explicit AC. | PASS |
+| context-operations.test.ts:Test 7.5 "T-PROM-3: should warn and fail when context is already golden" | Creates personal, promotes successfully, then second promotion fails with /already.*golden|already exists/. | T-PROM-3 | Directly satisfies T-PROM-3: setup creates personal only, first promotion creates golden, second fails. | PASS |
+| context-operations.test.ts:T-MEM-1 "should update MEMORY.md with task-id and context-name" | Runs save-context, asserts MEMORY.md at personalDir/memory/MEMORY.md contains task-id and context-name. | T-MEM-1 | The test verifies MEMORY.md is written and contains the expected values. However, the AC specifies path ~/.claude/projects/<sanitized>/MEMORY.md while the implementation writes to <personalDir>/memory/MEMORY.md (adding a memory/ subdirectory). The test documents this deviation rather than failing on it. Either the AC or the implementation is wrong; the test cannot be evaluated as covering the AC path requirement as written. | ESCALATE |
+| context-operations.test.ts:T-HOOK-1 "should save session content to timestamped file" | Plants UUID session file, pipes JSON payload to auto-save-context, asserts exit 0, auto-saves/ dir exists, timestamped .jsonl file exists, valid JSONL, non-empty, contains 'authentication' keyword. | T-HOOK-1 | Directly satisfies T-HOOK-1 with content verification proving real data was copied. | PASS |
+| context-operations.test.ts:T-SUM-1 test | Runs save-context, asserts .meta.json exists with summary string between 20 and 500 characters. | T-SUM-1 | Directly satisfies T-SUM-1. | PASS |
+| context-operations.test.ts:T-SUM-2 test | Saves two contexts from different topics, asserts summaries differ and each contains a content-derived keyword. | T-SUM-2 | Directly satisfies T-SUM-2: different summaries with content-derived keywords. | PASS |
+| claude-md-system.test.ts:Test 8.1 "should not modify root CLAUDE.md during init" | Reads root CLAUDE.md after init, asserts identical to original. | T-CLMD-1 | Covers T-CLMD-1 for init. | PASS |
+| claude-md-system.test.ts:Test 8.1 "should not modify root CLAUDE.md during task creation" | Creates two tasks, asserts root CLAUDE.md unchanged. | T-CLMD-1 | Covers T-CLMD-1 for task creation. | PASS |
+| claude-md-system.test.ts:Test 8.1 "should not modify root CLAUDE.md during task switching" | Switches between tasks and default, asserts root CLAUDE.md unchanged. | T-CLMD-1 | Covers T-CLMD-1 for task switching. | PASS |
+| claude-md-system.test.ts:Test 8.1 "should show no git changes to root CLAUDE.md" | Creates task and switches, checks git status for root CLAUDE.md. | T-CLMD-1 (git variant) | Git-level verification that root CLAUDE.md is not modified. | PASS |
+| claude-md-system.test.ts:Test 8.2 "should create .claude/CLAUDE.md on init" | Asserts .claude/CLAUDE.md exists after init. | T-CLMD-2 (partial) | Only checks existence. | PASS |
+| claude-md-system.test.ts:Test 8.2 "should contain @import directive" | Asserts .claude/CLAUDE.md matches @import pattern. | T-CLMD-2 (partial) | Checks @import exists but does not count lines. | PASS |
+| claude-md-system.test.ts:Test 8.2 "should update on task switch" | Creates task, runs update-import, asserts @import contains task name. | T-CLMD-2 (partial) | One switch, not two as specified. | PASS |
+| claude-md-system.test.ts:Test 8.2 "should contain exactly one @import after multiple switches" | Creates two tasks, switches twice, asserts exactly one @import line pointing to task-2. | T-CLMD-2 | Directly satisfies T-CLMD-2: after two task switches, exactly one @import line. | PASS |
+| claude-md-system.test.ts:Test 8.3 "should have .gitignore with CLAUDE.md entry" | Checks .claude/.gitignore exists and contains CLAUDE.md. | T-GIT-1 (partial) | Verifies .gitignore content. | PASS |
+| claude-md-system.test.ts:Test 8.3 "should be ignored by git" | Asserts .claude/CLAUDE.md exists and isGitIgnored returns true. | T-GIT-1 | Satisfies T-GIT-1. | PASS |
+| claude-md-system.test.ts:Test 8.3 "should not appear in git status" | Commits .gitignore, stages .claude/, asserts .claude/CLAUDE.md absent from git status. | T-GIT-1 (extension) | Additional git-level verification. | PASS |
+| claude-md-system.test.ts:Test 8.4 "should update import to auth task" | Switches to auth task, asserts @import contains 'auth' not 'payment'. | T-CLMD-2 (partial) | Single switch. | PASS |
+| claude-md-system.test.ts:Test 8.4 "should update import to payment task" | Switches to payment task, asserts @import contains 'payment' not 'auth'. | T-CLMD-2 (partial) | Single switch. | PASS |
+| claude-md-system.test.ts:Test 8.4 "should update import to default task" | Switches to auth then default, asserts @import contains 'default'. | T-SWITCH-6 (partial) | Verifies @import but not output confirmation text. | PASS |
+| claude-md-system.test.ts:Test 8.5 "should set up the correct @import path for /resume to read" | Creates 'oauth-work' task, updates import, asserts @import contains 'oauth-work' and referenced file exists. | T-CLMD-2 | Structural proxy for T-RESUME-MANUAL. Covers the automated side. | PASS |
+| claude-md-system.test.ts:Test 8.6 "should allow different task states" | Two environments with different tasks, asserts .claude/CLAUDE.md differs between them while root is identical. | (no explicit AC) | Multi-developer isolation. No explicit AC. | PASS |
+| error-handling.test.ts:Test 13.1 "T-ERR-1: should handle missing .claude directory gracefully" | Runs task-create without init, asserts non-zero exit, output contains 'init', no stack trace. | T-ERR-1 | Directly satisfies T-ERR-1. | PASS |
+| error-handling.test.ts:Test 13.1 "should suggest running init" | Runs update-import without init, asserts non-zero exit and output contains 'init'. | T-ERR-1 (extension) | Second script coverage. | PASS |
+| error-handling.test.ts:Test 13.2 "should handle missing .claude directory on task operations" | Creates task, deletes .claude/, runs task-list, asserts non-zero exit and not-initialized message. | T-ERR-1 (extension) | Mid-operation directory deletion. | PASS |
+| error-handling.test.ts:Test 13.3 "T-ERR-2: should detect corrupt JSONL" | Creates malformed JSONL, runs scan-secrets, asserts non-zero exit, no stack trace, descriptive error. | T-ERR-2 | Directly satisfies T-ERR-2. | PASS |
+| error-handling.test.ts:Test 13.3 "should not crash on invalid JSON in context" | Creates truncated JSON, runs scan-secrets, asserts non-zero exit and no stack trace. | T-ERR-2 (extension) | Another malformed variant. | PASS |
+| error-handling.test.ts:Test 13.5 "should handle invalid metadata gracefully" | Creates valid context with invalid .meta.json, runs context-list, asserts exit 0 and no stack trace. | (no explicit AC) | No specific AC. | PASS |
+| error-handling.test.ts:Test 13.6 "should handle permission errors gracefully" | Makes tasks dir read-only, runs task-create, asserts non-zero exit and permission error message. Has early returns for root and chmod failure. | (no explicit AC) | No specific AC. The early returns for root and chmod failure mean this test can silently skip. If running as root in CI, the permission test never executes. This is a conditional skip pattern that could mask real failures. | ESCALATE |
+| error-handling.test.ts:Input Validation "should validate task ID format" | Tests multiple invalid task IDs, asserts each exits non-zero with error message. | T-TASK-2 (extension) | Comprehensive input validation beyond T-TASK-2. | PASS |
+| error-handling.test.ts:Input Validation "should validate context name format" | Tests invalid context names, asserts each exits non-zero with error message. | (no explicit AC) | No explicit AC for context name validation. | PASS |
+| error-handling.test.ts:Graceful Degradation "should provide helpful error for non-existent task" | Runs context-list for nonexistent task, asserts non-zero exit and descriptive error. | (no explicit AC) | No explicit AC. | PASS |
+| error-handling.test.ts:Graceful Degradation "should provide helpful error for non-existent context" | Runs promote-context for nonexistent context, asserts non-zero exit and descriptive error. | (no explicit AC) | No explicit AC. | PASS |
+| error-handling.test.ts:Test 12.4 "T-ERR-3: should handle paths with spaces" | Creates project in spaced path, runs init, task-create, update-import, asserts all exit 0 and output files exist. | T-ERR-3 | Directly satisfies T-ERR-3. | PASS |
+| error-handling.test.ts:Test 12.6 "should create JSONL with consistent line endings" | Saves context, reads output, asserts no CRLF. | (no explicit AC) | No explicit AC. | PASS |
+| error-handling.test.ts:Test 12.7 "should use LF line endings in generated files" | Creates task, checks generated files for absence of CRLF. | (no explicit AC) | No explicit AC. | PASS |
+| git-integration.test.ts:Test 11.1 "should create .gitignore during initialization" | Runs init-project, asserts .claude/.gitignore exists. | T-GIT-1 (partial) | Existence only. | PASS |
+| git-integration.test.ts:Test 11.1 "should include CLAUDE.md in .gitignore" | Runs init-project, asserts .claude/.gitignore contains CLAUDE.md line. | T-GIT-1 (partial) | Content check. | PASS |
+| git-integration.test.ts:Test 11.2 "should allow task CLAUDE.md to be tracked" | Creates task, stages task CLAUDE.md, asserts it appears in git status. | (no explicit AC) | Verifies task files are trackable. No explicit AC. | PASS |
+| git-integration.test.ts:Test 11.2 "should allow task directory to be committed" | Creates task, stages, commits, asserts no throw. | (no explicit AC) | No explicit AC. | PASS |
+| git-integration.test.ts:Test 11.3 "should allow golden context to be tracked" | Creates golden context, stages, asserts it appears in git status. | (no explicit AC) | No explicit AC. | PASS |
+| git-integration.test.ts:Test 11.3 "should commit golden context successfully" | Creates golden context, stages, commits, asserts no throw. | (no explicit AC) | No explicit AC. | PASS |
+| git-integration.test.ts:Test 11.4 "should not include personal storage in git" | Verifies personal path is outside project, saves personal context, stages everything, asserts personal files absent from git status. | T-GIT-2 (partial) | Structural isolation check. | PASS |
+| git-integration.test.ts:Test 11.5 "should isolate task files between two independent developer workspaces" | Two workspaces with different tasks, verifies cross-isolation and .claude/CLAUDE.md not tracked. | (no explicit AC) | No explicit AC for multi-workspace isolation. | PASS |
+| git-integration.test.ts:Test 11.6 "should recognize golden contexts after they exist" | Creates golden context, runs context-list, asserts golden context name appears. | (no explicit AC) | No explicit AC. | PASS |
+| git-integration.test.ts:Test 11.7 "should not show .claude/CLAUDE.md in status" | Commits .gitignore, modifies .claude/CLAUDE.md, checks it does not appear in git status. | T-GIT-1 (extension) | Extends T-GIT-1 with modification scenario. | PASS |
+| git-integration.test.ts:Test 11.7 "should be ignored by git check-ignore" | Commits .gitignore, runs isGitIgnored, asserts true. | T-GIT-1 | Satisfies T-GIT-1. | PASS |
+| git-integration.test.ts:T-GIT-1 explicit test | Commits .gitignore, runs isGitIgnored for .claude/CLAUDE.md, asserts true. | T-GIT-1 | Directly satisfies T-GIT-1: git check-ignore exits 0 in real git repo after init. | PASS |
+| git-integration.test.ts:T-GIT-2 explicit test | Creates task, saves context via implementation, stages everything, asserts git status does not list personal paths or context name. | T-GIT-2 | Directly satisfies T-GIT-2. Exit code assertion on saveResult mitigates silent-failure risk. | PASS |
+| secret-detection.test.ts:Test 9.1 "should detect AWS access key pattern" | Creates AWS_KEY_CONTEXT, runs scan-secrets, asserts non-zero exit and output matches /akia/. | T-SEC-2 | Directly satisfies T-SEC-2. | PASS |
+| secret-detection.test.ts:Test 9.1 "should identify AWS secret key pattern" | Creates AWS_KEY_CONTEXT, runs scan-secrets, asserts non-zero exit and output matches /aws.*key|secret.*key|akia/. | T-SEC-2 (extension) | Extends T-SEC-2 with secret key detection. | PASS |
+| secret-detection.test.ts:Test 9.2 "should detect Stripe live key pattern" | Creates STRIPE_KEY_CONTEXT, runs scan-secrets, asserts non-zero exit and output matches /sk_live/. | T-SEC-3 (partial) | Covers sk_live detection. | PASS |
+| secret-detection.test.ts:Test 9.2 "should detect both test and live keys" | Creates STRIPE_KEY_CONTEXT, runs scan-secrets, asserts non-zero exit, output contains both 'sk_test_' and 'sk_live_'. | T-SEC-3 | Directly satisfies T-SEC-3: both key types detected. | PASS |
+| secret-detection.test.ts:Test 9.3 "should detect GitHub personal access token" | Creates GITHUB_TOKEN_CONTEXT, runs scan-secrets, asserts non-zero exit and output matches /ghp_/. | (no explicit AC for GitHub alone) | Tests GitHub token detection. No standalone AC clause but contributes to secret detection coverage. | PASS |
+| secret-detection.test.ts:Test 9.4 "should detect RSA private key header" | Creates PRIVATE_KEY_CONTEXT, runs scan-secrets, asserts non-zero exit and output matches private key pattern. | (no explicit AC) | No explicit AC for private key detection. | PASS |
+| secret-detection.test.ts:Test 9.5 "should detect password assignment patterns" | Creates PASSWORD_CONTEXT, runs scan-secrets, asserts non-zero exit and output matches /password/. | (no explicit AC) | No explicit AC for password detection. | PASS |
+| secret-detection.test.ts:Test 9.6 "AKIAIOSFODNN7EXAMPLE Policy" | Creates fixture with ONLY AKIAIOSFODNN7EXAMPLE, runs scan-secrets, asserts non-zero exit and /akia/ in output. | T-SEC-5 | Directly satisfies T-SEC-5: example key treated as true positive in isolated fixture. | PASS |
+| secret-detection.test.ts:Test 9.7 "T-SEC-7: should report exactly 5 secrets" | Creates MULTIPLE_SECRETS_CONTEXT, runs scan-secrets, asserts non-zero exit and count '5' adjacent to 'secret(s)' in output. | T-SEC-7 | Directly satisfies T-SEC-7 with word-boundary-adjacent count regex. | PASS |
+| secret-detection.test.ts:Test 9.8 "should detect secrets in user, assistant, and tool_result messages" | Creates context with one secret per message type, runs scan-secrets, asserts each type-specific pattern detected. | T-SEC-4 | Directly satisfies T-SEC-4: all three message types produce detections. | PASS |
+| secret-detection.test.ts:Test 9.9 "should produce clean valid JSONL after redaction" | Creates AWS context, runs redact-secrets, asserts valid JSONL, rescan returns clean. | T-SEC-6 | Directly satisfies T-SEC-6: valid JSONL after redaction, second scan clean. | PASS |
+| secret-detection.test.ts:Test 9.9 "should remove or mask secrets in output" | Creates STRIPE context, runs redact-secrets, asserts redacted file is valid JSONL, non-empty, original secret absent, redaction marker present. | T-SEC-6 (extension) | Content verification for redaction. | PASS |
+| secret-detection.test.ts:Clean Context Detection "should report clean when no secrets found" | Creates CLEAN_CONTEXT, runs scan-secrets, asserts exit 0 and output matches /clean/. | (no explicit AC) | Tests false-negative path. No explicit AC. | PASS |
+| new-features.test.ts:T-CTX-5 duplicate test | Creates >100KB context, runs promote-context, asserts non-zero exit, error message, golden file absent. | T-CTX-5 | Duplicate of context-operations.test.ts T-CTX-5. Same assertions. | PASS |
+| new-features.test.ts:T-CTX-6 duplicate test | Saves context twice, asserts backup file exists with original content. | T-CTX-6 | Duplicate of context-operations.test.ts T-CTX-6. Same assertions. | PASS |
+| new-features.test.ts:T-HOOK-1 duplicate test | Plants session file, pipes payload, asserts auto-saves/ exists with valid JSONL. Does NOT verify content keywords. | T-HOOK-1 | Duplicate of context-operations.test.ts T-HOOK-1 but weaker. Does not check that the saved file contains actual session content -- isValidJsonl could pass on a file with a single empty JSON object. The primary test in context-operations.test.ts has content verification, making this test redundant and weaker. A stub implementation writing any valid JSONL would pass this test. | FAIL |
+| new-features.test.ts:T-MEM-1 duplicate test | Saves context, waits for MEMORY.md with 5s timeout, asserts task-id and context-name present. | T-MEM-1 | Same path deviation issue as the primary T-MEM-1 test. Additionally, the waitFor pattern (polling for file existence) is more robust for async writes but introduces a timing dependency. | ESCALATE |
+
+# Acceptance Criteria Coverage Gaps
+
+| AC_CLAUSE | STATUS | ANALYSIS |
+|-----------|--------|----------|
+| T-INIT-1 | ADEQUATE | Multiple tests verify .claude/CLAUDE.md creation with @import to default task, including pre-condition checks. |
+| T-INIT-2 | ADEQUATE | Test verifies backup does not exist before script runs and is byte-for-byte identical after. |
+| T-INIT-3 | ADEQUATE | Character-for-character equality verified between default task CLAUDE.md and root CLAUDE.md. |
+| T-INIT-4 | INADEQUATE | Three tests cover idempotency, but one test uses an if (existsSync(stashDir)) guard around the stash count assertion, violating test rule T2. A buggy implementation that fails to create the stash directory causes this test to pass vacuously. The other T-INIT-4 tests (exit code and content identity) are sound, so the clause has partial coverage. The stash-specific sub-assertion is unreliable. |
+| T-INIT-5 | ADEQUATE | Cross-project isolation verified through the implementation using save-context. |
+| T-TASK-1 | ADEQUATE | All four required sections verified, description in Focus section. |
+| T-TASK-2 | ADEQUATE | Non-zero exit and no directory creation for uppercase, spaces, and special characters. |
+| T-TASK-3 | ADEQUATE | Multi-line description keywords verified in Focus section. |
+| T-TASK-4 | ADEQUATE | Empty description exits non-zero, no directory created. |
+| T-SWITCH-1 | ADEQUATE | A->B->C->A with exactly-one-@import count after each switch. |
+| T-SWITCH-2 | ADEQUATE | Exit 0 with "no contexts" or "fresh" in output. |
+| T-SWITCH-3 | ADEQUATE | Both types appear with personal before golden. |
+| T-SWITCH-4 | ADEQUATE | JSON output: sessions non-empty, contexts empty array. |
+| T-SWITCH-5 | ADEQUATE | No numbered UUID options in human-readable output. |
+| T-SWITCH-6 | ADEQUATE | Output confirms vanilla/restored AND @import points to default. |
+| T-CTX-1 | ADEQUATE | File at exact personal path verified. |
+| T-CTX-2 | ADEQUATE | Valid JSONL unconditionally, non-empty. |
+| T-CTX-3 | ADEQUATE | Multiple secret types block golden save; file non-existence verified. |
+| T-CTX-4 | ADEQUATE | Oversized session rejected with specific error, file not created. |
+| T-CTX-5 | ADEQUATE | 100KB cap on promote-context tested, golden file not created. |
+| T-CTX-6 | ADEQUATE | Backup created with original content on overwrite. |
+| T-CTX-7 | ADEQUATE | Golden deletion without --confirm exits non-zero, file preserved. |
+| T-MEM-1 | INADEQUATE | Tests verify MEMORY.md content (task-id and context-name) but the file path deviates from the AC specification. The AC says ~/.claude/projects/<sanitized>/MEMORY.md; the implementation writes to <personalDir>/memory/MEMORY.md. The tests document this deviation without failing. Either the AC or the implementation must be corrected. The coverage claim for the path requirement is not met. |
+| T-PROM-1 | ADEQUATE | Both copies exist, byte-for-byte identical, personal preserved. |
+| T-PROM-2 | ADEQUATE | GitHub token type specifically identified. |
+| T-PROM-3 | ADEQUATE | Second promotion fails; setup creates personal only. |
+| T-CLMD-1 | ADEQUATE | Root CLAUDE.md unchanged after init, task creation, and switching. |
+| T-CLMD-2 | ADEQUATE | Exactly one @import after multiple switches. |
+| T-RESUME-MANUAL | MISSING | Manual test by design. No automated test exists or can exist. The structural proxy covers the automated side. No evidence the manual test has been executed or logged. |
+| T-SEC-2 | ADEQUATE | AKIA detection, non-zero exit. |
+| T-SEC-3 | ADEQUATE | Both sk_test_ and sk_live_ detected. |
+| T-SEC-4 | ADEQUATE | All three message types produce detections. |
+| T-SEC-5 | ADEQUATE | Example key treated as true positive in isolated fixture. |
+| T-SEC-6 | ADEQUATE | Valid JSONL after redaction, rescan clean. |
+| T-SEC-7 | ADEQUATE | Count '5' with word boundary adjacent to 'secret(s)'. |
+| T-GIT-1 | ADEQUATE | git check-ignore exits 0 in real git repo. |
+| T-GIT-2 | ADEQUATE | git status does not list personal storage paths. |
+| T-ERR-1 | ADEQUATE | Scripts without init exit non-zero with init message, no stack traces. |
+| T-ERR-2 | ADEQUATE | scan-secrets on malformed JSONL exits non-zero. |
+| T-ERR-3 | ADEQUATE | All operations work with spaces in path. |
+| T-HOOK-1 | ADEQUATE | Timestamped .jsonl in auto-saves/ with content verification (in primary test). The duplicate in new-features.test.ts lacks content verification and is marked FAIL independently, but the primary test is sound. |
+| T-SUM-1 | ADEQUATE | .meta.json with summary 20-500 characters. |
+| T-SUM-2 | ADEQUATE | Different summaries with content-derived keywords. |
