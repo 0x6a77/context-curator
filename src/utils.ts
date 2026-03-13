@@ -141,6 +141,40 @@ export async function listTasks(cwd: string = process.cwd()): Promise<TaskInfo[]
   });
 }
 
+/**
+ * Get info for a single task by ID. Returns null if the task doesn't exist.
+ * Checks golden location first, then personal.
+ */
+export async function getTaskInfo(taskId: string, cwd: string = process.cwd()): Promise<TaskInfo | null> {
+  const goldenDir = getGoldenTasksDir(cwd);
+  const goldenClaudeMd = path.join(goldenDir, taskId, 'CLAUDE.md');
+  if (await fileExists(goldenClaudeMd)) {
+    const stats = await fs.stat(goldenClaudeMd);
+    return {
+      id: taskId,
+      location: 'golden',
+      claudeMdPath: goldenClaudeMd,
+      contextsDir: path.join(goldenDir, taskId, 'contexts'),
+      lastModified: stats.mtime,
+    };
+  }
+
+  const personalDir = getPersonalTasksDir(cwd);
+  const personalClaudeMd = path.join(personalDir, taskId, 'CLAUDE.md');
+  if (await fileExists(personalClaudeMd)) {
+    const stats = await fs.stat(personalClaudeMd);
+    return {
+      id: taskId,
+      location: 'personal',
+      claudeMdPath: personalClaudeMd,
+      contextsDir: path.join(personalDir, taskId, 'contexts'),
+      lastModified: stats.mtime,
+    };
+  }
+
+  return null;
+}
+
 // ============================================================================
 // Context Utilities
 // ============================================================================
@@ -223,7 +257,7 @@ export async function getCurrentTask(cwd: string = process.cwd()): Promise<strin
     }
 
     // Match: @import <absolute-path>/context-curator/specialized/<task-id>/CLAUDE.md (specialized)
-    // The path may be absolute (written by update-import using getClaudeHome()) 
+    // The path is absolute (written by update-import using getClaudeHome())
     const specializedMatch = content.match(/@import .+\/context-curator\/specialized\/([^\/]+)\/CLAUDE\.md/);
     if (specializedMatch) {
       return specializedMatch[1];
