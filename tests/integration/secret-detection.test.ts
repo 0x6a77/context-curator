@@ -201,10 +201,11 @@ describe('Secret Detection Tests (Group 9)', () => {
       const result = await runScript('scan-secrets', [contextPath], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       expect(result.exitCode).not.toBe(0);
-      // T-SEC-7: '5' must be adjacent to 'secret(s)' — prevents false matches on
-      // unrelated counts in the output (e.g. "5 messages scanned", "found 5 warnings").
-      // The removed branch `found\s+5\s+` was too broad: it matched any "found 5 <anything>".
-      expect(result.stdout).toMatch(/\b5\b.*secrets?|secrets?.*\b5\b|5\s+secrets?\s+found/i);
+      // T-SEC-7: '5' must be immediately adjacent to 'found'/'secret' — eliminates the bypass
+      // where an implementation emits "Scanning 5 messages… found 3 secrets" and the loose
+      // `\b5\b.*secrets?` alternative matches "5 messages" + "secrets" with no proximity.
+      // The tightened regex requires "found N secret" or "N secret(s) found" adjacency.
+      expect(result.stdout).toMatch(/\bfound\s+5\s+secret|\b5\s+secrets?\s+found/i);
     });
   });
 

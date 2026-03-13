@@ -951,7 +951,10 @@ Automatically scans context content for API keys, passwords, tokens, and private
 | T-SEC-4 | A context with one secret in user, one in assistant, one in tool_result: all three reported |
 | T-SEC-5 | `AKIAIOSFODNN7EXAMPLE` is treated as a true positive (scanner prefers false positives over false negatives) |
 | T-SEC-6 | After `redact-secrets`, every line parses as JSON; a second `scan-secrets` run returns "clean" |
-| T-SEC-7 | `scan-secrets` on a context with exactly 5 secrets reports count matching `\b5\b` |
+| T-SEC-7 | `scan-secrets` on a context with exactly 5 secrets: output matches `found 5 secret` or `5 secret(s) found` (count must be adjacent to "found"/"secret" — not merely present elsewhere in output) |
+| T-SEC-8 | `scan-secrets` on a context containing `ghp_` + 36 alphanumeric chars exits non-zero; output contains "ghp_" or "github" |
+| T-SEC-9 | `scan-secrets` on a context containing `-----BEGIN RSA PRIVATE KEY-----` exits non-zero; output matches `rsa.*private`, `private.*key`, or `BEGIN.*PRIVATE` (case-insensitive) |
+| T-SEC-10 | `scan-secrets` on a context containing `password=<value>` or `PASSWORD=<value>` exits non-zero; output contains "password" (case-insensitive) |
 
 ### F-SUMMARY · AI-Generated Summaries
 

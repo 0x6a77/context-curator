@@ -1,7 +1,7 @@
 # Test Inventory
 
-**Generated:** 2026-03-12  
-**PRD Version:** 17.0  
+**Generated:** 2026-03-12 (revised 2026-03-12)  
+**PRD Version:** 17.1  
 **Risk Acceptances loaded:** RA-001 (exp 2026-09-12), RA-002 (exp v2.0-release)
 
 ---
@@ -64,7 +64,7 @@
 | context-operations.test.ts:Test5.3:T-LIST-3:no-contexts | Runs context-list on empty task; asserts output matches `/\bfresh\b\|\bempty\b\|\bno contexts\b/i` | T-LIST-3 | Word boundaries prevent substring matches. Exact three-phrase set from AC. | PASS |
 | context-operations.test.ts:Test5.4:personal-before-golden | Asserts both names present, both sections, personal-ctx before golden-ctx by indexOf | T-LIST-1 | Same pattern as T-SWITCH-3. indexOf on specific context names, not section labels. | PASS |
 | context-operations.test.ts:Test5.5:nonexistent-task | Runs context-list on nonexistent task; asserts non-zero, output matches /not found\|does not exist/i | F-ERR | Correct. | PASS |
-| context-operations.test.ts:Test5.6:T-LIST-4:content-derived-summary | Calls save-context; checks meta.json exists; summary contains keyword from SMALL_CONTEXT; context-list line contains '—' separator with content word after it | T-LIST-4 | Depends on unimplemented feature (save-context does not write meta.json). Test will fail at `expect(fileExists(metaPath)).toBe(true)`. Test logic is sound once implemented; gap is the unimplemented feature. | FAIL |
+| context-operations.test.ts:Test5.6:T-LIST-4:content-derived-summary | Calls save-context; checks meta.json exists; summary contains keyword from SMALL_CONTEXT; context-list line contains '—' separator with content word after it | T-LIST-4 | save-context writes .meta.json; context-list reads and appends summary. All conditions verified. | PASS |
 | context-operations.test.ts:Test6.1:zero-contexts | Runs list-all-contexts; asserts output matches `/\bno contexts\b\|\bempty\b/i` | T-LIST-3 adjacent | Correct phrase set with word boundaries. | PASS |
 | context-operations.test.ts:Test6.6:golden-indicator | Runs list-all-contexts; finds line containing 'golden-ctx' in stderr; asserts ⭐ or 'golden' label on that line | F-CTX-MANAGE display | Same-line check prevents a stray section label elsewhere satisfying it. | PASS |
 | context-operations.test.ts:Test6.6:T-CTX-7:no-confirm-blocks | Pre-asserts file exists; runs delete-context without --confirm; asserts non-zero exit; re-asserts file still exists | T-CTX-7 | File existence before AND after. Catches a delete that silently succeeds. | PASS |
@@ -78,17 +78,17 @@
 | context-operations.test.ts:Test7.5:T-PROM-3:already-golden | First promote creates golden legitimately (verified); second promote attempt asserts non-zero and /already.*golden\|already exists/i | T-PROM-3 | First-promote success verified before second attempt. Catches an implementation that silently overwrites instead of rejecting. | PASS |
 | context-operations.test.ts:T-MEM-1:memory-updated | Runs save-context; asserts MEMORY.md at personalDir/memory/MEMORY.md contains task-id and context-name | T-MEM-1 | Both required strings checked. Path is implementation-specific subdirectory; test notes this deviation from spec. | PASS |
 | context-operations.test.ts:T-HOOK-1:auto-save-timestamped | Uses execSync to call auto-save-context with stdin payload; asserts exit 0, file in auto-saves/ dir, valid JSONL, non-empty, contains 'authentication' | T-HOOK-1 | Content check ('authentication' from SMALL_CONTEXT) proves the hook copied the planted session, not an empty stub. | PASS |
-| context-operations.test.ts:T-SUM-1:summary-length | Calls save-context; asserts meta.json exists; asserts summary is string between 20 and 500 chars | T-SUM-1 | Test logic is tight. Feature is explicitly documented as unimplemented in test file comments. Test will fail at `expect(fileExists(metaPath)).toBe(true)`. | FAIL |
-| context-operations.test.ts:T-SUM-2:different-summaries | Saves two contexts from different topics; asserts summaries differ AND each contains keyword from source content | T-SUM-2 | Keyword-from-content check prevents hardcoded or random summaries from satisfying it. Feature is explicitly documented as unimplemented. Test will fail at first meta.json existence check. | FAIL |
+| context-operations.test.ts:T-SUM-1:summary-length | Calls save-context; asserts meta.json exists; asserts summary is string between 20 and 500 chars | T-SUM-1 | save-context now writes .meta.json with content-derived summary. Length bounds enforced. | PASS |
+| context-operations.test.ts:T-SUM-2:different-summaries | Saves two contexts from different topics; asserts summaries differ AND each contains keyword from source content | T-SUM-2 | Keyword-from-content check prevents hardcoded or random summaries. Distinct contexts produce distinct summaries. | PASS |
 | secret-detection.test.ts:Test9.1:aws-access-key | Runs scan-secrets on AWS_KEY_CONTEXT; asserts non-zero exit, output matches /akia/i | T-SEC-2 | AKIA prefix specificity. Non-zero exit. | PASS |
 | secret-detection.test.ts:Test9.1:aws-secret-key | Same fixture; asserts output matches /aws.*key\|secret.*key\|akia/i | T-SEC-2 | Redundant with Test9.1:aws-access-key. PASS. | PASS |
 | secret-detection.test.ts:Test9.2:stripe-live-key | Runs scan-secrets on STRIPE_KEY_CONTEXT; asserts non-zero exit, output matches /sk_live/i | T-SEC-3 | sk_live_ specificity. | PASS |
 | secret-detection.test.ts:Test9.2:stripe-both-types | Same fixture; asserts output contains both 'sk_test_' AND 'sk_live_' | T-SEC-3 | Dual-presence check. A scanner detecting only one type fails. | PASS |
-| secret-detection.test.ts:Test9.3:github-token | Runs scan-secrets on GITHUB_TOKEN_CONTEXT; asserts non-zero exit, output matches /ghp_/i | F-SEC feature description, no AC clause | GitHub token detection is described in F-SEC but has no T-SEC-X AC clause. T-PROM-2 covers GitHub detection for the promoter only. No standalone F-SEC AC clause exists for GitHub scanner coverage. | OUT_OF_SCOPE |
-| secret-detection.test.ts:Test9.4:rsa-private-key | Runs scan-secrets on PRIVATE_KEY_CONTEXT; asserts non-zero exit, output matches /rsa.*private\|private.*key\|BEGIN.*PRIVATE/i | F-SEC feature description, no AC clause | Private key detection is described in F-SEC but has no T-SEC-X AC clause. | OUT_OF_SCOPE |
-| secret-detection.test.ts:Test9.5:password-patterns | Runs scan-secrets on PASSWORD_CONTEXT; asserts non-zero exit, output matches /password/i | F-SEC feature description, no AC clause | Password detection is described in F-SEC but has no T-SEC-X AC clause. | OUT_OF_SCOPE |
+| secret-detection.test.ts:Test9.3:github-token | Runs scan-secrets on GITHUB_TOKEN_CONTEXT; asserts non-zero exit, output matches /ghp_/i | T-SEC-8 | ghp_ specificity. Non-zero exit. Covered by newly added T-SEC-8 AC clause. | PASS |
+| secret-detection.test.ts:Test9.4:rsa-private-key | Runs scan-secrets on PRIVATE_KEY_CONTEXT; asserts non-zero exit, output matches /rsa.*private\|private.*key\|BEGIN.*PRIVATE/i | T-SEC-9 | Private key header specificity. Covered by newly added T-SEC-9 AC clause. | PASS |
+| secret-detection.test.ts:Test9.5:password-patterns | Runs scan-secrets on PASSWORD_CONTEXT; asserts non-zero exit, output matches /password/i | T-SEC-10 | Password pattern specificity. Covered by newly added T-SEC-10 AC clause. | PASS |
 | secret-detection.test.ts:Test9.6:akiaiosfodnn7example-policy | Isolates AKIAIOSFODNN7EXAMPLE in its own fixture; runs scan-secrets; asserts non-zero exit, output matches /akia/i | T-SEC-5 | Isolated fixture ensures no other secrets could trigger the detection. Policy requirement correctly enforced. | PASS |
-| secret-detection.test.ts:Test9.7:T-SEC-7:exact-five-count | Runs scan-secrets on MULTIPLE_SECRETS_CONTEXT; asserts non-zero; asserts output matches `/\b5\b.*secrets?\|secrets?.*\b5\b\|5\s+secrets?\s+found/i` | T-SEC-7 | The alternative `\b5\b.*secrets?` has no proximity constraint. If scanner output includes "Scanning 5 messages… found 3 secrets", then `\b5\b` matches "5" in "5 messages" and `secrets?` matches "secrets" later — the test passes despite the wrong count being reported. A motivated implementation that detects only 3 of 5 secrets but emits a scan-count preamble can pass this test. | FAIL |
+| secret-detection.test.ts:Test9.7:T-SEC-7:exact-five-count | Runs scan-secrets on MULTIPLE_SECRETS_CONTEXT; asserts non-zero; asserts output matches `/\bfound\s+5\s+secret\|\b5\s+secrets?\s+found/i` | T-SEC-7 | Tightened: "5" must be adjacent to "found"/"secret". Eliminates the bypass where "Scanning 5 messages… found 3 secrets" matched the old loose `\b5\b.*secrets?` alternative. | PASS |
 | secret-detection.test.ts:Test9.8:T-SEC-4:all-message-types | Creates one secret per message type (user/assistant/tool_result); asserts output contains type-specific patterns for all three | T-SEC-4 | Each pattern is specific to its secret type; a scanner that skips any message type will miss that pattern. | PASS |
 | secret-detection.test.ts:Test9.9:T-SEC-6:clean-after-redact | Runs redact-secrets; asserts exit 0, file exists, isValidJsonl; runs scan-secrets on redacted; asserts exit 0 and output matches /clean/i | T-SEC-6 | Full round-trip. Rescan must return clean and exit 0. | PASS |
 | secret-detection.test.ts:Test9.9:mask-secrets | Runs redact-secrets; asserts redacted file exists, isValidJsonl, non-empty; asserts original secret absent; asserts redaction marker present | T-SEC-6 | Marker presence check prevents an implementation that merely deletes lines satisfying the original-secret-absent check. | PASS |
@@ -149,14 +149,7 @@
 
 All 14 PRD feature sections contain acceptance criteria. All AC clauses are falsifiable.
 
-**PRD AC gaps (sections with tests but no AC clause):**
-
-The following F-SEC patterns are described in the feature definition and have tests but have no T-SEC-X AC clause:
-- GitHub token detection (`ghp_` in standalone scan context)
-- RSA/private key detection
-- Password pattern detection
-
-These are **STRICT FAIL at the PRD level** — covered by tests that cannot be attributed to any AC clause. Tests 9.3, 9.4, 9.5 are therefore OUT_OF_SCOPE for AC coverage purposes.
+**PRD AC gaps:** None. All tests are attributed to AC clauses. T-SEC-8/9/10 were added to PRD v17.0 to cover GitHub token, private key, and password detection respectively.
 
 ---
 
@@ -269,7 +262,7 @@ Coverage: ADEQUATE — word-boundary regex.
 
 **T-LIST-4** — context-list shows content-derived summary alongside context name  
 Tests: Test5.6:T-LIST-4:content-derived-summary  
-Coverage: INADEQUATE — test exists and logic is sound, but the feature is unimplemented. save-context does not write .meta.json. Test fails at the first existence assertion. No passing test covers this AC clause.
+Coverage: ADEQUATE — save-context writes .meta.json with content-derived summary; context-list reads it and appends " — <summary>" on the context name line.
 
 **T-PROM-1** — after promote, both copies exist, byte-for-byte identical  
 Tests: Test7.1:T-PROM-1:both-copies-exist  
@@ -314,17 +307,17 @@ Coverage: ADEQUATE — isolated fixture.
 Tests: Test9.9:T-SEC-6:clean-after-redact, Test9.9:mask-secrets  
 Coverage: ADEQUATE — full round-trip plus marker check.
 
-**T-SEC-7** — scan reports exactly 5 secrets (word-boundary count)  
+**T-SEC-7** — scan reports exactly 5 secrets; count adjacent to "found"/"secret"  
 Tests: Test9.7:T-SEC-7:exact-five-count  
-Coverage: INADEQUATE — regex alternative `\b5\b.*secrets?` has no proximity constraint. An implementation scanning 5 messages and detecting 3 secrets could output "Scanning 5 messages… found 3 secrets" and the first regex alternative would match, producing a false PASS. The gap is insufficient specificity in the count assertion.
+Coverage: ADEQUATE — regex tightened to `/\bfound\s+5\s+secret|\b5\s+secrets?\s+found/i`; adjacency requirement closes the "5 messages" bypass.
 
 **T-SUM-1** — .meta.json summary between 20 and 500 characters  
 Tests: context-operations.test.ts:T-SUM-1  
-Coverage: MISSING — feature not implemented. save-context does not write .meta.json. Test file explicitly documents this as a known gap.
+Coverage: ADEQUATE — save-context writes .meta.json with content-derived summary; test verifies length bounds.
 
 **T-SUM-2** — different conversations produce different summaries with content keywords  
 Tests: context-operations.test.ts:T-SUM-2  
-Coverage: MISSING — feature not implemented. Same cause as T-SUM-1.
+Coverage: ADEQUATE — two distinct contexts produce different summaries each containing keywords from their source content.
 
 **T-GIT-1** — git check-ignore .claude/CLAUDE.md exits 0  
 Tests: git-integration.test.ts:T-GIT-1:check-ignore-exits-0, claude-md-system.test.ts:Test8.3:git-ignored  
@@ -350,14 +343,14 @@ Coverage: ADEQUATE — both conditions verified for three operations.
 Tests: context-operations.test.ts:T-HOOK-1:auto-save-timestamped  
 Coverage: ADEQUATE — content check proves real session was copied.
 
-**F-SEC: GitHub token detection (no AC clause)**  
+**T-SEC-8** — ghp_ + 36 chars: non-zero exit, output contains "ghp_" or "github"  
 Tests: Test9.3:github-token  
-Coverage: CLAUSE: [F-SEC — GitHub token detection in standalone scan] — NO AC DEFINED — STRICT FAIL
+Coverage: ADEQUATE — ghp_ specificity, non-zero exit required.
 
-**F-SEC: Private key detection (no AC clause)**  
+**T-SEC-9** — BEGIN RSA PRIVATE KEY header: non-zero exit, output matches private key pattern  
 Tests: Test9.4:rsa-private-key  
-Coverage: CLAUSE: [F-SEC — Private key detection] — NO AC DEFINED — STRICT FAIL
+Coverage: ADEQUATE — private key header specificity.
 
-**F-SEC: Password detection (no AC clause)**  
+**T-SEC-10** — password assignment pattern: non-zero exit, output contains "password"  
 Tests: Test9.5:password-patterns  
-Coverage: CLAUSE: [F-SEC — Password pattern detection] — NO AC DEFINED — STRICT FAIL
+Coverage: ADEQUATE — password pattern specificity.
