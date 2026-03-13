@@ -1,0 +1,41 @@
+site_name: Context Curator
+site_description: Task-based context management for Claude Code
+site_url: https://0x6a77.github.io/context-curator/
+repo_url: https://github.com/0x6a77/context-curator
+repo_name: 0x6a77/context-curator
+
+theme:
+  name: material
+  palette:
+    scheme: slate
+    primary: black
+    accent: indigo
+  font:
+    text: Inter
+    code: JetBrains Mono
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - search.highlight
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Concepts: concepts.md
+  - Commands: commands.md
+  - Workflows: workflows.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: true
+
+plugins:
+  - search

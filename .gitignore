@@ -8,3 +8,7 @@ dist/
 .claude/
 !.claude/tasks/**
 !.claude/settings.json
+
+# Python / mkdocs
+.venv/
+site/
