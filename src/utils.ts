@@ -29,7 +29,7 @@ export function getProjectId(cwd: string = process.cwd()): string {
 }
 
 /**
- * Get the personal storage directory for a project
+ * Get the personal project directory for storing session data
  */
 export function getPersonalProjectDir(cwd: string = process.cwd()): string {
   const projectId = getProjectId(cwd);
@@ -37,14 +37,14 @@ export function getPersonalProjectDir(cwd: string = process.cwd()): string {
 }
 
 /**
- * Get the golden (project) tasks directory
+ * Get the golden tasks directory (project-scoped, committed to git)
  */
 export function getGoldenTasksDir(cwd: string = process.cwd()): string {
-  return path.join(cwd, '.claude/tasks');
+  return path.join(cwd, '.claude', 'tasks');
 }
 
 /**
- * Get the personal tasks directory
+ * Get the personal tasks directory (user-scoped, not committed)
  */
 export function getPersonalTasksDir(cwd: string = process.cwd()): string {
   return path.join(getPersonalProjectDir(cwd), 'tasks');
@@ -54,16 +54,6 @@ export function getPersonalTasksDir(cwd: string = process.cwd()): string {
 // File Utilities
 // ============================================================================
 
-/**
- * Ensure a directory exists, creating it if necessary
- */
-export async function ensureDir(dirPath: string): Promise<void> {
-  await fs.mkdir(dirPath, { recursive: true });
-}
-
-/**
- * Check if a file exists
- */
 export async function fileExists(filePath: string): Promise<boolean> {
   try {
     await fs.access(filePath);
@@ -73,9 +63,6 @@ export async function fileExists(filePath: string): Promise<boolean> {
   }
 }
 
-/**
- * Check if a directory exists
- */
 export async function dirExists(dirPath: string): Promise<boolean> {
   try {
     const stats = await fs.stat(dirPath);
@@ -83,6 +70,10 @@ export async function dirExists(dirPath: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export async function ensureDir(dirPath: string): Promise<void> {
+  await fs.mkdir(dirPath, { recursive: true });
 }
 
 // ============================================================================
@@ -97,52 +88,6 @@ export interface TaskInfo {
   lastModified?: Date;
 }
 
-export interface ContextInfo {
-  name: string;
-  location: 'golden' | 'personal';
-  filePath: string;
-  messages: number;
-  tokens: number;
-  lastModified: Date;
-}
-
-/**
- * Get information about a task (checks golden first, then personal)
- */
-export async function getTaskInfo(taskId: string, cwd: string = process.cwd()): Promise<TaskInfo | null> {
-  const goldenPath = path.join(getGoldenTasksDir(cwd), taskId, 'CLAUDE.md');
-  const personalPath = path.join(getPersonalTasksDir(cwd), taskId, 'CLAUDE.md');
-  
-  // Check golden first
-  if (await fileExists(goldenPath)) {
-    const stats = await fs.stat(goldenPath);
-    return {
-      id: taskId,
-      location: 'golden',
-      claudeMdPath: goldenPath,
-      contextsDir: path.join(getGoldenTasksDir(cwd), taskId, 'contexts'),
-      lastModified: stats.mtime
-    };
-  }
-  
-  // Check personal
-  if (await fileExists(personalPath)) {
-    const stats = await fs.stat(personalPath);
-    return {
-      id: taskId,
-      location: 'personal',
-      claudeMdPath: personalPath,
-      contextsDir: path.join(getPersonalTasksDir(cwd), taskId, 'contexts'),
-      lastModified: stats.mtime
-    };
-  }
-  
-  return null;
-}
-
-/**
- * List all tasks (both golden and personal)
- */
 export async function listTasks(cwd: string = process.cwd()): Promise<TaskInfo[]> {
   const tasks: TaskInfo[] = [];
   const seenIds = new Set<string>();
@@ -196,27 +141,41 @@ export async function listTasks(cwd: string = process.cwd()): Promise<TaskInfo[]
   });
 }
 
-/**
- * List contexts for a task (both golden and personal)
- */
+// ============================================================================
+// Context Utilities
+// ============================================================================
+
+export interface ContextInfo {
+  name: string;
+  location: 'golden' | 'personal';
+  filePath: string;
+  messages: number;
+  tokens: number;
+  lastModified: Date;
+}
+
 export async function listContexts(taskId: string, cwd: string = process.cwd()): Promise<ContextInfo[]> {
   const contexts: ContextInfo[] = [];
   const seenNames = new Set<string>();
-  
-  // Golden contexts
-  const goldenDir = path.join(getGoldenTasksDir(cwd), taskId, 'contexts');
-  if (await dirExists(goldenDir)) {
-    const files = await fs.readdir(goldenDir);
-    for (const file of files) {
-      if (!file.endsWith('.jsonl')) continue;
-      const name = file.replace('.jsonl', '');
-      const filePath = path.join(goldenDir, file);
+
+  async function scanDir(dir: string, location: 'golden' | 'personal'): Promise<void> {
+    if (!await dirExists(dir)) return;
+    
+    const entries = await fs.readdir(dir);
+    for (const entry of entries) {
+      if (!entry.endsWith('.jsonl')) continue;
+      if (entry.includes('.backup-')) continue;
+      
+      const name = entry.replace('.jsonl', '');
+      if (seenNames.has(name)) continue;
+      
+      const filePath = path.join(dir, entry);
       const stats = await getSessionStats(filePath);
       const fileStats = await fs.stat(filePath);
       
       contexts.push({
         name,
-        location: 'golden',
+        location,
         filePath,
         messages: stats.messages,
         tokens: stats.tokens,
@@ -225,38 +184,26 @@ export async function listContexts(taskId: string, cwd: string = process.cwd()):
       seenNames.add(name);
     }
   }
+
+  // Check golden contexts
+  await scanDir(
+    path.join(getGoldenTasksDir(cwd), taskId, 'contexts'),
+    'golden'
+  );
   
-  // Personal contexts
-  const personalDir = path.join(getPersonalTasksDir(cwd), taskId, 'contexts');
-  if (await dirExists(personalDir)) {
-    const files = await fs.readdir(personalDir);
-    for (const file of files) {
-      if (!file.endsWith('.jsonl')) continue;
-      const name = file.replace('.jsonl', '');
-      if (seenNames.has(name)) continue; // Skip if already in golden
-      
-      const filePath = path.join(personalDir, file);
-      const stats = await getSessionStats(filePath);
-      const fileStats = await fs.stat(filePath);
-      
-      contexts.push({
-        name,
-        location: 'personal',
-        filePath,
-        messages: stats.messages,
-        tokens: stats.tokens,
-        lastModified: fileStats.mtime
-      });
-    }
-  }
-  
-  // Sort by last modified (most recent first)
-  return contexts.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
+  // Check personal contexts
+  await scanDir(
+    path.join(getPersonalTasksDir(cwd), taskId, 'contexts'),
+    'personal'
+  );
+
+  return contexts;
 }
 
-/**
- * Get the current task from .claude/CLAUDE.md @import line
- */
+// ============================================================================
+// Current Task Detection
+// ============================================================================
+
 export async function getCurrentTask(cwd: string = process.cwd()): Promise<string> {
   const claudeMdPath = path.join(cwd, '.claude/CLAUDE.md');
   
@@ -264,21 +211,55 @@ export async function getCurrentTask(cwd: string = process.cwd()): Promise<strin
     const content = await fs.readFile(claudeMdPath, 'utf-8');
     
     // Match: @import .claude/tasks/<task-id>/CLAUDE.md (golden)
-    // or: @import ~/.claude/projects/<project-id>/tasks/<task-id>/CLAUDE.md (personal)
     const goldenMatch = content.match(/@import \.claude\/tasks\/([^\/]+)\/CLAUDE\.md/);
     if (goldenMatch) {
       return goldenMatch[1];
     }
     
+    // Match: @import ~/.claude/projects/<project-id>/tasks/<task-id>/CLAUDE.md (personal)
     const personalMatch = content.match(/@import ~\/\.claude\/projects\/[^\/]+\/tasks\/([^\/]+)\/CLAUDE\.md/);
     if (personalMatch) {
       return personalMatch[1];
+    }
+
+    // Match: @import <absolute-path>/context-curator/specialized/<task-id>/CLAUDE.md (specialized)
+    // The path may be absolute (written by update-import using getClaudeHome()) 
+    const specializedMatch = content.match(/@import .+\/context-curator\/specialized\/([^\/]+)\/CLAUDE\.md/);
+    if (specializedMatch) {
+      return specializedMatch[1];
     }
   } catch {
     // Fall through
   }
   
   return 'default';
+}
+
+/**
+ * Detect whether a task uses STRICT context isolation.
+ *
+ * Checks the task's CLAUDE.md (in specialized, golden, or personal location,
+ * in that order of precedence) for the marker "Context isolation: STRICT".
+ *
+ * Used by save-context and context-list to enforce isolation constraints.
+ */
+export async function isStrictIsolationTask(taskId: string, cwd: string = process.cwd()): Promise<boolean> {
+  const claudeHome = getClaudeHome();
+  const projectId = getProjectId(cwd);
+
+  const pathsToCheck = [
+    path.join(claudeHome, 'context-curator', 'specialized', taskId, 'CLAUDE.md'),
+    path.join(cwd, '.claude', 'tasks', taskId, 'CLAUDE.md'),
+    path.join(claudeHome, 'projects', projectId, 'tasks', taskId, 'CLAUDE.md'),
+  ];
+
+  for (const p of pathsToCheck) {
+    try {
+      const content = await fs.readFile(p, 'utf-8');
+      if (/Context isolation:\s*STRICT/i.test(content)) return true;
+    } catch { /* not found at this path, try next */ }
+  }
+  return false;
 }
 
 // ============================================================================

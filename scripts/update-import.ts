@@ -4,6 +4,7 @@
  * update-import.ts - Update the @import line in .claude/CLAUDE.md
  * 
  * v13.0: Supports both golden (project) and personal (global) task locations
+ * - Specialized: <claudeHome>/context-curator/specialized/<task-id>/CLAUDE.md (immutable DNA)
  * - Golden: ./.claude/tasks/<task-id>/CLAUDE.md (in project, committed)
  * - Personal: ~/.claude/projects/<project-id>/tasks/<task-id>/CLAUDE.md (global)
  */
@@ -16,6 +17,7 @@ async function updateImport(taskId: string) {
   const cwd = process.cwd();
   const projectId = cwd.replace(/\//g, '-');
   const claudeMdPath = path.join(cwd, '.claude/CLAUDE.md');
+  const claudeHome = getClaudeHome();
   
   // Check if .claude/CLAUDE.md exists
   try {
@@ -26,12 +28,21 @@ async function updateImport(taskId: string) {
     process.exit(1);
   }
   
-  // Check for task in golden location (project directory) first
+  // Check for task in specialized location FIRST (immutable DNA — never modified by user ops)
+  const specializedTaskPath = path.join(
+    claudeHome,
+    'context-curator',
+    'specialized',
+    taskId,
+    'CLAUDE.md'
+  );
+
+  // Check for task in golden location (project directory)
   const goldenTaskPath = path.join(cwd, '.claude/tasks', taskId, 'CLAUDE.md');
   
   // Check for task in personal location (global storage)
   const personalTaskPath = path.join(
-    getClaudeHome(),
+    claudeHome,
     'projects',
     projectId,
     'tasks',
@@ -40,30 +51,38 @@ async function updateImport(taskId: string) {
   );
   
   let importPath: string;
-  let taskLocation: 'golden' | 'personal';
+  let taskLocation: 'specialized' | 'golden' | 'personal';
   
-  // Prefer golden (project) tasks, fall back to personal
+  // Prefer specialized (immutable DNA), then golden (project), then personal
   try {
-    await fs.access(goldenTaskPath);
-    importPath = `.claude/tasks/${taskId}/CLAUDE.md`;
-    taskLocation = 'golden';
+    await fs.access(specializedTaskPath);
+    // Use absolute path so it resolves correctly regardless of CLAUDE_HOME vs real home
+    importPath = specializedTaskPath;
+    taskLocation = 'specialized';
   } catch {
     try {
-      await fs.access(personalTaskPath);
-      importPath = `~/.claude/projects/${projectId}/tasks/${taskId}/CLAUDE.md`;
-      taskLocation = 'personal';
+      await fs.access(goldenTaskPath);
+      importPath = `.claude/tasks/${taskId}/CLAUDE.md`;
+      taskLocation = 'golden';
     } catch {
-      console.error(`❌ Task '${taskId}' not found`);
-      console.error('');
-      console.error('Checked:');
-      console.error(`  Golden:   ${goldenTaskPath}`);
-      console.error(`  Personal: ${personalTaskPath}`);
-      console.error('');
-      
-      // List available tasks
-      await listAvailableTasks(cwd, projectId);
-      
-      process.exit(1);
+      try {
+        await fs.access(personalTaskPath);
+        importPath = `~/.claude/projects/${projectId}/tasks/${taskId}/CLAUDE.md`;
+        taskLocation = 'personal';
+      } catch {
+        console.error(`❌ Task '${taskId}' not found`);
+        console.error('');
+        console.error('Checked:');
+        console.error(`  Specialized: ${specializedTaskPath}`);
+        console.error(`  Golden:      ${goldenTaskPath}`);
+        console.error(`  Personal:    ${personalTaskPath}`);
+        console.error('');
+        
+        // List available tasks
+        await listAvailableTasks(cwd, projectId, claudeHome);
+        
+        process.exit(1);
+      }
     }
   }
   
@@ -93,16 +112,38 @@ async function updateImport(taskId: string) {
   await fs.writeFile(claudeMdPath, content);
   
   console.log(`✓ Task context: ${taskId}`);
-  console.log(`  Location: ${taskLocation === 'golden' ? 'project (golden)' : 'personal'}`);
+  if (taskLocation === 'specialized') {
+    console.log(`  Location: specialized (immutable DNA)`);
+  } else {
+    console.log(`  Location: ${taskLocation === 'golden' ? 'project (golden)' : 'personal'}`);
+  }
   if (taskId === 'default') {
     console.log('  vanilla mode restored');
   }
 }
 
-async function listAvailableTasks(cwd: string, projectId: string): Promise<void> {
+async function listAvailableTasks(cwd: string, projectId: string, claudeHome: string): Promise<void> {
   const goldenTasks: string[] = [];
   const personalTasks: string[] = [];
+  const specializedTasks: string[] = [];
   
+  // Check specialized tasks
+  const specializedTasksDir = path.join(claudeHome, 'context-curator', 'specialized');
+  try {
+    const entries = await fs.readdir(specializedTasksDir);
+    for (const entry of entries) {
+      const taskPath = path.join(specializedTasksDir, entry, 'CLAUDE.md');
+      try {
+        await fs.access(taskPath);
+        specializedTasks.push(entry);
+      } catch {
+        // Not a valid task
+      }
+    }
+  } catch {
+    // No specialized tasks directory
+  }
+
   // Check golden tasks
   const goldenTasksDir = path.join(cwd, '.claude/tasks');
   try {
@@ -121,15 +162,15 @@ async function listAvailableTasks(cwd: string, projectId: string): Promise<void>
   }
   
   // Check personal tasks
-  const personalTasksDir = path.join(getClaudeHome(), 'projects', projectId, 'tasks');
+  const personalTasksDir = path.join(claudeHome, 'projects', projectId, 'tasks');
   try {
     const entries = await fs.readdir(personalTasksDir);
     for (const entry of entries) {
       const taskPath = path.join(personalTasksDir, entry, 'CLAUDE.md');
       try {
         await fs.access(taskPath);
-        // Only add if not already in golden
-        if (!goldenTasks.includes(entry)) {
+        // Only add if not already in golden or specialized
+        if (!goldenTasks.includes(entry) && !specializedTasks.includes(entry)) {
           personalTasks.push(entry);
         }
       } catch {
@@ -140,12 +181,17 @@ async function listAvailableTasks(cwd: string, projectId: string): Promise<void>
     // No personal tasks directory
   }
   
-  if (goldenTasks.length === 0 && personalTasks.length === 0) {
+  if (goldenTasks.length === 0 && personalTasks.length === 0 && specializedTasks.length === 0) {
     console.error('No tasks found. Create one with /task <task-id>');
     return;
   }
   
   console.error('Available tasks:');
+
+  if (specializedTasks.length > 0) {
+    console.error('  Specialized (immutable):');
+    specializedTasks.forEach(t => console.error(`    - ${t} 🔒`));
+  }
   
   if (goldenTasks.length > 0) {
     console.error('  Golden (shared):');

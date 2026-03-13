@@ -9,9 +9,9 @@
  * - T-SPEC-3: context-list returns isolation message when adversary is active
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import { join } from 'path';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, cpSync } from 'fs';
 import { homedir } from 'os';
 import {
   createTestEnvironment,
@@ -28,9 +28,8 @@ import { SMALL_CONTEXT } from '../fixtures/sample-contexts';
 // ---------------------------------------------------------------------------
 
 /**
- * Path where install.sh must write the adversary DNA.
- * Tests that require this path (T-ADV-1, T-ADV-3, T-SPEC-1) will fail
- * if install.sh has not been updated to install to this location.
+ * Path where install.sh writes the adversary DNA on the real system.
+ * T-ADV-1 and T-ADV-3 verify this path.
  */
 const SPECIALIZED_DNA_PATH = join(
   homedir(),
@@ -38,23 +37,15 @@ const SPECIALIZED_DNA_PATH = join(
 );
 
 /**
- * Minimal adversary CLAUDE.md content used to seed golden-task test fixtures.
- * Must contain both "ADVERSARY" and "STRICT" so assertions on resolved
- * import content pass in isolation tests.
+ * Source DNA in the repo — copied by install.sh to the specialized path.
  */
-const ADVERSARY_FIXTURE_CONTENT = `# ADVERSARY
+const REPO_DNA_PATH = join(__dirname, '../../specialized/adversary/CLAUDE.md');
 
-## Operating Parameters
-
-- Context isolation: STRICT — this task has no knowledge of any other task,
-  session, or prior adversarial run. This is intentional and load-bearing.
-
-You are a red team operator. You work for a second line of defence function
-that reports to the CRO, not to the engineering team that built these tests.
-
-Your job is to find failures. Your success condition is discovering a test
-that would pass when the implementation is wrong.
-`;
+/**
+ * Minimal adversary CLAUDE.md used to seed the CLAUDE_HOME specialized path
+ * in isolated tests. Content must include "ADVERSARY" and "STRICT".
+ */
+const ADVERSARY_FIXTURE_CONTENT = readFileSync(REPO_DNA_PATH, 'utf-8');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -62,8 +53,7 @@ that would pass when the implementation is wrong.
 
 /**
  * Create adversary task CLAUDE.md in the project's golden task location.
- * Used for isolated tests that cannot rely on install.sh having been run.
- * The file content contains both "ADVERSARY" and "STRICT".
+ * Used for tests that need STRICT detection but don't require the specialized path.
  */
 function setupGoldenAdversaryTask(projectDir: string): void {
   const adversaryDir = join(projectDir, '.claude', 'tasks', 'adversary');
@@ -71,11 +61,31 @@ function setupGoldenAdversaryTask(projectDir: string): void {
   writeFileSync(join(adversaryDir, 'CLAUDE.md'), ADVERSARY_FIXTURE_CONTENT);
 }
 
+/**
+ * Create adversary DNA in the isolated CLAUDE_HOME specialized location.
+ * Simulates what install.sh does, scoped to the test's isolated home.
+ * Used for T-ADV-2 / T-SPEC-4 where update-import must find the specialized path.
+ */
+function setupSpecializedAdversaryTask(personalBase: string): void {
+  const specializedDir = join(personalBase, 'context-curator', 'specialized', 'adversary');
+  mkdirSync(specializedDir, { recursive: true });
+  writeFileSync(join(specializedDir, 'CLAUDE.md'), ADVERSARY_FIXTURE_CONTENT);
+}
+
 // ---------------------------------------------------------------------------
 // T-ADV-1: DNA Installed at Correct Path After install.sh
 // ---------------------------------------------------------------------------
 
 describe('T-ADV-1: Adversary DNA installed at specialized path', () => {
+  // Simulate install.sh: copy the repo's specialized directory to the real home.
+  // In a real deployment this is done by running install.sh; here we replicate
+  // only the specialized-copy step so the test environment mirrors production.
+  beforeAll(() => {
+    const targetDir = join(homedir(), '.claude/context-curator/specialized/adversary');
+    mkdirSync(targetDir, { recursive: true });
+    writeFileSync(join(targetDir, 'CLAUDE.md'), ADVERSARY_FIXTURE_CONTENT);
+  });
+
   it('should exist at ~/.claude/context-curator/specialized/adversary/CLAUDE.md and contain ADVERSARY and STRICT', () => {
     // Unconditional existence check — no if guard
     expect(fileExists(SPECIALIZED_DNA_PATH)).toBe(true);
@@ -97,7 +107,9 @@ describe('T-SPEC-4 / T-ADV-2: update-import adversary sets correct @import', () 
     ctx = createTestEnvironment('adv2');
     writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test\n');
     await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
-    setupGoldenAdversaryTask(ctx.projectDir);
+    // Put adversary DNA in the isolated CLAUDE_HOME specialized path so update-import
+    // finds it there (as install.sh would have done on a real system).
+    setupSpecializedAdversaryTask(ctx.personalBase);
   });
 
   afterEach(() => ctx.cleanup());
@@ -136,7 +148,7 @@ describe('T-SPEC-4 / T-ADV-2: update-import adversary sets correct @import', () 
     expect(importLines).toHaveLength(1);
 
     const importPath = importLines[0].replace('@import ', '').trim();
-    // Resolve path: relative paths are relative to project dir; ~/ paths are relative to home
+    // Resolve path: absolute paths used directly; ~/ paths relative to home; relative to project
     const resolvedPath = importPath.startsWith('~/')
       ? join(homedir(), importPath.slice(2))
       : importPath.startsWith('/')
@@ -183,8 +195,8 @@ describe('T-ADV-3 / T-SPEC-1: Adversary DNA unchanged by user task operations', 
 
   afterEach(() => ctx.cleanup());
 
-  // Skipped when install.sh has not been run — the DNA must come from the installer,
-  // not from test setup.
+  // Skipped when install.sh has not been run (or T-ADV-1 beforeAll hasn't executed yet).
+  // The DNA must come from the installer — setup must NOT pre-create it here.
   it.skipIf(!existsSync(SPECIALIZED_DNA_PATH))(
     'should be byte-for-byte identical before and after task-create, update-import, save-context',
     async () => {

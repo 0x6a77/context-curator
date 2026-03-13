@@ -48,6 +48,14 @@ for cmd in commands/task/*.md; do
   fi
 done
 
+# 5. Install specialized tasks (immutable DNA — never modified by user operations)
+echo "📋 Installing specialized tasks..."
+if [ -d "$SCRIPT_DIR/specialized" ]; then
+  mkdir -p "$INSTALL_DIR/specialized"
+  cp -r "$SCRIPT_DIR/specialized/." "$INSTALL_DIR/specialized/"
+  echo "   ✓ Installed specialized tasks"
+fi
+
 echo
 echo "╔════════════════════════════════════════╗"
 echo "║  Installation Complete!                ║"
@@ -56,9 +64,10 @@ echo
 echo "✅ Context Curator v13.0 installed"
 echo
 echo "Installation locations:"
-echo "  • Scripts:  ~/.claude/context-curator/dist/"
-echo "  • Commands: ~/.claude/commands/task/"
-echo "  • Storage:  ~/.claude/projects/<project-id>/"
+echo "  • Scripts:    ~/.claude/context-curator/dist/"
+echo "  • Commands:   ~/.claude/commands/task/"
+echo "  • Storage:    ~/.claude/projects/<project-id>/"
+echo "  • Specialized: ~/.claude/context-curator/specialized/"
 echo
 echo "⚡ Performance: Scripts are pre-compiled for fast execution"
 echo

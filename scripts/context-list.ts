@@ -10,6 +10,9 @@
  * - Active sessions from ~/.claude/projects/<project-id>/
  * - Saved personal contexts
  * - Saved golden contexts
+ *
+ * For STRICT isolation tasks (e.g. adversary), outputs an isolation message
+ * instead of listing contexts.
  */
 
 import fs from 'fs/promises';
@@ -21,6 +24,7 @@ import {
   getProjectId,
   getPersonalProjectDir,
   getSessionStats,
+  isStrictIsolationTask,
 } from '../src/utils.js';
 
 interface SessionInfo {
@@ -102,6 +106,26 @@ async function main() {
     taskId = taskArg;
   } else {
     taskId = await getCurrentTask();
+  }
+
+  // STRICT isolation tasks do not support context listing
+  if (await isStrictIsolationTask(taskId, cwd)) {
+    if (jsonMode) {
+      console.log(JSON.stringify({
+        projectId, taskId,
+        strictIsolation: true,
+        message: 'Strict isolation is active — no contexts available for this specialized task.',
+        sessions: [],
+        contexts: [],
+      }, null, 2));
+    } else {
+      console.log(`Project: ${cwd}`);
+      console.log(`Task:    ${taskId}`);
+      console.log('');
+      console.log('Strict isolation is active — no contexts available for this specialized task.');
+      console.log('Context save and restore are disabled to ensure each session starts fresh.');
+    }
+    return;
   }
 
   const sessions = await listActiveSessions(cwd);

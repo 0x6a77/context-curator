@@ -25,6 +25,7 @@ import {
   formatDate,
   checkGoldenContextSize,
   scanForSecrets,
+  isStrictIsolationTask,
   MAX_GOLDEN_SIZE_BYTES
 } from '../src/utils.js';
 
@@ -97,6 +98,13 @@ async function generateSummary(sessionPath: string): Promise<string> {
 
 async function saveContext(taskId: string, contextName: string, isGolden: boolean, sessionId?: string) {
   const cwd = process.cwd();
+
+  // Reject saves for STRICT isolation tasks (e.g. adversary)
+  if (await isStrictIsolationTask(taskId, cwd)) {
+    console.error('❌ Context save not available: strict isolation is active for this specialized task.');
+    console.error('   STRICT isolation prevents context save and restore to ensure each session is fresh.');
+    process.exit(1);
+  }
 
   // Find the session file
   const sessionDir = getPersonalProjectDir(cwd);
