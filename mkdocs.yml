@@ -25,6 +25,7 @@ nav:
   - Concepts: concepts.md
   - Commands: commands.md
   - Workflows: workflows.md
+  - Local Development: local-development.md
 
 markdown_extensions:
   - admonition
