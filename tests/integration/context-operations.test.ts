@@ -117,6 +117,10 @@ describe('Context Saving Tests (Group 4)', () => {
       // Verify saved to project .claude/ directory
       const goldenPath = join(ctx.projectDir, '.claude', 'tasks', 'save-test', 'contexts', 'team-knowledge.jsonl');
       expect(result.exitCode).toBe(0);
+      // T-CTX-3: verify the scan mechanism ran — an implementation that skips scanning
+      // for clean contexts would not be caught without this assertion.
+      const output = result.stdout.toLowerCase();
+      expect(output.includes('scan') || output.includes('secret')).toBe(true);
       expect(fileExists(goldenPath)).toBe(true);
       // FIX 3: JSONL validation
       expect(isValidJsonl(goldenPath)).toBe(true);
@@ -202,7 +206,8 @@ describe('Context Saving Tests (Group 4)', () => {
       const result = await runScript(
         'save-context',
         ['save-test', 'my work!', '--personal'],
-        ctx.projectDir
+        ctx.projectDir,
+        { CLAUDE_HOME: ctx.personalBase }
       );
 
       expect(result.exitCode).not.toBe(0);
@@ -835,6 +840,15 @@ describe('T-SUM-1 and T-SUM-2: AI-Generated Summary Tests', () => {
     expect(typeof meta.summary).toBe('string');
     expect(meta.summary.length).toBeGreaterThanOrEqual(20);
     expect(meta.summary.length).toBeLessThanOrEqual(500);
+    // T-SUM-1: summary must be content-derived, not a static placeholder.
+    // SMALL_CONTEXT is about authentication/OAuth — at least one keyword must appear.
+    const summaryLower = meta.summary.toLowerCase();
+    expect(
+      summaryLower.includes('authentication') ||
+      summaryLower.includes('oauth') ||
+      summaryLower.includes('token') ||
+      summaryLower.includes('auth')
+    ).toBe(true);
   });
 
   // T-SUM-2: Two contexts from clearly different conversations must produce

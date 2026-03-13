@@ -131,6 +131,9 @@ describe('Task Creation Tests (Group 2)', () => {
       const result = await runScript('task-create', ['oauth@refactor!', 'desc'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       expect(result.exitCode).not.toBe(0);
+      // Must emit a meaningful rejection message, not just exit non-zero for any reason
+      const output = (result.stdout + result.stderr).toLowerCase();
+      expect(output).toMatch(/invalid.*(name|task|id)|uppercase|lowercase|special/i);
       // FIX 8: Unconditionally assert no directory created
       expect(fileExists(specialCharDir)).toBe(false);
     });
@@ -141,6 +144,9 @@ describe('Task Creation Tests (Group 2)', () => {
 
       // T-TASK-2: must exit non-zero for invalid name
       expect(result.exitCode).not.toBe(0);
+      // Must emit a meaningful rejection message, not just exit non-zero for any reason
+      const output = (result.stdout + result.stderr).toLowerCase();
+      expect(output).toMatch(/invalid.*(name|task|id)|uppercase|lowercase|special/i);
       expect(fileExists(join(ctx.projectDir, '.claude', 'tasks', 'OAuth Refactor'))).toBe(false);
       expect(fileExists(join(ctx.projectDir, '.claude', 'tasks', 'oauth refactor'))).toBe(false);
     });

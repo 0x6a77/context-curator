@@ -25,6 +25,8 @@ import {
   createJsonl,
   initGit,
   isGitIgnored,
+  gitAdd,
+  gitCommit,
   sanitizePath,
 } from '../utils/test-helpers';
 
@@ -100,6 +102,12 @@ describe('Project Initialization Tests', () => {
 
       // FIX 6: Verify script exited successfully
       expect(result.exitCode).toBe(0);
+
+      // Commit .gitignore before calling check-ignore — git check-ignore behaviour
+      // for an untracked .gitignore is version-dependent; committing it first is
+      // the only portable approach.
+      gitAdd(ctx.projectDir, '.claude/.gitignore');
+      gitCommit(ctx.projectDir, 'test: add .claude/.gitignore');
 
       // Verify .claude/CLAUDE.md is git-ignored
       expect(isGitIgnored(ctx.projectDir, '.claude/CLAUDE.md')).toBe(true);

@@ -77,23 +77,19 @@ function setupSpecializedAdversaryTask(personalBase: string): void {
 // ---------------------------------------------------------------------------
 
 describe('T-ADV-1: Adversary DNA installed at specialized path', () => {
-  // Simulate install.sh: copy the repo's specialized directory to the real home.
-  // In a real deployment this is done by running install.sh; here we replicate
-  // only the specialized-copy step so the test environment mirrors production.
-  beforeAll(() => {
-    const targetDir = join(homedir(), '.claude/context-curator/specialized/adversary');
-    mkdirSync(targetDir, { recursive: true });
-    writeFileSync(join(targetDir, 'CLAUDE.md'), ADVERSARY_FIXTURE_CONTENT);
-  });
+  // T-ADV-1 verifies what install.sh places on the real system.
+  // The test must NOT create the file itself (that would make the assertion vacuous).
+  // Skip on clean systems where install.sh has not been run.
+  it.skipIf(!existsSync(SPECIALIZED_DNA_PATH))(
+    'should exist at ~/.claude/context-curator/specialized/adversary/CLAUDE.md and contain ADVERSARY and STRICT',
+    () => {
+      expect(fileExists(SPECIALIZED_DNA_PATH)).toBe(true);
 
-  it('should exist at ~/.claude/context-curator/specialized/adversary/CLAUDE.md and contain ADVERSARY and STRICT', () => {
-    // Unconditional existence check — no if guard
-    expect(fileExists(SPECIALIZED_DNA_PATH)).toBe(true);
-
-    const content = readFile(SPECIALIZED_DNA_PATH);
-    expect(content).toContain('ADVERSARY');
-    expect(content).toContain('STRICT');
-  });
+      const content = readFile(SPECIALIZED_DNA_PATH);
+      expect(content).toContain('ADVERSARY');
+      expect(content).toContain('STRICT');
+    }
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -191,42 +187,48 @@ describe('T-ADV-3 / T-SPEC-1: Adversary DNA unchanged by user task operations', 
     ctx = createTestEnvironment('adv3');
     writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test\n');
     await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    // Plant DNA in the isolated CLAUDE_HOME so the test is self-contained and does not
+    // depend on install.sh having been run or on T-ADV-1's side effects.
+    setupSpecializedAdversaryTask(ctx.personalBase);
   });
 
   afterEach(() => ctx.cleanup());
 
-  // Skipped when install.sh has not been run (or T-ADV-1 beforeAll hasn't executed yet).
-  // The DNA must come from the installer — setup must NOT pre-create it here.
-  it.skipIf(!existsSync(SPECIALIZED_DNA_PATH))(
-    'should be byte-for-byte identical before and after task-create, update-import, save-context',
-    async () => {
-      const dnaBefore = readFileSync(SPECIALIZED_DNA_PATH, 'utf-8');
+  it('should be byte-for-byte identical before and after task-create, update-import, save-context', async () => {
+    // Use the isolated DNA path — independent of the real system install
+    const isolatedDnaPath = join(
+      ctx.personalBase,
+      'context-curator',
+      'specialized',
+      'adversary',
+      'CLAUDE.md'
+    );
+    const dnaBefore = readFileSync(isolatedDnaPath, 'utf-8');
 
-      // Three user task operations that must NOT touch the specialized directory
-      await runScript(
-        'task-create',
-        ['oauth-refactor', 'Refactor OAuth'],
-        ctx.projectDir,
-        { CLAUDE_HOME: ctx.personalBase }
-      );
-      await runScript(
-        'update-import',
-        ['oauth-refactor'],
-        ctx.projectDir,
-        { CLAUDE_HOME: ctx.personalBase }
-      );
-      createJsonl(join(ctx.personalDir, 'current-session.jsonl'), SMALL_CONTEXT);
-      await runScript(
-        'save-context',
-        ['oauth-refactor', 'test-ctx', '--personal'],
-        ctx.projectDir,
-        { CLAUDE_HOME: ctx.personalBase }
-      );
+    // Three user task operations that must NOT touch the specialized directory
+    await runScript(
+      'task-create',
+      ['oauth-refactor', 'Refactor OAuth'],
+      ctx.projectDir,
+      { CLAUDE_HOME: ctx.personalBase }
+    );
+    await runScript(
+      'update-import',
+      ['oauth-refactor'],
+      ctx.projectDir,
+      { CLAUDE_HOME: ctx.personalBase }
+    );
+    createJsonl(join(ctx.personalDir, 'current-session.jsonl'), SMALL_CONTEXT);
+    await runScript(
+      'save-context',
+      ['oauth-refactor', 'test-ctx', '--personal'],
+      ctx.projectDir,
+      { CLAUDE_HOME: ctx.personalBase }
+    );
 
-      const dnaAfter = readFileSync(SPECIALIZED_DNA_PATH, 'utf-8');
-      expect(dnaAfter).toBe(dnaBefore);
-    }
-  );
+    const dnaAfter = readFileSync(isolatedDnaPath, 'utf-8');
+    expect(dnaAfter).toBe(dnaBefore);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -240,6 +242,9 @@ describe('T-ADV-4 / T-SPEC-2: save-context rejected when adversary task is activ
     ctx = createTestEnvironment('adv4');
     writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test\n');
     await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    // Plant specialized DNA first so update-import routes to the specialized path
+    // (higher priority than golden), matching the real production flow.
+    setupSpecializedAdversaryTask(ctx.personalBase);
     setupGoldenAdversaryTask(ctx.projectDir);
     await runScript(
       'update-import',
@@ -296,6 +301,9 @@ describe('T-SPEC-3: context-list returns isolation message for adversary task', 
     ctx = createTestEnvironment('adv5');
     writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test\n');
     await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    // Plant specialized DNA first so update-import routes to the specialized path
+    // (higher priority than golden), matching the real production flow.
+    setupSpecializedAdversaryTask(ctx.personalBase);
     setupGoldenAdversaryTask(ctx.projectDir);
     await runScript(
       'update-import',

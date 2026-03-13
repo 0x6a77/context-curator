@@ -10,7 +10,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { join } from 'path';
-import { mkdirSync, writeFileSync, readdirSync, existsSync } from 'fs';
+import { mkdirSync, writeFileSync, readdirSync, existsSync, statSync } from 'fs';
 import {
   createTestEnvironment,
   TestContext,
@@ -50,7 +50,13 @@ describe('T-CTX-5: 100KB cap on promote-context', () => {
       timestamp: new Date().toISOString(),
     };
     const messages = Array.from({ length: 150 }, () => largeMessage);
-    createJsonl(join(personalDir, 'big-ctx.jsonl'), messages);
+    const bigCtxPath = join(personalDir, 'big-ctx.jsonl');
+    createJsonl(bigCtxPath, messages);
+
+    // Pre-condition: verify the file is actually >100KB before running the script.
+    // Without this, a silently failed file write could cause the exit-code assertion
+    // to pass vacuously (implementation exits non-zero for a different reason).
+    expect(statSync(bigCtxPath).size).toBeGreaterThan(100_000);
 
     const result = await runScript(
       'promote-context',
