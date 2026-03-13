@@ -394,10 +394,10 @@ export interface SecretMatch {
 }
 
 const SECRET_PATTERNS = [
-  { name: 'Stripe API Key', pattern: /sk_(test|live)_[a-zA-Z0-9]{20,}/ },
-  { name: 'Stripe Publishable Key', pattern: /pk_(test|live)_[a-zA-Z0-9]{20,}/ },
+  { name: 'Stripe API Key', pattern: /sk_(test|live)_[a-zA-Z0-9]{8,}/ },
+  { name: 'Stripe Publishable Key', pattern: /pk_(test|live)_[a-zA-Z0-9]{8,}/ },
   { name: 'AWS Access Key', pattern: /AKIA[0-9A-Z]{16}/ },
-  { name: 'AWS Secret Key', pattern: /aws_secret_access_key['":\s=]+[a-zA-Z0-9\/+=]{40}/ },
+  { name: 'AWS Secret Key', pattern: /aws_secret_access_key['":\s=]+[a-zA-Z0-9\/+=]{40}/i },
   { name: 'GitHub Token', pattern: /ghp_[a-zA-Z0-9]{36}/ },
   { name: 'GitHub PAT', pattern: /github_pat_[a-zA-Z0-9_]{22,}/ },
   { name: 'Generic API Key', pattern: /api[_-]?key['":\s=]+['"]?[a-zA-Z0-9_-]{20,}['"]?/i },

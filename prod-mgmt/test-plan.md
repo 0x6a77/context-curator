@@ -1,7 +1,7 @@
 # Context Curator Integration Test Plan
 
-**Version:** 1.0  
-**Last Updated:** January 18, 2026  
+**Version:** 2.0  
+**Last Updated:** March 13, 2026  
 **Purpose:** Detailed integration test specifications for context-curator
 
 ---
@@ -784,7 +784,7 @@ def test_multiple_task_switches():
 | T-CTX-3 | `save-context --golden` on a session with a real AWS key exits non-zero or produces a prompt; exit 0 with no prompt is a failure |
 | T-CTX-4 | `save-context --golden` on a 150KB session exits non-zero with output containing "100KB" or "too large" |
 | T-CTX-6 | `save-context` called twice with the same name creates a `.backup-` file; the backup contains the original content |
-| T-MEM-1 | After `save-context`, the personal memory MEMORY.md contains the task-id and context-name saved |
+| T-MEM-1 | After `save-context`, the file `<personalDir>/memory/MEMORY.md` contains the task-id and context-name saved |
 
 ### Test 4.1: Save Personal Context with Valid Name
 
@@ -3069,6 +3069,243 @@ def sanitize_path(path: str) -> str:
 
 ---
 
+## 15. Specialized Task Framework Tests · F-SPEC
+
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-SPEC-1 | Read the adversary CLAUDE.md before and after running `task-create`, `update-import`, and `save-context` on user tasks; assert content is byte-for-byte identical across all three operations — setup must not pre-create any file under `specialized/` |
+| T-SPEC-2 | `save-context` called with the adversary task active exits non-zero; output matches `/strict.isolation\|not.*available\|specialized.*task/i`; no `.jsonl` file is created at any personal or golden context path |
+| T-SPEC-3 | `context-list` for the adversary task exits 0; output matches `/strict.isolation\|no contexts.*isolation\|isolation.*no contexts/i`; output does NOT match any UUID pattern (`[0-9a-f]{8}-[0-9a-f]{4}`) |
+| T-SPEC-4 | `update-import adversary` updates `.claude/CLAUDE.md` to contain exactly one `@import` line; the imported path resolves to a file on disk whose content contains "ADVERSARY" |
+
+### Test 15.1: DNA Immutability Across User Task Operations (T-SPEC-1)
+
+**Setup:**
+```python
+# install.sh must have run; adversary DNA exists at install path
+# Do NOT create the DNA file in test setup — it must come from the installer
+specialized_path = Path.home() / ".claude/context-curator/specialized/adversary/CLAUDE.md"
+assert specialized_path.exists(), "Prerequisite: install.sh must have run"
+dna_before = specialized_path.read_text()
+```
+
+**Execution:**
+```python
+def test_dna_immutability():
+    specialized_path = Path.home() / ".claude/context-curator/specialized/adversary/CLAUDE.md"
+    dna_before = specialized_path.read_text()
+
+    # Run three user task operations
+    run_script("task-create", ["oauth-refactor", "Refactor the OAuth flow"])
+    run_script("update-import", ["oauth-refactor"])
+    run_script("save-context", ["--personal", "test-ctx"])
+
+    dna_after = specialized_path.read_text()
+    assert dna_after == dna_before
+```
+
+**Validation:**
+- `specialized_path.read_text()` before equals `specialized_path.read_text()` after — byte-for-byte
+- No user operation may have a write side-effect on `~/.claude/context-curator/specialized/`
+
+---
+
+### Test 15.2: save-context Rejected for STRICT Task (T-SPEC-2)
+
+**Setup:**
+```python
+run_script("init-project", [])
+run_script("update-import", ["adversary"])  # activate adversary task
+```
+
+**Execution:**
+```python
+def test_strict_save_rejected():
+    result = run_script("save-context", ["--personal", "should-not-exist"])
+
+    assert result.exit_code != 0
+    assert re.search(r'strict.isolation|not.*available|specialized.*task', result.output, re.I)
+
+    # No context file created at any expected path
+    personal_ctx = personal_base / "tasks/adversary/contexts/should-not-exist.jsonl"
+    golden_ctx = Path(".claude/tasks/adversary/contexts/should-not-exist.jsonl")
+    assert not personal_ctx.exists()
+    assert not golden_ctx.exists()
+```
+
+---
+
+### Test 15.3: context-list Returns Isolation Message for STRICT Task (T-SPEC-3)
+
+**Setup:**
+```python
+run_script("init-project", [])
+run_script("update-import", ["adversary"])
+```
+
+**Execution:**
+```python
+def test_strict_context_list():
+    result = run_script("context-list", [])
+
+    assert result.exit_code == 0
+    assert re.search(
+        r'strict.isolation|no contexts.*isolation|isolation.*no contexts',
+        result.output, re.I
+    )
+    # Must not surface any UUID session as a selectable context
+    assert not re.search(r'[0-9a-f]{8}-[0-9a-f]{4}', result.output)
+```
+
+---
+
+### Test 15.4: update-import for Specialized Task Sets Correct @import (T-SPEC-4)
+
+**Setup:**
+```python
+run_script("init-project", [])
+```
+
+**Execution:**
+```python
+def test_specialized_import_path():
+    result = run_script("update-import", ["adversary"])
+    assert result.exit_code == 0
+
+    claude_md = Path(".claude/CLAUDE.md").read_text()
+    import_lines = [l for l in claude_md.splitlines() if l.startswith("@import")]
+
+    # Exactly one @import line
+    assert len(import_lines) == 1
+
+    # Imported path ends with specialized/adversary/CLAUDE.md
+    import_path = import_lines[0].replace("@import ", "").strip()
+    assert import_path.endswith("specialized/adversary/CLAUDE.md")
+
+    # The file at that path exists and contains "ADVERSARY"
+    resolved = Path(import_path.replace("~", str(Path.home())))
+    assert resolved.exists()
+    assert "ADVERSARY" in resolved.read_text()
+```
+
+---
+
+## 16. Adversary Task Tests · F-ADVERSARY
+
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-ADV-1 | After `./install.sh`, `~/.claude/context-curator/specialized/adversary/CLAUDE.md` exists (asserted unconditionally) and its content contains both the string "ADVERSARY" and the string "STRICT" |
+| T-ADV-2 | After `update-import adversary`, `.claude/CLAUDE.md` contains exactly one `@import` line; the imported path ends with `specialized/adversary/CLAUDE.md`; the file at that path exists on disk and contains "ADVERSARY" |
+| T-ADV-3 | Read adversary DNA content before running `task-create oauth-refactor`, then `update-import oauth-refactor`, then `save-context test-ctx --personal`; assert adversary DNA content is byte-for-byte identical after all three operations; setup must NOT pre-create the adversary DNA file |
+| T-ADV-4 | `save-context` with adversary task active (set via `update-import adversary`) exits non-zero; no file matching `adversary` exists in any personal context path; this is the F-SPEC T-SPEC-2 assertion applied specifically to the adversary task ID |
+
+### Test 16.1: DNA Installed at Correct Path After install.sh (T-ADV-1)
+
+**Setup:**
+```python
+# Prerequisite: install.sh has been executed
+# Do NOT create this file in test setup
+```
+
+**Execution:**
+```python
+def test_adversary_dna_installed():
+    adversary_dna = Path.home() / ".claude/context-curator/specialized/adversary/CLAUDE.md"
+
+    # Unconditional existence check — no if guard
+    assert adversary_dna.exists()
+
+    content = adversary_dna.read_text()
+    assert "ADVERSARY" in content
+    assert "STRICT" in content
+```
+
+---
+
+### Test 16.2: Activation Sets Correct @import (T-ADV-2)
+
+**Setup:**
+```python
+run_script("init-project", [])
+```
+
+**Execution:**
+```python
+def test_adversary_activation():
+    result = run_script("update-import", ["adversary"])
+    assert result.exit_code == 0
+
+    claude_md = Path(".claude/CLAUDE.md").read_text()
+    import_lines = [l for l in claude_md.splitlines() if l.startswith("@import")]
+    assert len(import_lines) == 1
+
+    import_path = import_lines[0].replace("@import ", "").strip()
+    assert import_path.endswith("specialized/adversary/CLAUDE.md")
+
+    resolved = Path(import_path.replace("~", str(Path.home())))
+    assert resolved.exists()
+    assert "ADVERSARY" in resolved.read_text()
+```
+
+---
+
+### Test 16.3: DNA Unchanged After User Task Operations (T-ADV-3)
+
+**Setup:**
+```python
+adversary_dna = Path.home() / ".claude/context-curator/specialized/adversary/CLAUDE.md"
+# Must exist from installer — NOT created here
+assert adversary_dna.exists(), "Prerequisite: install.sh must have run"
+dna_before = adversary_dna.read_text()
+
+run_script("init-project", [])
+```
+
+**Execution:**
+```python
+def test_adversary_dna_unchanged():
+    adversary_dna = Path.home() / ".claude/context-curator/specialized/adversary/CLAUDE.md"
+    dna_before = adversary_dna.read_text()
+
+    run_script("task-create", ["oauth-refactor", "Refactor OAuth"])
+    run_script("update-import", ["oauth-refactor"])
+    run_script("save-context", ["--personal", "test-ctx"])
+
+    dna_after = adversary_dna.read_text()
+    assert dna_after == dna_before
+```
+
+---
+
+### Test 16.4: save-context Rejected While Adversary Active (T-ADV-4)
+
+**Setup:**
+```python
+run_script("init-project", [])
+run_script("update-import", ["adversary"])
+```
+
+**Execution:**
+```python
+def test_adversary_save_rejected():
+    result = run_script("save-context", ["--personal", "adversary-attempt"])
+
+    assert result.exit_code != 0
+
+    # No context file at any adversary personal path
+    personal_ctx_dir = personal_base / "tasks/adversary/contexts"
+    if personal_ctx_dir.exists():
+        jsonl_files = list(personal_ctx_dir.glob("*.jsonl"))
+        assert len(jsonl_files) == 0
+    # If the dir doesn't exist, that's also a pass — no file was created
+```
+
+---
+
 ## Summary
 
 This test plan provides comprehensive coverage of context-curator functionality through integration tests. The tests:
@@ -3094,6 +3331,8 @@ This test plan provides comprehensive coverage of context-curator functionality 
 - ✅ Cross-platform compatibility (F-XPLAT)
 - ✅ Error handling (F-ERR)
 - ✅ PreCompact auto-save hook (F-HOOK)
+- ✅ Specialized task framework — DNA immutability, STRICT isolation (F-SPEC)
+- ✅ Adversary task — install path, activation, isolation enforcement (F-ADVERSARY)
 
 **Next Steps:**
 1. Implement test utilities and base classes

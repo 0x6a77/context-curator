@@ -7,9 +7,17 @@
  */
 
 import fs from 'fs/promises';
+import path from 'path';
 import { listTasks, listContexts, getCurrentTask, formatDate, fileExists } from '../src/utils.js';
 
 async function main() {
+  const cwd = process.cwd();
+  const claudeDir = path.join(cwd, '.claude');
+  if (!await fileExists(claudeDir)) {
+    console.error('❌ Not initialized. Run init-project first.');
+    process.exit(1);
+  }
+
   const taskId = process.argv[2];
   const currentTask = await getCurrentTask();
   
@@ -84,7 +92,7 @@ async function main() {
     // Location
     console.log('## Location');
     if (task.location === 'golden') {
-      console.log('Golden (in project, shared) ⭐');
+      console.log('Project (shared) ⭐');
     } else {
       console.log('Personal (private)');
     }
@@ -117,7 +125,8 @@ async function main() {
       const golden = contexts.filter(c => c.location === 'golden');
       
       let num = 1;
-      
+
+      // Personal contexts appear before golden (T-LIST-1 ordering)
       if (personal.length > 0) {
         console.log('\n### Personal');
         for (const ctx of personal) {
@@ -125,7 +134,7 @@ async function main() {
           num++;
         }
       }
-      
+
       if (golden.length > 0) {
         console.log('\n### Golden (shared)');
         for (const ctx of golden) {

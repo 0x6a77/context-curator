@@ -86,9 +86,23 @@ async function main() {
   const jsonMode = args.includes('--json');
   const taskArg = args.find(a => !a.startsWith('--'));
 
-  const taskId = taskArg || await getCurrentTask();
   const cwd = process.cwd();
   const projectId = getProjectId(cwd);
+
+  // If a task arg was provided, verify it exists
+  let taskId: string;
+  if (taskArg) {
+    const { listTasks } = await import('../src/utils.js');
+    const tasks = await listTasks(cwd);
+    const found = tasks.find(t => t.id === taskArg);
+    if (!found) {
+      console.error(`❌ Task '${taskArg}' not found`);
+      process.exit(1);
+    }
+    taskId = taskArg;
+  } else {
+    taskId = await getCurrentTask();
+  }
 
   const sessions = await listActiveSessions(cwd);
   const contexts = await listContexts(taskId, cwd);
@@ -130,11 +144,24 @@ async function main() {
     console.log('');
   }
 
+  async function readSummary(filePath: string): Promise<string> {
+    try {
+      const metaPath = filePath.replace(/\.jsonl$/, '.meta.json');
+      const raw = await fs.readFile(metaPath, 'utf-8');
+      const meta = JSON.parse(raw);
+      if (meta.summary && meta.summary.trim().length > 0) {
+        return ' — ' + meta.summary.trim().slice(0, 60);
+      }
+    } catch { /* no meta.json or unreadable */ }
+    return '';
+  }
+
   if (personal.length > 0) {
     console.log('Personal contexts:');
     for (const ctx of personal) {
       const name = ctx.name.padEnd(20).slice(0, 20);
-      console.log(`  ${name} ${String(ctx.messages).padStart(3)} msgs - ${formatDate(ctx.lastModified)}`);
+      const summary = await readSummary(ctx.filePath);
+      console.log(`  ${name} ${String(ctx.messages).padStart(3)} msgs - ${formatDate(ctx.lastModified)}${summary}`);
     }
     console.log('');
   }
@@ -143,13 +170,14 @@ async function main() {
     console.log('Golden contexts:');
     for (const ctx of golden) {
       const name = ctx.name.padEnd(20).slice(0, 20);
-      console.log(`  ${name} ${String(ctx.messages).padStart(3)} msgs - ${formatDate(ctx.lastModified)} ⭐`);
+      const summary = await readSummary(ctx.filePath);
+      console.log(`  ${name} ${String(ctx.messages).padStart(3)} msgs - ${formatDate(ctx.lastModified)}${summary} ⭐`);
     }
     console.log('');
   }
 
   if (sessions.length === 0 && contexts.length === 0) {
-    console.log('No sessions or contexts found.');
+    console.log('No contexts found. Start fresh or save a session with /context-save.');
     console.log('');
   }
 

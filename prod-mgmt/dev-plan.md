@@ -1,15 +1,15 @@
-# Developer Implementation Plan: Context Curator v13.0
+# Developer Implementation Plan: Context Curator v14.0
 
-**Version:** 13.0  
-**Last Updated:** January 17, 2026  
+**Version:** 14.0  
+**Last Updated:** March 13, 2026  
 **Status:** Ready for Implementation  
-**Based on:** PRD v17.0
+**Based on:** PRD v18.0
 
 ---
 
 ## Executive Summary
 
-This plan implements the **task-based context management system** described in PRD v13.0. The core innovation solves the **warm-up problem**: preserving hard-won Claude understanding that gets lost to auto-compact.
+This plan implements the **task-based context management system** described in PRD v17.0. The core innovation solves the **warm-up problem**: preserving hard-won Claude understanding that gets lost to auto-compact.
 
 **Core Architecture:**
 - **Tasks** = Focused work environments with custom CLAUDE.md
@@ -17,6 +17,7 @@ This plan implements the **task-based context management system** described in P
 - **Personal by default** = Contexts stay private unless explicitly shared
 - **Golden contexts** = Team knowledge base of valuable warmed-up sessions
 - **Two-file CLAUDE.md** = No git conflicts (root committed, .claude/ git-ignored)
+- **Specialized tasks** = Pre-authored DNA tasks (adversary, etc.) shipped with context-curator; STRICT or STANDARD isolation enforced by the framework
 
 **Key Innovation:** Claude Code's `/resume` re-reads CLAUDE.md from disk, enabling task-specific instructions to take effect at resume-time.
 
@@ -71,6 +72,12 @@ my-project/
 │   ├── context-manage.md
 │   └── context-promote.md
 │
+├── context-curator/                   # Installed by install.sh
+│   ├── dist/                          # Compiled TypeScript scripts
+│   └── specialized/                   # Specialized task DNA (read-only)
+│       └── adversary/
+│           └── CLAUDE.md              # Never modified by user ops
+│
 └── projects/                          # Per-project personal state
     └── -Users-dev-my-project/
         ├── tasks/
@@ -81,6 +88,8 @@ my-project/
         └── .stash/
             └── original-CLAUDE.md     # Backup of project's CLAUDE.md
 ```
+
+> **Immutability contract:** No script except `install.sh` may write to `~/.claude/context-curator/specialized/`. This directory is set read-only after install.
 
 ### Project ID Encoding
 
@@ -111,6 +120,11 @@ my-project/
 1. Secret detection and redaction
 2. Context merging
 3. Context analytics
+
+### Phase 5: Specialized Tasks
+1. Specialized task framework (F-SPEC)
+2. Adversary task (F-ADVERSARY)
+3. Isolation enforcement in save-context and context-list
 
 ---
 
@@ -251,7 +265,17 @@ async function updateImport(taskId: string) {
   const projectId = cwd.replace(/\//g, '-');
   const claudeMdPath = path.join(cwd, '.claude/CLAUDE.md');
   
-  // Check personal storage first
+  // Resolution order:
+  // 1. Specialized task DNA (read-only, shipped with context-curator)
+  // 2. Personal task storage (~/.claude/projects/...)
+  // 3. Project task storage (.claude/tasks/...)
+  const specializedTaskPath = path.join(
+    process.env.HOME!,
+    '.claude/context-curator/specialized',
+    taskId,
+    'CLAUDE.md'
+  );
+
   const personalTaskPath = path.join(
     process.env.HOME!,
     '.claude/projects',
@@ -265,20 +289,38 @@ async function updateImport(taskId: string) {
   const projectTaskPath = path.join(cwd, '.claude/tasks', taskId, 'CLAUDE.md');
   
   let importPath: string;
-  
-  // Prefer personal, fall back to project
+  let isStrict = false;
+
   try {
-    await fs.access(personalTaskPath);
-    importPath = `~/.claude/projects/${projectId}/tasks/${taskId}/CLAUDE.md`;
+    await fs.access(specializedTaskPath);
+    importPath = `~/.claude/context-curator/specialized/${taskId}/CLAUDE.md`;
+    // Read isolation mode from DNA header comment: "# isolation: STRICT"
+    const dna = await fs.readFile(specializedTaskPath, 'utf-8');
+    isStrict = /isolation:\s*STRICT/i.test(dna);
   } catch {
     try {
-      await fs.access(projectTaskPath);
-      importPath = `tasks/${taskId}/CLAUDE.md`;
+      await fs.access(personalTaskPath);
+      importPath = `~/.claude/projects/${projectId}/tasks/${taskId}/CLAUDE.md`;
     } catch {
-      console.error(`❌ Task '${taskId}' not found`);
-      process.exit(1);
+      try {
+        await fs.access(projectTaskPath);
+        importPath = `tasks/${taskId}/CLAUDE.md`;
+      } catch {
+        console.error(`❌ Task '${taskId}' not found`);
+        process.exit(1);
+      }
     }
   }
+
+  // Record isolation mode in personal project metadata so
+  // save-context and context-list can enforce it without re-reading DNA
+  const metaPath = path.join(
+    process.env.HOME!,
+    '.claude/projects',
+    projectId,
+    'active-task.json'
+  );
+  await fs.writeFile(metaPath, JSON.stringify({ taskId, isStrict }));
   
   // Read and update CLAUDE.md
   let content = await fs.readFile(claudeMdPath, 'utf-8');
@@ -802,6 +844,81 @@ Intelligently combine contexts:
 
 ---
 
+## Phase 5: Specialized Tasks
+
+### 5.1 Specialized Task Framework (F-SPEC)
+
+**Install mechanism (`install.sh`):**
+
+```bash
+# Compile TypeScript
+npx tsc
+
+# Copy scripts
+cp -r dist/ ~/.claude/context-curator/dist/
+
+# Install specialized task DNA (read-only)
+mkdir -p ~/.claude/context-curator/specialized
+cp -r src/specialized/* ~/.claude/context-curator/specialized/
+chmod -R a-w ~/.claude/context-curator/specialized/
+```
+
+**Isolation enforcement:**
+
+`save-context` checks `active-task.json` before writing:
+
+```typescript
+const meta = JSON.parse(await fs.readFile(activeTaskMetaPath, 'utf-8'));
+if (meta.isStrict) {
+  console.error('❌ Context saving is not available for this task (STRICT isolation).');
+  process.exit(1);
+}
+```
+
+`context-list` checks `active-task.json` before showing the menu:
+
+```typescript
+if (meta.isStrict) {
+  console.log('No contexts available — this task uses STRICT isolation.');
+  console.log('Every invocation starts fresh. Run: claude (new session)');
+  process.exit(0);
+}
+```
+
+**Adding a new specialized task:**
+
+1. Create `src/specialized/<name>/CLAUDE.md` with an isolation header:
+   ```
+   <!-- isolation: STRICT -->
+   # MY-TASK-NAME
+   ...
+   ```
+2. `install.sh` picks it up automatically — no other code changes needed.
+
+### 5.2 Adversary Task (F-ADVERSARY)
+
+**DNA location after install:** `~/.claude/context-curator/specialized/adversary/CLAUDE.md`
+
+**Activation:** `/task adversary` → `update-import adversary` → `.claude/CLAUDE.md` @import points to installed DNA.
+
+**Key DNA properties:**
+- `<!-- isolation: STRICT -->` header
+- Model: claude-opus-4-5 (declared in DNA; surfaced to user as a note on activation)
+- Input discovery: scans for `*prd*.md`, `*test-plan*.md`, `tests/`, `*risk-accept*.md`
+- Output: `./prod-mgmt/test-inventory.md`
+
+**User experience on `/task adversary`:**
+
+```
+✓ Task: adversary (specialized)
+⚠  STRICT isolation — every run starts fresh. No context save/restore.
+   Model: claude-opus-4-5
+
+Run: claude (new session — do not /resume a previous adversary run)
+```
+
+---
+
 ## File Structure
 
 ### Commands (in ~/.claude/commands/)
@@ -831,6 +948,15 @@ Intelligently combine contexts:
 | `<project-id>/tasks/*/CLAUDE.md` | Personal task instructions |
 | `<project-id>/tasks/*/contexts/*.jsonl` | Personal contexts |
 | `<project-id>/.stash/original-CLAUDE.md` | Backup |
+| `<project-id>/active-task.json` | Active task + isolation mode (written by update-import) |
+
+### Specialized Task DNA (in ~/.claude/context-curator/specialized/)
+
+| Path | Committed | Purpose |
+|------|-----------|---------|
+| `adversary/CLAUDE.md` | Yes (src/) | Adversary task DNA — read-only after install |
+
+> Source lives at `src/specialized/<name>/CLAUDE.md` in the repository. `install.sh` copies and write-protects it.
 
 ---
 
@@ -891,34 +1017,6 @@ Intelligently combine contexts:
 
 ---
 
-## Implementation Timeline
-
-### Day 1: Foundation
-- [ ] Command files structure
-- [ ] Project initialization (/task-init)
-- [ ] @import mechanism
-- [ ] Basic /task command
-
-### Day 2: Core Commands
-- [ ] /task with context selection
-- [ ] /context-save (personal)
-- [ ] /context-save (golden)
-- [ ] /context-list
-
-### Day 3: Management
-- [ ] /context-manage
-- [ ] /context-promote
-- [ ] Secret detection
-- [ ] Secret redaction
-
-### Day 4: Polish
-- [ ] Testing
-- [ ] Documentation
-- [ ] Edge cases
-- [ ] User feedback
-
----
-
 ## Key Design Decisions
 
 ### 1. Two-File System
@@ -961,26 +1059,6 @@ Intelligently combine contexts:
 - Committed to repo like any other file
 - Standard git workflow (add, commit, push)
 - Team sees contexts in PR reviews
-
----
-
-## Migration Notes
-
-### From v10.x
-
-v13.0 is a significant architecture change:
-
-**Changed:**
-- "Curator session" pattern removed (use `context: fork` instead)
-- Personal storage structure updated
-- Golden contexts added to project directory
-- Two-file CLAUDE.md system
-
-**Actions:**
-1. Re-download commands
-2. Run `/task-init` in each project
-3. Personal contexts auto-migrate on first access
-4. Golden contexts require explicit creation
 
 ---
 
@@ -1030,6 +1108,7 @@ v13.0 is a significant architecture change:
 
 ## Version History
 
+- **v14.0** (2026-03-13): Specialized task framework (F-SPEC), adversary task (F-ADVERSARY), Phase 5 implementation, updated architecture and file structure
 - **v13.0** (2026-01-17): Two-file CLAUDE.md system, golden contexts, secret detection
 - **v10.1** (2026-01-13): Global installation model
 - **v10.0** (2026-01-10): Initial @-import architecture

@@ -18,7 +18,8 @@ import {
   getSessionStats,
   ensureDir,
   fileExists,
-  checkGoldenContextSize
+  checkGoldenContextSize,
+  scanForSecrets,
 } from '../src/utils.js';
 
 async function main() {
@@ -46,7 +47,21 @@ async function main() {
   
   // Verify source exists
   if (!await fileExists(sourcePath)) {
-    console.error(`❌ Source not found: ${sourcePath}`);
+    console.error(`❌ Context not found: ${contextName}`);
+    console.error(`   Expected at: ${sourcePath}`);
+    process.exit(1);
+  }
+
+  // Target: golden storage
+  const goldenDir = path.join(getGoldenTasksDir(cwd), taskId, 'contexts');
+  const goldenPath = path.join(goldenDir, `${contextName}.jsonl`);
+
+  // Fail if golden already exists (don't silently overwrite)
+  if (await fileExists(goldenPath)) {
+    console.error(`❌ Context already exists as golden: ${contextName}`);
+    console.error(`   Location: ${goldenPath}`);
+    console.error('');
+    console.error('The context already golden. Use --force to overwrite (not recommended).');
     process.exit(1);
   }
 
@@ -60,18 +75,20 @@ async function main() {
     console.error('Use /context-manage to trim the context first, then try again.');
     process.exit(1);
   }
-  
-  // Target: golden storage
-  const goldenDir = path.join(getGoldenTasksDir(cwd), taskId, 'contexts');
-  const goldenPath = path.join(goldenDir, `${contextName}.jsonl`);
-  
-  // Check if golden already exists
-  if (await fileExists(goldenPath)) {
-    // Create backup
-    const backupPath = goldenPath.replace('.jsonl', `.backup-${Date.now()}.jsonl`);
-    await fs.copyFile(goldenPath, backupPath);
-    console.error(`⚠️  Golden context exists, backed up to:`);
-    console.error(`   ${path.basename(backupPath)}`);
+
+  // Secret scan before promoting to golden
+  const content = await fs.readFile(sourcePath, 'utf-8');
+  const matches = scanForSecrets(content);
+  if (matches.length > 0) {
+    console.error(`❌ Secret scan failed: found ${matches.length} secret(s)`);
+    console.error('');
+    for (const match of matches) {
+      console.error(`  Line ${match.line}: ${match.type} - ${match.preview}`);
+    }
+    console.error('');
+    console.error('Cannot promote context with secrets to golden.');
+    console.error('Use /redact-secrets to remove them first.');
+    process.exit(1);
   }
   
   // Ensure golden directory exists

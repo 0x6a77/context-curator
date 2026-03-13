@@ -12,6 +12,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
+import { getClaudeHome } from '../src/utils.js';
 
 async function initProject() {
   console.log('Initializing context-curator v13...\n');
@@ -50,6 +51,9 @@ async function initProject() {
   const gitignoreContent = `# Auto-generated file (each developer has their own)
 CLAUDE.md
 
+# Re-allow task CLAUDE.md files (they should be tracked by git)
+!tasks/**/CLAUDE.md
+
 # Personal data files
 *.local.json
 `;
@@ -85,13 +89,13 @@ General development work for this project.
   console.log('✓ Created default task CLAUDE.md');
   
   // 7. Create personal storage directory
-  const personalProjectDir = path.join(process.env.HOME!, '.claude/projects', projectId);
+  const personalProjectDir = path.join(getClaudeHome(), 'projects', projectId);
   const personalTasksDir = path.join(personalProjectDir, 'tasks', 'default', 'contexts');
   const stashDir = path.join(personalProjectDir, '.stash');
   
   await fs.mkdir(personalTasksDir, { recursive: true });
   await fs.mkdir(stashDir, { recursive: true });
-  console.log(`✓ Created personal storage: ~/.claude/projects/${projectId}/`);
+  console.log(`✓ Created personal storage: ${personalProjectDir}/`);
   
   // 8. Backup root CLAUDE.md to stash (if exists)
   if (existingContent) {

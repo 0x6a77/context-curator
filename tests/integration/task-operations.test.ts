@@ -33,7 +33,7 @@ describe('Task Creation Tests (Group 2)', () => {
     ctx = createTestEnvironment('task');
     // Initialize project first
     writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test Project\n');
-    await runScript('init-project', [], ctx.projectDir);
+    await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
   });
 
   afterEach(() => {
@@ -42,7 +42,7 @@ describe('Task Creation Tests (Group 2)', () => {
 
   describe('Test 2.1: Create New Task with Valid Name', () => {
     it('should create task directory structure', async () => {
-      const result = await runScript('task-create', ['oauth-refactor', 'Refactoring OAuth in src/auth/'], ctx.projectDir);
+      const result = await runScript('task-create', ['oauth-refactor', 'Refactoring OAuth in src/auth/'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       // FIX 1: Assert exit code is 0
       expect(result.exitCode).toBe(0);
 
@@ -54,7 +54,7 @@ describe('Task Creation Tests (Group 2)', () => {
 
     // T-TASK-1: Verify all required sections AND that the description word appears
     it('should create task CLAUDE.md with description', async () => {
-      const result = await runScript('task-create', ['oauth-refactor', 'Refactoring OAuth implementation in src/auth/'], ctx.projectDir);
+      const result = await runScript('task-create', ['oauth-refactor', 'Refactoring OAuth implementation in src/auth/'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       // FIX 2: Assert exit code is 0
       expect(result.exitCode).toBe(0);
 
@@ -76,7 +76,7 @@ describe('Task Creation Tests (Group 2)', () => {
 
     // T-TASK-1: Remove conditional guard; unconditionally assert @import format
     it('should update .claude/CLAUDE.md with import directive', async () => {
-      const result = await runScript('task-create', ['oauth-refactor', 'OAuth work'], ctx.projectDir);
+      const result = await runScript('task-create', ['oauth-refactor', 'OAuth work'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       // FIX 4: Assert exit code is 0
       expect(result.exitCode).toBe(0);
 
@@ -92,7 +92,7 @@ describe('Task Creation Tests (Group 2)', () => {
 
     // Fix 9: Verify task structure is complete after create (DoD focus)
     it('should confirm task structure is complete after create', async () => {
-      const result = await runScript('task-create', ['oauth-refactor', 'OAuth work'], ctx.projectDir);
+      const result = await runScript('task-create', ['oauth-refactor', 'OAuth work'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       // T-TASK-1: task directory and CLAUDE.md must exist with required sections
       expect(result.exitCode).toBe(0);
@@ -108,7 +108,7 @@ describe('Task Creation Tests (Group 2)', () => {
     it('should reject task name with spaces', async () => {
       const taskId = 'OAuth Refactor';
       const taskDir = join(ctx.projectDir, '.claude', 'tasks', taskId);
-      const result = await runScript('task-create', [taskId, 'desc'], ctx.projectDir);
+      const result = await runScript('task-create', [taskId, 'desc'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       // FIX 7: Non-zero exit, specific error message, no files created
       expect(result.exitCode).not.toBe(0);
@@ -119,7 +119,7 @@ describe('Task Creation Tests (Group 2)', () => {
 
     // T-TASK-2: Strict check — non-zero exit AND no files created
     it('should reject task name with uppercase', async () => {
-      const result = await runScript('task-create', ['OAuthRefactor', 'desc'], ctx.projectDir);
+      const result = await runScript('task-create', ['OAuthRefactor', 'desc'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       expect(result.exitCode).not.toBe(0);
       expect(fileExists(join(ctx.projectDir, '.claude', 'tasks', 'OAuthRefactor'))).toBe(false);
@@ -128,7 +128,7 @@ describe('Task Creation Tests (Group 2)', () => {
 
     it('should reject task name with special characters', async () => {
       const specialCharDir = join(ctx.projectDir, '.claude', 'tasks', 'oauth@refactor!');
-      const result = await runScript('task-create', ['oauth@refactor!', 'desc'], ctx.projectDir);
+      const result = await runScript('task-create', ['oauth@refactor!', 'desc'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       expect(result.exitCode).not.toBe(0);
       // FIX 8: Unconditionally assert no directory created
@@ -137,7 +137,7 @@ describe('Task Creation Tests (Group 2)', () => {
 
     // Fix 10: Capture result and add exit code assertion
     it('should not create directory for invalid task', async () => {
-      const result = await runScript('task-create', ['OAuth Refactor', 'desc'], ctx.projectDir);
+      const result = await runScript('task-create', ['OAuth Refactor', 'desc'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       // T-TASK-2: must exit non-zero for invalid name
       expect(result.exitCode).not.toBe(0);
@@ -151,7 +151,7 @@ describe('Task Creation Tests (Group 2)', () => {
     it('should capture full multi-line description', async () => {
       const description = `This is a complex refactor involving:\n- OAuth 2.0 migration\n- Session state cleanup\n- Token refresh logic`;
 
-      const result = await runScript('task-create', ['complex-refactor', description], ctx.projectDir);
+      const result = await runScript('task-create', ['complex-refactor', description], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       // FIX 9: Assert exit code is 0
       expect(result.exitCode).toBe(0);
 
@@ -170,10 +170,10 @@ describe('Task Creation Tests (Group 2)', () => {
   });
 
   describe('Test 2.4: Create Task with Empty Description', () => {
-    // FIX 11: DoD requires non-zero exit for empty description; remove conditional accept
-    it('should reject empty description', async () => {
+    // T-TASK-4: task-create with empty description exits non-zero AND creates no task directory
+    it('T-TASK-4: should reject empty description', async () => {
       const taskId = 'minimal-task';
-      const result = await runScript('task-create', [taskId, ''], ctx.projectDir);
+      const result = await runScript('task-create', [taskId, ''], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       expect(result.exitCode).not.toBe(0);
       expect(fileExists(join(ctx.projectDir, '.claude', 'tasks', taskId))).toBe(false);
@@ -187,7 +187,7 @@ describe('Task Switching Tests (Group 3)', () => {
   beforeEach(async () => {
     ctx = createTestEnvironment('switch');
     writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test Project\n');
-    await runScript('init-project', [], ctx.projectDir);
+    await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
   });
 
   afterEach(() => {
@@ -197,7 +197,7 @@ describe('Task Switching Tests (Group 3)', () => {
   describe('Test 3.1: Switch to Task with Personal Contexts Only', () => {
     beforeEach(async () => {
       // Create task with personal context
-      await runScript('task-create', ['auth-work', 'Authentication work'], ctx.projectDir);
+      await runScript('task-create', ['auth-work', 'Authentication work'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       
       // Create personal context directory and file
       const personalContextDir = join(ctx.personalDir, 'tasks', 'auth-work', 'contexts');
@@ -225,7 +225,7 @@ describe('Task Switching Tests (Group 3)', () => {
   describe('Test 3.2: Switch to Task with Golden Contexts Only', () => {
     beforeEach(async () => {
       // Create task with golden context
-      await runScript('task-create', ['oauth-work', 'OAuth work'], ctx.projectDir);
+      await runScript('task-create', ['oauth-work', 'OAuth work'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       
       // Create golden context
       const goldenDir = join(ctx.projectDir, '.claude', 'tasks', 'oauth-work', 'contexts');
@@ -238,19 +238,20 @@ describe('Task Switching Tests (Group 3)', () => {
 
     // Fix 12: Check presence of golden section and that 'personal' does NOT appear
     it('should list golden contexts when switching', async () => {
-      const result = await runScript('task-list', ['oauth-work'], ctx.projectDir);
+      const result = await runScript('task-list', ['oauth-work'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('oauth-deep-dive');
-      // Golden section must appear; no personal contexts in this test
+      // Golden section must appear; no personal contexts in this test so 'personal' must NOT appear
       const outputLower = result.stdout.toLowerCase();
       expect(outputLower).toContain('golden');
+      expect(outputLower).not.toContain('personal');
     });
   });
 
   describe('Test 3.3: Switch to Task with Mixed Contexts', () => {
     beforeEach(async () => {
-      await runScript('task-create', ['mixed-work', 'Mixed contexts'], ctx.projectDir);
+      await runScript('task-create', ['mixed-work', 'Mixed contexts'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       
       // Create personal contexts
       const personalDir = join(ctx.personalDir, 'tasks', 'mixed-work', 'contexts');
@@ -263,39 +264,47 @@ describe('Task Switching Tests (Group 3)', () => {
       createJsonl(join(goldenDir, 'golden-1.jsonl'), createSampleMessages(20));
     });
 
-    // Fix 13: Verify ordering (personal before golden)
-    it('should list both personal and golden contexts', async () => {
-      const result = await runScript('task-list', ['mixed-work'], ctx.projectDir);
+    // T-SWITCH-3: When both personal and golden contexts exist, personal contexts are listed before golden
+    it('T-SWITCH-3: should list both personal and golden contexts', async () => {
+      const result = await runScript('task-list', ['mixed-work'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
-      const output = result.stdout.toLowerCase();
-      // Should show both types
-      expect(output).toContain('personal');
-      expect(output).toContain('golden');
-      // Personal must appear before golden (T-LIST-1 ordering)
-      expect(output.indexOf('personal')).toBeLessThan(output.indexOf('golden'));
+      const output = result.stdout;
+      const outputLower = output.toLowerCase();
+      // All three specific context names must appear (proves both sections have real content)
+      expect(output).toContain('personal-1');
+      expect(output).toContain('personal-2');
+      expect(output).toContain('golden-1');
+      // Section labels must also appear
+      expect(outputLower).toContain('personal');
+      expect(outputLower).toContain('golden');
+      // personal-1 must appear before golden-1 in the output (ordering requirement)
+      // This uses specific context names rather than section headers to avoid path/metadata false matches
+      expect(output.indexOf('personal-1')).toBeLessThan(output.indexOf('golden-1'));
     });
 
-    // T-LIST-1 ordering: Replace conditional indexOf check with a strict unconditional check
+    // T-LIST-1 ordering: verify personal context names precede golden context names
     it('should show personal contexts before golden', async () => {
       const result = await runScript('task-list', ['mixed-work'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       expect(result.exitCode).toBe(0);
-      const output = result.stdout.toLowerCase();
-      const personalIdx = output.indexOf('personal');
-      const goldenIdx = output.indexOf('golden');
-      expect(personalIdx).toBeGreaterThanOrEqual(0);
-      expect(goldenIdx).toBeGreaterThanOrEqual(0);
-      expect(personalIdx).toBeLessThan(goldenIdx);
+      const output = result.stdout;
+      // Specific names must appear — proves each section contains its contexts
+      expect(output).toContain('personal-1');
+      expect(output).toContain('golden-1');
+      // personal context must appear before golden context in listing
+      expect(output.indexOf('personal-1')).toBeGreaterThanOrEqual(0);
+      expect(output.indexOf('golden-1')).toBeGreaterThanOrEqual(0);
+      expect(output.indexOf('personal-1')).toBeLessThan(output.indexOf('golden-1'));
     });
   });
 
   describe('Test 3.4: Switch to Task with No Contexts', () => {
     beforeEach(async () => {
-      await runScript('task-create', ['empty-task', 'No contexts'], ctx.projectDir);
+      await runScript('task-create', ['empty-task', 'No contexts'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
     });
 
-    // FIX 15: Replace OR chain with specific regex match
-    it('should indicate no contexts available and offer fresh start', async () => {
+    // T-SWITCH-2: When a task has no contexts, output contains "fresh", "empty", or "no contexts" and exits 0
+    it('T-SWITCH-2: should indicate no contexts available and offer fresh start', async () => {
       const result = await runScript('task-list', ['empty-task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       expect(result.exitCode).toBe(0);
@@ -304,7 +313,7 @@ describe('Task Switching Tests (Group 3)', () => {
 
     it('should still allow task switch', async () => {
       // Update import should work even with no contexts
-      const result = await runScript('update-import', ['empty-task'], ctx.projectDir);
+      const result = await runScript('update-import', ['empty-task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       expect(result.exitCode).toBe(0);
     });
   });
@@ -312,12 +321,12 @@ describe('Task Switching Tests (Group 3)', () => {
   describe('Test 3.5: Switch to Default Task', () => {
     beforeEach(async () => {
       // Create a non-default task first
-      await runScript('task-create', ['some-task', 'Some work'], ctx.projectDir);
+      await runScript('task-create', ['some-task', 'Some work'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
     });
 
     // Fix 14: Check @import specifically resolves to default CLAUDE.md
     it('should switch to default task', async () => {
-      const result = await runScript('update-import', ['default'], ctx.projectDir);
+      const result = await runScript('update-import', ['default'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       expect(result.exitCode).toBe(0);
       
@@ -327,49 +336,168 @@ describe('Task Switching Tests (Group 3)', () => {
       expect(content).toMatch(/@import\s+\S+default\S+CLAUDE\.md/);
     });
 
-    // Fix 15: Narrow to specific pattern to avoid trivial matches
-    it('should indicate vanilla mode restored', async () => {
-      const result = await runScript('update-import', ['default'], ctx.projectDir);
+    // T-SWITCH-6: output must confirm vanilla state AND @import must actually point to default/CLAUDE.md
+    it('T-SWITCH-6: should confirm vanilla mode restored and verify @import points to default task', async () => {
+      const result = await runScript('update-import', ['default'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
+      expect(result.exitCode).toBe(0);
+
+      // Text output must mention vanilla/default/restored state
       const output = result.stdout.toLowerCase();
-      // T-CLMD-1: output must indicate the default/vanilla state was restored
-      // Use a specific enough pattern to avoid trivial matches
       expect(output).toMatch(/vanilla|restored/);
+
+      // AND the @import must actually point to default/CLAUDE.md — proves the switch happened,
+      // not just that output contains the right words
+      const workingMdPath = join(ctx.projectDir, '.claude', 'CLAUDE.md');
+      expect(fileExists(workingMdPath)).toBe(true);
+      const content = readFile(workingMdPath);
+      expect(content).toMatch(/@import\s+\S+default\S+CLAUDE\.md/);
+      expect(content).not.toContain('some-task');
     });
   });
 
   describe('Test 3.6: Multiple Task Switches', () => {
     beforeEach(async () => {
-      await runScript('task-create', ['task-a', 'Task A'], ctx.projectDir);
-      await runScript('task-create', ['task-b', 'Task B'], ctx.projectDir);
-      await runScript('task-create', ['task-c', 'Task C'], ctx.projectDir);
+      await runScript('task-create', ['task-a', 'Task A'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      await runScript('task-create', ['task-b', 'Task B'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      await runScript('task-create', ['task-c', 'Task C'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
     });
 
     it('should update .claude/CLAUDE.md on each switch', async () => {
       const workingMdPath = join(ctx.projectDir, '.claude', 'CLAUDE.md');
 
       // FIX T2: Remove all if-guards; unconditionally assert file exists then assert contents
-      const r1 = await runScript('update-import', ['task-a'], ctx.projectDir);
+      const r1 = await runScript('update-import', ['task-a'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       expect(r1.exitCode).toBe(0);
       expect(fileExists(workingMdPath)).toBe(true);
       expect(fileContains(workingMdPath, 'task-a')).toBe(true);
 
-      const r2 = await runScript('update-import', ['task-b'], ctx.projectDir);
+      const r2 = await runScript('update-import', ['task-b'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       expect(r2.exitCode).toBe(0);
       expect(fileExists(workingMdPath)).toBe(true);
       expect(fileContains(workingMdPath, 'task-b')).toBe(true);
       expect(fileContains(workingMdPath, 'task-a')).toBe(false);
 
-      const r3 = await runScript('update-import', ['task-c'], ctx.projectDir);
+      const r3 = await runScript('update-import', ['task-c'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       expect(r3.exitCode).toBe(0);
       expect(fileExists(workingMdPath)).toBe(true);
       expect(fileContains(workingMdPath, 'task-c')).toBe(true);
 
       // Switch back to task-a
-      const r4 = await runScript('update-import', ['task-a'], ctx.projectDir);
+      const r4 = await runScript('update-import', ['task-a'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       expect(r4.exitCode).toBe(0);
       expect(fileExists(workingMdPath)).toBe(true);
       expect(fileContains(workingMdPath, 'task-a')).toBe(true);
     });
+  });
+});
+
+// ==========================================================================
+// T-SWITCH-4 and T-SWITCH-5: Sessions vs named contexts separation
+// ==========================================================================
+
+describe('T-SWITCH-4 / T-SWITCH-5: Sessions must not appear as named contexts', () => {
+  let ctx: TestContext;
+
+  beforeEach(async () => {
+    ctx = createTestEnvironment('switch45');
+    writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test Project\n');
+    await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    await runScript('task-create', ['sessions-task', 'Task with sessions but no contexts'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+
+    // Plant UUID session files in the personal project dir (simulates active Claude Code sessions)
+    const uuidA = 'aaaabbbb-cccc-dddd-eeee-ffffaaaabbbb';
+    const uuidB = 'bbbbcccc-dddd-eeee-ffff-aaaabbbbcccc';
+    writeFileSync(join(ctx.personalDir, `${uuidA}.jsonl`), JSON.stringify({ role: 'user', content: 'session content a' }) + '\n');
+    writeFileSync(join(ctx.personalDir, `${uuidB}.jsonl`), JSON.stringify({ role: 'user', content: 'session content b' }) + '\n');
+  });
+
+  afterEach(() => {
+    ctx.cleanup();
+  });
+
+  // T-SWITCH-4: context-list --json must return contexts:[] when sessions exist but no named contexts saved
+  it('T-SWITCH-4: context-list --json returns empty contexts array even when UUID sessions exist', async () => {
+    const result = await runScript('context-list', ['sessions-task', '--json'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+
+    expect(result.exitCode).toBe(0);
+
+    const data = JSON.parse(result.stdout);
+
+    // sessions field should contain the UUID files
+    expect(data.sessions.length).toBeGreaterThan(0);
+
+    // contexts field must be empty — UUID session files must NEVER appear here
+    expect(data.contexts).toEqual([]);
+  });
+
+  // T-SWITCH-5: human-readable output must not present UUID session files under a Personal/Golden contexts label
+  it('T-SWITCH-5: human-readable output does not show UUID sessions under Personal or Golden contexts sections', async () => {
+    const result = await runScript('context-list', ['sessions-task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+
+    expect(result.exitCode).toBe(0);
+    const output = result.stdout;
+    const outputLower = output.toLowerCase();
+
+    // Sessions section IS expected (the UUID files are real sessions)
+    expect(outputLower).toContain('sessions');
+
+    // Personal contexts and Golden contexts sections must NOT appear (no named contexts saved)
+    expect(outputLower).not.toContain('personal contexts');
+    expect(outputLower).not.toContain('golden contexts');
+
+    // UUID-format strings must not appear as numbered selectable items (e.g. "1. aaaabbbb-...")
+    // They may appear truncated in the Sessions section, but never as "N. <uuid>" numbered options
+    const numberedUuidPattern = /^\s*\d+\.\s+[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/im;
+    expect(output).not.toMatch(numberedUuidPattern);
+  });
+});
+
+// ==========================================================================
+// T-SWITCH-1: Additional strict test — exactly one @import after each switch
+// ==========================================================================
+
+describe('T-SWITCH-1: Exactly one @import after each task switch', () => {
+  let ctx: TestContext;
+
+  beforeEach(async () => {
+    ctx = createTestEnvironment('switch1');
+    writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test Project\n');
+    await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    await runScript('task-create', ['sw1-task-a', 'Task A'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    await runScript('task-create', ['sw1-task-b', 'Task B'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    await runScript('task-create', ['sw1-task-c', 'Task C'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+  });
+
+  afterEach(() => {
+    ctx.cleanup();
+  });
+
+  it('T-SWITCH-1: .claude/CLAUDE.md must contain exactly one @import pointing to the selected task after each switch', async () => {
+    const workingMdPath = join(ctx.projectDir, '.claude', 'CLAUDE.md');
+
+    function assertSingleImport(taskId: string): void {
+      const content = readFile(workingMdPath);
+      const importLines = content.split('\n').filter((l: string) => l.trim().startsWith('@import'));
+      expect(importLines.length).toBe(1);
+      expect(importLines[0]).toContain(taskId);
+    }
+
+    const r1 = await runScript('update-import', ['sw1-task-a'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    expect(r1.exitCode).toBe(0);
+    assertSingleImport('sw1-task-a');
+
+    const r2 = await runScript('update-import', ['sw1-task-b'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    expect(r2.exitCode).toBe(0);
+    assertSingleImport('sw1-task-b');
+
+    const r3 = await runScript('update-import', ['sw1-task-c'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    expect(r3.exitCode).toBe(0);
+    assertSingleImport('sw1-task-c');
+
+    // Switch back — still exactly one @import
+    const r4 = await runScript('update-import', ['sw1-task-a'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    expect(r4.exitCode).toBe(0);
+    assertSingleImport('sw1-task-a');
   });
 });

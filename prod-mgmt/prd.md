@@ -1,7 +1,7 @@
 # Product Requirements Document: Claude Code Context Curator
 
-**Version:** 17.0
-**Last Updated:** March 10, 2026
+**Version:** 18.0
+**Last Updated:** March 12, 2026
 **Status:** Ready for Implementation
 
 ---
@@ -62,6 +62,23 @@ A **task** is a focused work environment containing:
 
 Tasks represent different areas of work on the same codebase:
 - **Examples**: oauth-refactor, payment-integration, legacy-migration, bug-fix-sessions
+
+### Specialized Tasks
+
+A **specialized task** is a task with pre-authored DNA — a fixed identity, operating parameters, and behavior protocol distributed as part of context-curator. Specialized tasks are not created by users; they are shipped with the installer and activated per-project via `/task-init` or explicitly via `/task <id>`.
+
+Specialized tasks differ from user tasks in three ways:
+
+| Dimension | User Task | Specialized Task |
+|-----------|-----------|-----------------|
+| Created by | Developer (`/task <id>`) | Shipped with context-curator |
+| CLAUDE.md | User-authored, editable | Pre-authored, immutable |
+| Context isolation | STANDARD (save/restore) | Declared in DNA (STRICT or STANDARD) |
+
+**Context isolation modes:**
+
+- **STANDARD**: Normal context save/restore behavior. The task switch shows the context menu and supports `/resume` from saved sessions. Used when the specialized task benefits from accumulated warm-up.
+- **STRICT**: No context restoration. No context saving. Every invocation starts a fresh session. The framework bypasses the context menu entirely — this is not left to the model to self-enforce. STRICT isolation is load-bearing for tasks where prior session knowledge would compromise the task's purpose (e.g., an adversarial reviewer that must not be influenced by prior verdicts or by knowledge of the team's intent).
 
 ### Contexts
 
@@ -175,7 +192,17 @@ my-project/
         │
         └── .stash/
             └── original-CLAUDE.md     # Backup of project's CLAUDE.md
+
+# SPECIALIZED TASK DNA (read-only, shipped with context-curator)
+~/.claude/
+└── context-curator/
+    ├── dist/                          # Compiled scripts
+    └── specialized/                   # Bundled specialized tasks
+        └── adversary/
+            └── CLAUDE.md              # Adversary DNA (never modified by user ops)
 ```
+
+> **Immutability contract:** No script operation on user tasks (task-create, update-import, save-context, etc.) may write to or read-modify-write any file under `~/.claude/context-curator/specialized/`. The only process that writes to this directory is the installer (`install.sh`).
 
 ---
 
@@ -493,6 +520,17 @@ Run: /resume <uuid>
 6. Switch between tasks multiple times
 7. Verify `.claude/CLAUDE.md` updates correctly on each switch
 
+**Acceptance Criteria:**
+
+| Test ID    | Criterion |
+|------------|-----------|
+| T-SWITCH-1 | After switching tasks A→B→C→A, `.claude/CLAUDE.md` contains **exactly one** `@import` line on each switch, pointing to the selected task's `CLAUDE.md` |
+| T-SWITCH-2 | When a task has no saved contexts, `context-list` exits 0 and output contains "no contexts" or "fresh" |
+| T-SWITCH-3 | When a task has both personal and golden contexts, all context names appear in output with personal contexts listed before golden contexts |
+| T-SWITCH-4 | `context-list --json` for a task with active sessions but no saved contexts returns `contexts: []` (empty array) — session UUIDs must never appear in the `contexts` field |
+| T-SWITCH-5 | When `contexts` is empty, the switch UI displays a "no contexts" message and does NOT present UUID session files as numbered selectable options |
+| T-SWITCH-6 | Switching to `default` task sets `@import` to point to `default/CLAUDE.md` and script output confirms the switch (e.g. "vanilla" or "restored") |
+
 ### F-CTX-SAVE · Context Saving (`/context-save <n>`)
 
 Saves the current Claude Code session as a named personal or golden context, including AI-generated summary and metadata. Personal contexts stay local; golden contexts are committed to git for team sharing.
@@ -575,7 +613,7 @@ git push
 | T-CTX-3 | `save-context --golden` on a session with a real AWS key exits non-zero or produces a prompt; exit 0 with no prompt is a failure |
 | T-CTX-4 | `save-context --golden` on a 150KB session exits non-zero with output containing "100KB" or "too large" |
 | T-CTX-6 | `save-context` called twice with the same name creates a `.backup-` file; the backup contains the original content |
-| T-MEM-1 | After `save-context`, the personal memory MEMORY.md contains the task-id and context-name saved |
+| T-MEM-1 | After `save-context`, the file `<personalDir>/memory/MEMORY.md` contains the task-id and context-name saved |
 
 ### F-CTX-LIST · Context Listing (`/context-list [task-id]`)
 
@@ -940,7 +978,10 @@ Automatically scans context content for API keys, passwords, tokens, and private
 | T-SEC-4 | A context with one secret in user, one in assistant, one in tool_result: all three reported |
 | T-SEC-5 | `AKIAIOSFODNN7EXAMPLE` is treated as a true positive (scanner prefers false positives over false negatives) |
 | T-SEC-6 | After `redact-secrets`, every line parses as JSON; a second `scan-secrets` run returns "clean" |
-| T-SEC-7 | `scan-secrets` on a context with exactly 5 secrets reports count matching `\b5\b` |
+| T-SEC-7 | `scan-secrets` on a context with exactly 5 secrets: output matches `found 5 secret` or `5 secret(s) found` (count must be adjacent to "found"/"secret" — not merely present elsewhere in output) |
+| T-SEC-8 | `scan-secrets` on a context containing `ghp_` + 36 alphanumeric chars exits non-zero; output contains "ghp_" or "github" |
+| T-SEC-9 | `scan-secrets` on a context containing `-----BEGIN RSA PRIVATE KEY-----` exits non-zero; output matches `rsa.*private`, `private.*key`, or `BEGIN.*PRIVATE` (case-insensitive) |
+| T-SEC-10 | `scan-secrets` on a context containing `password=<value>` or `PASSWORD=<value>` exits non-zero; output contains "password" (case-insensitive) |
 
 ### F-SUMMARY · AI-Generated Summaries
 
@@ -963,6 +1004,13 @@ Generates concise AI summaries (key topics, accomplishments, decisions) for ever
 5. Generate summary for context with minimal content
 6. Verify summary stored in context metadata
 7. Verify summary displayed in `/context-list`
+
+**Acceptance Criteria:**
+
+| Test ID | Criterion |
+|---------|-----------|
+| T-SUM-1 | After `save-context`, a `.meta.json` file exists alongside the `.jsonl` with a `summary` string between 20 and 500 characters |
+| T-SUM-2 | Two contexts saved from clearly different conversations produce different `summary` strings; each summary must contain at least one keyword from its source conversation content |
 
 ### F-GIT · Git Integration
 
@@ -1069,6 +1117,73 @@ Automatically saves the current session to a timestamped file when Claude Code i
 | Test ID | Criterion |
 |---------|-----------|
 | T-HOOK-1 | `auto-save-context` with a mock stdin payload creates a timestamped `.jsonl` file in the flat `<personalBase>/auto-saves/` directory |
+
+### F-SPEC · Specialized Task Framework
+
+Provides the infrastructure for specialized tasks: immutable DNA distribution, STRICT/STANDARD isolation enforcement, and clean separation from user-created tasks so that future specialized tasks can be added without changing the core task-switching machinery.
+
+**Expected Behaviors:**
+- Specialized task DNA lives at `~/.claude/context-curator/specialized/<name>/CLAUDE.md`
+- No user-facing script (task-create, update-import, save-context, context-list, promote-context) reads from or writes to the `specialized/` directory except to resolve the @import path
+- Activating a STRICT task via `/task <id>` (or `update-import <id>`) updates `.claude/CLAUDE.md` @import to point to the specialized task's installed CLAUDE.md — same mechanism as user tasks
+- STRICT isolation: `save-context` exits non-zero with a clear message; no context file is created
+- STRICT isolation: `context-list` exits 0 but reports no selectable contexts and explicitly states isolation mode
+- STANDARD isolation: full context save/restore works identically to user tasks
+- `task-list` or any listing command shows specialized tasks in a distinct section, clearly labeled
+
+**Test Scenarios:**
+1. Activate a STRICT specialized task; verify no context menu is presented
+2. Attempt `save-context` on a STRICT task; verify rejection and no file created
+3. Run `context-list` on a STRICT task; verify isolation message and zero contexts
+4. Run user task operations (task-create, update-import, save-context) and verify specialized DNA is untouched
+5. Activate a STANDARD specialized task; verify normal context save/restore works
+
+**Acceptance Criteria:**
+
+| Test ID | Criterion |
+|---------|-----------|
+| T-SPEC-1 | Read the adversary CLAUDE.md before and after running `task-create`, `update-import`, and `save-context` on user tasks; assert content is byte-for-byte identical across all three operations — setup must not pre-create any file under `specialized/` |
+| T-SPEC-2 | `save-context` called with the adversary task active exits non-zero; output matches `/strict.isolation\|not.*available\|specialized.*task/i`; no `.jsonl` file is created at any personal or golden context path |
+| T-SPEC-3 | `context-list` for the adversary task exits 0; output matches `/strict.isolation\|no contexts.*isolation\|isolation.*no contexts/i`; output does NOT match any UUID pattern (`[0-9a-f]{8}-[0-9a-f]{4}`) |
+| T-SPEC-4 | `update-import adversary` updates `.claude/CLAUDE.md` to contain exactly one `@import` line; the imported path resolves to a file on disk whose content contains "ADVERSARY" |
+
+---
+
+### F-ADVERSARY · Adversary Task
+
+The first bundled specialized task. A red-team operator that independently audits test coverage against PRD acceptance criteria — structurally isolated from the engineering team to prevent confirmation bias. Its value depends entirely on context isolation: an adversary that knows the builder's intent is not an adversary.
+
+**DNA summary:**
+- **Model:** claude-opus-4-5
+- **Isolation:** STRICT — no knowledge of any other task, session, or prior adversarial run
+- **Identity:** Red team operator reporting to a second-line-of-defense function, not the engineering team
+- **Input discovery:** Scans project for `*prd*.md`, `*test-plan*.md`, `tests/`, `*risk-accept*.md`
+- **Output artifact:** `./prod-mgmt/test-inventory.md` (two sections: test inventory table + AC coverage gaps)
+- **Hard prohibitions:** No mitigations, no recommendations, no positive framing — output ends at ESCALATE
+
+**Expected Behaviors:**
+- Shipped with context-curator; DNA installed to `~/.claude/context-curator/specialized/adversary/CLAUDE.md`
+- Activated via `/task adversary`; the @import in `.claude/CLAUDE.md` points to the installed DNA
+- Every invocation is a fresh session (STRICT isolation enforced by F-SPEC framework)
+- DNA is never modified by user task operations
+- Loads and applies active risk acceptances from `./prod-mgmt/risk-acceptances.md` before evaluating findings
+- Produces exactly one output file: `./prod-mgmt/test-inventory.md`
+
+**Test Scenarios:**
+1. Verify adversary CLAUDE.md exists at correct install path after `./install.sh`
+2. Activate adversary task; verify @import points to installed DNA
+3. Verify STRICT isolation: save-context rejected, context-list shows no contexts
+4. Verify DNA is unchanged after any user task operation
+5. Verify DNA contains required operating parameters: model, isolation mode, identity
+
+**Acceptance Criteria:**
+
+| Test ID | Criterion |
+|---------|-----------|
+| T-ADV-1 | After `./install.sh`, `~/.claude/context-curator/specialized/adversary/CLAUDE.md` exists (asserted unconditionally) and its content contains both the string "ADVERSARY" and the string "STRICT" |
+| T-ADV-2 | After `update-import adversary`, `.claude/CLAUDE.md` contains exactly one `@import` line; the imported path ends with `specialized/adversary/CLAUDE.md`; the file at that path exists on disk and contains "ADVERSARY" |
+| T-ADV-3 | Read adversary DNA content before running `task-create oauth-refactor`, then `update-import oauth-refactor`, then `save-context test-ctx --personal`; assert adversary DNA content is byte-for-byte identical after all three operations; setup must NOT pre-create the adversary DNA file |
+| T-ADV-4 | `save-context` with adversary task active (set via `update-import adversary`) exits non-zero; no file matching `adversary` exists in any personal context path; this is the F-SPEC T-SPEC-2 assertion applied specifically to the adversary task ID |
 
 ---
 
@@ -1329,6 +1444,7 @@ oauth-flow.v3.jsonl  # After mobile app integration
 
 ## Version History
 
+- **v18.0** (2026-03-12): Added Specialized Tasks concept, F-SPEC framework, and F-ADVERSARY task; updated Architecture with specialized DNA install location
 - **v17.0** (2026-03-10): Merged Commands Reference content into Features sections; deleted Commands Reference section
 - **v16.0** (2026-03-10): Added Commands Reference section with Purpose/Execution/Behavior/Example for all five commands
 - **v15.0** (2026-03-10): Embedded DoD acceptance criteria into feature sections; added Feature 14 (PreCompact Auto-Save Hook); removed standalone DoD table

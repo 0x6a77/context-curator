@@ -94,8 +94,12 @@ async function main() {
   
   console.error(`Total: ${totalContexts} context(s) across ${result.length} task(s)\n`);
   
-  // Output JSON to stdout
-  console.log(JSON.stringify(result, null, 2));
+  // Output summary to stdout
+  if (totalContexts === 0) {
+    console.log('No contexts found across all tasks.');
+  } else {
+    console.log(JSON.stringify(result, null, 2));
+  }
 }
 
 main().catch((err) => {

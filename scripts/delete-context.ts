@@ -17,7 +17,10 @@ import {
 } from '../src/utils.js';
 
 async function main() {
-  const [taskId, contextName] = process.argv.slice(2);
+  const args = process.argv.slice(2);
+  const force = args.includes('--force');
+  const positional = args.filter(a => !a.startsWith('--'));
+  const [taskId, contextName] = positional;
   
   if (!taskId || !contextName) {
     console.error('Usage: delete-context <task-id> <context-name>');
@@ -48,6 +51,14 @@ async function main() {
   
   // Get stats before deletion
   const stats = await getSessionStats(contextPath);
+
+  // Protect golden contexts from accidental deletion
+  if (location === 'golden' && !force) {
+    console.error(`❌ Cannot delete golden context '${contextName}' without --force`);
+    console.error('   Golden contexts are shared with the team and committed to git.');
+    console.error(`   Use: delete-context ${taskId} ${contextName} --force`);
+    process.exit(1);
+  }
   
   // Delete
   await fs.unlink(contextPath);

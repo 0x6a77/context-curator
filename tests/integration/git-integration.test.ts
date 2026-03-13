@@ -250,3 +250,65 @@ describe('Git Integration Tests (Group 11)', () => {
     });
   });
 });
+
+// ==========================================================================
+// T-GIT-1 and T-GIT-2: explicit AC-labeled tests
+// ==========================================================================
+
+describe('T-GIT-1 and T-GIT-2: git ignore and porcelain status checks', () => {
+  let ctx: TestContext;
+
+  beforeEach(async () => {
+    ctx = createTestEnvironment('tgit');
+    writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test Project\n');
+    initGit(ctx.projectDir);
+    gitAdd(ctx.projectDir, 'CLAUDE.md');
+    gitCommit(ctx.projectDir, 'Initial commit');
+    await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+  });
+
+  afterEach(() => {
+    ctx.cleanup();
+  });
+
+  it('T-GIT-1: git check-ignore .claude/CLAUDE.md exits 0 in a real git repo after init', () => {
+    // Commit the .gitignore so git respects it
+    gitAdd(ctx.projectDir, '.claude/.gitignore');
+    gitCommit(ctx.projectDir, 'Add .claude/.gitignore');
+    // T-GIT-1: isGitIgnored uses git check-ignore which must exit 0
+    expect(isGitIgnored(ctx.projectDir, '.claude/CLAUDE.md')).toBe(true);
+  });
+
+  it('T-GIT-2: git status --porcelain does not list any path containing personal storage prefix after full workflow', async () => {
+    // Run a full workflow: create task, save context via the implementation
+    await runScript('task-create', ['tgit-task', 'T-GIT-2 test task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+
+    // Plant a session file so save-context has something to read
+    createJsonl(join(ctx.personalDir, 'current-session.jsonl'), SMALL_CONTEXT);
+
+    // T-GIT-2: use save-context through the implementation (not createJsonl directly)
+    // This verifies the implementation itself places personal contexts outside the project dir
+    const saveResult = await runScript(
+      'save-context',
+      ['tgit-task', 'tgit-ctx', '--personal'],
+      ctx.projectDir,
+      { CLAUDE_HOME: ctx.personalBase }
+    );
+    expect(saveResult.exitCode).toBe(0);
+
+    // Stage everything inside project dir
+    gitAdd(ctx.projectDir, '.');
+
+    // T-GIT-2: git status --porcelain must not list any path containing the personal storage prefix (~/.claude/projects/...)
+    const status = getGitStatus(ctx.projectDir);
+    const statusLines = status.split('\n').filter((l: string) => l.trim().length > 0);
+
+    // Personal base is outside the project dir; none of its paths should appear in git status
+    const personalPrefix = ctx.personalDir;
+    statusLines.forEach((line: string) => {
+      expect(line).not.toContain(personalPrefix);
+      // Also must not contain the project-scoped personal dir name (sanitized path component)
+      expect(line).not.toContain('tgit-ctx');
+    });
+  });
+});

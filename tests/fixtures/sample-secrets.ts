@@ -136,7 +136,7 @@ export const MULTIPLE_SECRETS_CONTEXT: Message[] = [
       content: `Here are all the credentials:
 AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
 AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-STRIPE_SECRET_KEY=sk_live_abc123def456
+STRIPE_SECRET_KEY=sk_live_abc123def456ghi789jkl012
 GITHUB_TOKEN=ghp_abcdefghijklmnopqrstuvwxyz1234567890
 DATABASE_PASSWORD=superSecret!123`,
     },

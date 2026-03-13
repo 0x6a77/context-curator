@@ -1,26 +1,19 @@
 /**
  * Test Helpers for Context Curator Integration Tests
- * 
- * These utilities provide a consistent way to:
- * - Create isolated test environments
- * - Run context-curator scripts
- * - Verify file system state
- * - Validate JSONL format
- * - Check git state
  */
 
-import { execSync, exec } from 'child_process';
-import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { execSync, spawn } from 'child_process';
+import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync, mkdirSync, realpathSync } from 'fs';
 import { join, resolve } from 'path';
-import { tmpdir, homedir } from 'os';
-import { promisify } from 'util';
+import { tmpdir } from 'os';
 
-const execAsync = promisify(exec);
+const TSX = resolve(__dirname, '../../node_modules/.bin/tsx');
+const SCRIPTS_DIR = resolve(__dirname, '../../scripts');
 
 export interface TestContext {
   projectDir: string;
   personalDir: string;
-  personalBase: string;  // Root of personal storage (pass as CLAUDE_HOME)
+  personalBase: string;
   cleanup: () => void;
 }
 
@@ -32,66 +25,76 @@ export interface CommandResult {
 
 /**
  * Sanitize a path for personal storage directory naming
- * Matches context-curator's path sanitization logic
+ * Matches context-curator's getProjectId logic exactly (keeps leading dash)
  */
 export function sanitizePath(path: string): string {
-  return path.replace(/\//g, '-').replace(/^-/, '');
+  return path.replace(/\//g, '-');
 }
 
 /**
  * Create an isolated test environment with its own project and personal directories
  */
 export function createTestEnvironment(name: string = 'test'): TestContext {
-  // Create temp project directory
-  const projectDir = mkdtempSync(join(tmpdir(), `cc-test-${name}-`));
-  
-  // Create temp personal directory (simulating ~/.claude)
-  const personalBase = mkdtempSync(join(tmpdir(), `cc-personal-${name}-`));
+  // realpathSync resolves macOS /tmp→/private/tmp symlink so that mkdtemp
+  // result matches what subprocess process.cwd() returns.
+  const projectDir = realpathSync(mkdtempSync(join(tmpdir(), `cc-test-${name}-`)));
+  const personalBase = realpathSync(mkdtempSync(join(tmpdir(), `cc-personal-${name}-`)));
   const sanitizedProject = sanitizePath(projectDir);
   const personalDir = join(personalBase, 'projects', sanitizedProject);
   mkdirSync(personalDir, { recursive: true });
-  
+
   return {
     projectDir,
     personalDir,
     personalBase,
     cleanup: () => {
-      try {
-        rmSync(projectDir, { recursive: true, force: true });
-        rmSync(personalBase, { recursive: true, force: true });
-      } catch (e) {
-        // Ignore cleanup errors
-      }
+      try { rmSync(projectDir, { recursive: true, force: true }); } catch {}
+      try { rmSync(personalBase, { recursive: true, force: true }); } catch {}
     },
   };
 }
 
 /**
- * Run a context-curator script with the given arguments
+ * Run a context-curator script with no-hang guarantee:
+ * - stdin is closed immediately (no blocking reads)
+ * - process group is killed hard on timeout
  */
-export async function runScript(
+export function runScript(
   scriptName: string,
   args: string[] = [],
   cwd: string = process.cwd(),
-  env: Record<string, string> = {}
+  env: Record<string, string> = {},
+  timeoutMs: number = 15000
 ): Promise<CommandResult> {
-  const scriptPath = resolve(__dirname, '../../scripts', `${scriptName}.ts`);
-  const command = `npx tsx "${scriptPath}" ${args.map(a => `"${a}"`).join(' ')}`;
-  
-  try {
-    const { stdout, stderr } = await execAsync(command, {
+  return new Promise((resolve) => {
+    const scriptPath = join(SCRIPTS_DIR, `${scriptName}.ts`);
+    const child = spawn(TSX, [scriptPath, ...args], {
       cwd,
       env: { ...process.env, ...env },
-      timeout: 30000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      detached: true,
     });
-    return { stdout, stderr, exitCode: 0 };
-  } catch (error: any) {
-    return {
-      stdout: error.stdout || '',
-      stderr: error.stderr || error.message,
-      exitCode: error.code || 1,
-    };
-  }
+
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
+    child.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
+
+    const timer = setTimeout(() => {
+      try { process.kill(-child.pid!, 'SIGKILL'); } catch {}
+      resolve({ stdout, stderr: stderr + '\n[TIMEOUT]', exitCode: 124 });
+    }, timeoutMs);
+
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      resolve({ stdout, stderr, exitCode: code ?? 1 });
+    });
+
+    child.on('error', (err) => {
+      clearTimeout(timer);
+      resolve({ stdout, stderr: err.message, exitCode: 1 });
+    });
+  });
 }
 
 /**
@@ -100,17 +103,17 @@ export async function runScript(
 export function runScriptSync(
   scriptName: string,
   args: string[] = [],
-  cwd: string = process.cwd()
+  cwd: string = process.cwd(),
+  env: Record<string, string> = {}
 ): CommandResult {
-  const scriptPath = resolve(__dirname, '../../scripts', `${scriptName}.ts`);
-  const command = `npx tsx "${scriptPath}" ${args.map(a => `"${a}"`).join(' ')}`;
-  
+  const scriptPath = join(SCRIPTS_DIR, `${scriptName}.ts`);
   try {
-    const stdout = execSync(command, {
+    const stdout = execSync(`"${TSX}" "${scriptPath}" ${args.map(a => `"${a}"`).join(' ')}`, {
       cwd,
       encoding: 'utf-8',
-      timeout: 30000,
-      stdio: ['pipe', 'pipe', 'pipe'],
+      timeout: 15000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, ...env },
     });
     return { stdout, stderr: '', exitCode: 0 };
   } catch (error: any) {
@@ -122,158 +125,89 @@ export function runScriptSync(
   }
 }
 
-/**
- * Verify a file exists at the given path
- */
 export function fileExists(path: string): boolean {
   return existsSync(path);
 }
 
-/**
- * Verify a file contains the expected content
- */
 export function fileContains(path: string, expected: string): boolean {
   if (!existsSync(path)) return false;
-  const content = readFileSync(path, 'utf-8');
-  return content.includes(expected);
+  return readFileSync(path, 'utf-8').includes(expected);
 }
 
-/**
- * Read file content
- */
 export function readFile(path: string): string {
   return readFileSync(path, 'utf-8');
 }
 
-/**
- * Write file content
- */
 export function writeFile(path: string, content: string): void {
   const dir = path.substring(0, path.lastIndexOf('/'));
-  if (dir && !existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
+  if (dir && !existsSync(dir)) mkdirSync(dir, { recursive: true });
   writeFileSync(path, content);
 }
 
-/**
- * Validate that a file is valid JSONL format
- */
 export function isValidJsonl(path: string): boolean {
   if (!existsSync(path)) return false;
-  
-  const content = readFileSync(path, 'utf-8');
-  const lines = content.split('\n').filter(line => line.trim() !== '');
-  
+  const lines = readFileSync(path, 'utf-8').split('\n').filter(l => l.trim());
   for (const line of lines) {
-    try {
-      JSON.parse(line);
-    } catch {
-      return false;
-    }
+    try { JSON.parse(line); } catch { return false; }
   }
-  
   return true;
 }
 
-/**
- * Parse a JSONL file into an array of objects
- */
 export function parseJsonl<T = any>(path: string): T[] {
   if (!existsSync(path)) return [];
-  
-  const content = readFileSync(path, 'utf-8');
-  const lines = content.split('\n').filter(line => line.trim() !== '');
-  
-  return lines.map(line => JSON.parse(line) as T);
+  return readFileSync(path, 'utf-8')
+    .split('\n')
+    .filter(l => l.trim())
+    .map(l => JSON.parse(l) as T);
 }
 
-/**
- * Create a JSONL file from an array of objects
- */
 export function createJsonl(path: string, objects: any[]): void {
-  const content = objects.map(obj => JSON.stringify(obj)).join('\n');
-  writeFile(path, content);
+  writeFile(path, objects.map(o => JSON.stringify(o)).join('\n'));
 }
 
-/**
- * Initialize git in a directory
- */
 export function initGit(dir: string): void {
   execSync('git init', { cwd: dir, stdio: 'pipe' });
   execSync('git config user.email "test@example.com"', { cwd: dir, stdio: 'pipe' });
   execSync('git config user.name "Test User"', { cwd: dir, stdio: 'pipe' });
 }
 
-/**
- * Check if a file is git-ignored
- */
 export function isGitIgnored(dir: string, path: string): boolean {
-  try {
-    execSync(`git check-ignore "${path}"`, { cwd: dir, stdio: 'pipe' });
-    return true;
-  } catch {
-    return false;
-  }
+  try { execSync(`git check-ignore "${path}"`, { cwd: dir, stdio: 'pipe' }); return true; }
+  catch { return false; }
 }
 
-/**
- * Get git status output
- */
 export function getGitStatus(dir: string): string {
   return execSync('git status --porcelain', { cwd: dir, encoding: 'utf-8' });
 }
 
-/**
- * Stage files in git
- */
 export function gitAdd(dir: string, path: string = '.'): void {
   execSync(`git add "${path}"`, { cwd: dir, stdio: 'pipe' });
 }
 
-/**
- * Commit changes in git
- */
 export function gitCommit(dir: string, message: string): void {
   execSync(`git commit -m "${message}"`, { cwd: dir, stdio: 'pipe' });
 }
 
-/**
- * Create a sample context with messages
- */
 export interface Message {
   type: string;
-  message?: {
-    role: string;
-    content: string;
-  };
+  message?: { role: string; content: string; };
   timestamp?: string;
 }
 
 export function createSampleMessages(count: number, topic: string = 'general'): Message[] {
-  const messages: Message[] = [];
   const now = Date.now();
-  
-  for (let i = 0; i < count; i++) {
-    const isUser = i % 2 === 0;
-    messages.push({
-      type: isUser ? 'user' : 'assistant',
-      message: {
-        role: isUser ? 'user' : 'assistant',
-        content: isUser 
-          ? `Let's work on ${topic} - message ${i + 1}`
-          : `I understand, working on ${topic} - response ${i + 1}`,
-      },
-      timestamp: new Date(now + i * 1000).toISOString(),
-    });
-  }
-  
-  return messages;
+  return Array.from({ length: count }, (_, i) => ({
+    type: i % 2 === 0 ? 'user' : 'assistant',
+    message: {
+      role: i % 2 === 0 ? 'user' : 'assistant',
+      content: i % 2 === 0
+        ? `Let's work on ${topic} - message ${i + 1}`
+        : `I understand, working on ${topic} - response ${i + 1}`,
+    },
+    timestamp: new Date(now + i * 1000).toISOString(),
+  }));
 }
 
-/**
- * Create a context file with the given messages
- */
 export function createContextFile(
   dir: string,
   taskId: string,
@@ -281,20 +215,15 @@ export function createContextFile(
   messages: Message[],
   isGolden: boolean = false
 ): string {
-  const basePath = isGolden 
+  const basePath = isGolden
     ? join(dir, '.claude', 'tasks', taskId, 'contexts')
     : join(dir, '.claude', 'projects', sanitizePath(dir), 'tasks', taskId, 'contexts');
-  
   mkdirSync(basePath, { recursive: true });
   const filePath = join(basePath, `${contextName}.jsonl`);
   createJsonl(filePath, messages);
-  
   return filePath;
 }
 
-/**
- * Wait for a condition to be true
- */
 export async function waitFor(
   condition: () => boolean,
   timeout: number = 5000,
@@ -303,7 +232,7 @@ export async function waitFor(
   const start = Date.now();
   while (Date.now() - start < timeout) {
     if (condition()) return true;
-    await new Promise(resolve => setTimeout(resolve, interval));
+    await new Promise(r => setTimeout(r, interval));
   }
   return false;
 }

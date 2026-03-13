@@ -14,7 +14,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import { getPersonalProjectDir, ensureDir } from '../src/utils.js';
+import { getClaudeHome, getPersonalProjectDir, ensureDir } from '../src/utils.js';
 
 const MEMORY_SECTION_HEADER = '## Saved Contexts (context-curator)';
 const MEMORY_SECTION_FOOTER = '<!-- end:saved-contexts -->';
@@ -34,8 +34,7 @@ async function updateMemory(
   location: 'personal' | 'golden',
   messages: number
 ) {
-  const cwd = process.cwd();
-  const memoryDir = path.join(getPersonalProjectDir(cwd), 'memory');
+  const memoryDir = path.join(getClaudeHome(), 'memory');
   const memoryPath = path.join(memoryDir, 'MEMORY.md');
 
   await ensureDir(memoryDir);
