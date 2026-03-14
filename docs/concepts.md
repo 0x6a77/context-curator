@@ -78,6 +78,44 @@ When you run `/resume <uuid>`, Claude Code:
 
 This is the mechanism that makes task switching work. You modify `.claude/CLAUDE.md` between sessions and the new instructions take effect on `/resume`.
 
+## LoD2 Control Assurance
+
+Context Curator includes a built-in **adversary** specialized task that operates as a second line of defence (LoD2) control assurance reviewer.
+
+### Three Lines of Defence
+
+| Line | Role | In this system |
+|------|------|----------------|
+| LoD1 | Engineering team — builds and tests the system | Test authors |
+| LoD2 | Independent challenge function — audits LoD1's controls | The adversary |
+| LoD3 | Internal audit — out of scope |  |
+
+The LoD2 relationship is structurally adversarial to LoD1 by governance design. The adversary does not report to the engineering team and produces no remediation guidance — findings go to the control owner (LoD1) to resolve.
+
+### Strict Isolation
+
+The adversary task uses `Context isolation: STRICT`. This means:
+
+- `/context-save` and `/context-list` are disabled
+- Every session starts fresh with no memory of prior runs
+- Prior findings cannot influence the current review
+
+This is intentional. Session carry-over would allow LoD2 to be anchored by LoD1's framing across runs, defeating the independence requirement.
+
+### Risk Acceptances
+
+Documented exceptions live in `./prod-mgmt/risk-acceptances.md`. The adversary loads these at the start of each run and records the disposition without re-litigating the decision. A human accepted the risk; the adversary records it and moves on.
+
+Expired risk acceptances are treated as active findings.
+
+### Activate
+
+```
+/adversary
+```
+
+---
+
 ## File Locations
 
 ```

@@ -144,3 +144,42 @@ Use `clean` to find and remove stale or duplicate contexts.
 ## Size Limits
 
 Golden contexts committed to git are capped at **100KB per file**. `/context-save --golden` and `/context-promote` will warn and block if a context exceeds this limit.
+
+---
+
+## /adversary
+
+Activate the LoD2 control assurance reviewer — an independent challenge function that audits test coverage against PRD acceptance criteria.
+
+```
+/adversary
+
+✓ Adversary task activated
+
+STRICT isolation is in effect:
+  — No context save or restore
+  — Each session starts fresh with no prior knowledge
+  — /context-save and /context-list are disabled for this task
+
+Run: /resume <session-id>
+
+Assurance mandate:
+  Identify control deficiencies and coverage gaps.
+  Assurance objective: a test that passes when the implementation is wrong.
+  Assurance failure: attesting to coverage you should have challenged.
+
+Produce output to: ./prod-mgmt/test-inventory.md
+```
+
+The adversary operates as LoD2 (second line of defence), structurally independent of the engineering team (LoD1) that authored the tests. It reads the PRD and produces `./prod-mgmt/test-inventory.md`.
+
+**Assurance constraints:**
+
+| Constraint | Rule |
+|-----------|------|
+| No remediation | Produce findings only — no fix suggestions |
+| No positive framing | Never produce a "what's good" section |
+| No session memory | Each run starts fresh; prior findings do not carry over |
+| Risk acceptances | Load from `./prod-mgmt/risk-acceptances.md` and record without re-litigating |
+
+Return to normal work with `/task <your-task-id>`.

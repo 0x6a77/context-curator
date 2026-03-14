@@ -1,5 +1,5 @@
 ---
-description: Activate the adversary red-team task to audit test coverage against PRD acceptance criteria
+description: Activate the adversary LoD2 control assurance task to audit test coverage against PRD acceptance criteria
 allowed-tools: Bash, Read
 ---
 
@@ -7,7 +7,7 @@ allowed-tools: Bash, Read
 
 **Usage:** `/adversary`
 
-Activate the adversary specialized task. The adversary is a red-team operator that audits test coverage against PRD acceptance criteria.
+Activate the adversary specialized task. The adversary is a LoD2 control assurance reviewer that independently challenges test coverage against PRD acceptance criteria.
 
 ## Step 1: Activate the Adversary Task
 
@@ -31,10 +31,10 @@ STRICT isolation is in effect:
 
 Run: /resume <session-id>
 
-Your mission:
-  Find failures in test coverage.
-  Your success condition: a test that passes when the implementation is wrong.
-  Your failure condition: approving something you should have caught.
+Assurance mandate:
+  Identify control deficiencies and coverage gaps.
+  Assurance objective: a test that passes when the implementation is wrong.
+  Assurance failure: attesting to coverage you should have challenged.
 
 Produce output to: ./prod-mgmt/test-inventory.md
 ```

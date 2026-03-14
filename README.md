@@ -63,6 +63,7 @@ claude
 | `/context-list [task]` | List contexts for a task |
 | `/context-manage` | Interactive context management |
 | `/context-promote <name>` | Share a personal context with your team |
+| `/adversary` | LoD2 control assurance review of test coverage |
 
 ## Documentation
 
@@ -70,6 +71,7 @@ claude
 - [Concepts](https://0x6a77.github.io/context-curator/concepts/) — Tasks, contexts, and the two-file CLAUDE.md system
 - [Commands](https://0x6a77.github.io/context-curator/commands/) — Full command reference
 - [Workflows](https://0x6a77.github.io/context-curator/workflows/) — Solo, team, and context-switching patterns
+- [LoD2 Control Assurance](https://0x6a77.github.io/context-curator/concepts/#lod2-control-assurance) — built-in LoD2 control assurance reviewer
 
 ## License
 
