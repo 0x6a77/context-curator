@@ -612,7 +612,10 @@ describe('Context Promotion Tests (Group 7)', () => {
       createJsonl(join(personalDir, 'secret-ctx.jsonl'), GITHUB_TOKEN_CONTEXT);
     });
 
-    // Fix 23: T-PROM-2: output must identify GitHub token type specifically
+    // T-PROM-2: output must name the specific secret type.
+    // The previous regex /github|ghp_/i admitted "github" appearing in any context (e.g.
+    // "Content from a github repository") without naming the secret type. Fixed to require
+    // either the token prefix (ghp_) or an explicit type label (GitHub Token / GitHub PAT).
     it('should detect secrets and warn/block', async () => {
       const result = await runScript(
         'promote-context',
@@ -621,11 +624,12 @@ describe('Context Promotion Tests (Group 7)', () => {
         { CLAUDE_HOME: ctx.personalBase }
       );
 
-      // FIX 17: require specific type identification, no generic 'found' escape
       expect(result.exitCode).not.toBe(0);
-      const output = (result.stdout + result.stderr).toLowerCase();
-      // T-PROM-2: output must identify GitHub token type specifically
-      expect(output).toMatch(/github|ghp_/i);
+      const output = result.stdout + result.stderr;
+      // T-PROM-2: must identify the specific secret type — "ghp_" token prefix or explicit
+      // type label ("GitHub Token" / "GitHub PAT"). The word "github" alone is NOT sufficient
+      // because it can appear in unrelated output without naming the secret type.
+      expect(output).toMatch(/ghp_|github token|github pat/i);
     });
   });
 
@@ -892,5 +896,209 @@ describe('T-SUM-1 and T-SUM-2: AI-Generated Summary Tests', () => {
     expect(summaryAuth.toLowerCase()).toMatch(/authentication|oauth|token|auth/);
     // createMediumContext is about database migration — summary must reflect that
     expect(summaryDb.toLowerCase()).toMatch(/database|migration|postgresql|schema|column|index/);
+  });
+});
+
+// ==========================================================================
+// T-SUM-3: Forked Context Isolation
+//
+// The PRD states "Summary uses forked context (doesn't pollute main session)."
+// After save-context runs, the source session file must be byte-for-byte
+// identical to its pre-save snapshot.
+// ==========================================================================
+
+describe('T-SUM-3: Summary generation must not mutate the source session', () => {
+  let ctx: TestContext;
+
+  beforeEach(async () => {
+    ctx = createTestEnvironment('sum3');
+    writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test Project\n');
+    await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    await runScript('task-create', ['sum3-task', 'Forked context isolation test'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+  });
+
+  afterEach(() => {
+    ctx.cleanup();
+  });
+
+  it('T-SUM-3: source session file is byte-for-byte identical before and after save-context', async () => {
+    const sessionPath = join(ctx.personalDir, 'current-session.jsonl');
+    createJsonl(sessionPath, SMALL_CONTEXT);
+
+    // Snapshot before
+    const contentBefore = readFile(sessionPath);
+
+    const result = await runScript(
+      'save-context',
+      ['sum3-task', 'sum3-ctx', '--personal'],
+      ctx.projectDir,
+      { CLAUDE_HOME: ctx.personalBase }
+    );
+    expect(result.exitCode).toBe(0);
+
+    // T-SUM-3: source session must be untouched — no appended messages, no metadata writes
+    const contentAfter = readFile(sessionPath);
+    expect(contentAfter).toBe(contentBefore);
+  });
+});
+
+// ==========================================================================
+// T-MANAGE-1 through T-MANAGE-6: Context Management Tests
+// ==========================================================================
+
+describe('Context Management Tests — T-MANAGE-1 through T-MANAGE-6', () => {
+  let ctx: TestContext;
+
+  beforeEach(async () => {
+    ctx = createTestEnvironment('manage2');
+    writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test Project\n');
+    await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+  });
+
+  afterEach(() => {
+    ctx.cleanup();
+  });
+
+  // T-MANAGE-1: list-all-contexts shows context names from at least 2 different tasks
+  it('T-MANAGE-1: list-all-contexts includes context names from multiple tasks', async () => {
+    await runScript('task-create', ['task-alpha', 'Task alpha'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    await runScript('task-create', ['task-beta', 'Task beta'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+
+    const alphaCtxDir = join(ctx.personalDir, 'tasks', 'task-alpha', 'contexts');
+    const betaCtxDir = join(ctx.personalDir, 'tasks', 'task-beta', 'contexts');
+    mkdirSync(alphaCtxDir, { recursive: true });
+    mkdirSync(betaCtxDir, { recursive: true });
+    createJsonl(join(alphaCtxDir, 'alpha-ctx.jsonl'), SMALL_CONTEXT);
+    createJsonl(join(betaCtxDir, 'beta-ctx.jsonl'), SMALL_CONTEXT);
+
+    const result = await runScript('list-all-contexts', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+
+    expect(result.exitCode).toBe(0);
+    // Both context names must appear in stderr (human-readable output)
+    expect(result.stderr).toContain('alpha-ctx');
+    expect(result.stderr).toContain('beta-ctx');
+    // Both task names must appear
+    expect(result.stderr).toContain('task-alpha');
+    expect(result.stderr).toContain('task-beta');
+  });
+
+  // T-MANAGE-2: list-all-contexts flags contexts older than 30 days as [STALE]
+  it('T-MANAGE-2: list-all-contexts marks context as stale when older than 30 days', async () => {
+    await runScript('task-create', ['stale-task', 'Stale task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+
+    const ctxDir = join(ctx.personalDir, 'tasks', 'stale-task', 'contexts');
+    mkdirSync(ctxDir, { recursive: true });
+    const ctxFile = join(ctxDir, 'old-ctx.jsonl');
+    createJsonl(ctxFile, SMALL_CONTEXT);
+
+    // Set mtime to 31 days ago
+    const thirtyOneDaysAgo = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000);
+    const { utimesSync } = require('fs');
+    utimesSync(ctxFile, thirtyOneDaysAgo, thirtyOneDaysAgo);
+
+    const result = await runScript('list-all-contexts', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+
+    expect(result.exitCode).toBe(0);
+    // The stale context must be flagged — "stale" must appear on or adjacent to the context name line
+    const staleCtxLine = result.stderr.split('\n').find((l: string) => l.includes('old-ctx'));
+    expect(staleCtxLine).toBeDefined();
+    expect(staleCtxLine!.toLowerCase()).toContain('stale');
+  });
+
+  // T-MANAGE-3: list-all-contexts identifies byte-for-byte identical contexts as [DUPLICATE]
+  it('T-MANAGE-3: list-all-contexts flags identical context files as duplicates', async () => {
+    await runScript('task-create', ['dup-task', 'Duplicate task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+
+    const ctxDir = join(ctx.personalDir, 'tasks', 'dup-task', 'contexts');
+    mkdirSync(ctxDir, { recursive: true });
+    // Write identical content to two differently-named context files
+    const identicalContent = SMALL_CONTEXT.map((m: any) => JSON.stringify(m)).join('\n');
+    writeFileSync(join(ctxDir, 'dup-a.jsonl'), identicalContent);
+    writeFileSync(join(ctxDir, 'dup-b.jsonl'), identicalContent);
+
+    const result = await runScript('list-all-contexts', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+
+    expect(result.exitCode).toBe(0);
+    // Both context lines must be flagged as duplicates
+    const lines = result.stderr.split('\n');
+    const dupALine = lines.find((l: string) => l.includes('dup-a'));
+    const dupBLine = lines.find((l: string) => l.includes('dup-b'));
+    expect(dupALine).toBeDefined();
+    expect(dupBLine).toBeDefined();
+    expect(dupALine!.toLowerCase()).toContain('duplicate');
+    expect(dupBLine!.toLowerCase()).toContain('duplicate');
+  });
+
+  // T-MANAGE-4: delete-context --dry-run exits 0, names context in output, does NOT delete file
+  it('T-MANAGE-4: delete-context --dry-run shows what would be deleted without deleting', async () => {
+    await runScript('task-create', ['dry-task', 'Dry run task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+
+    const ctxDir = join(ctx.personalDir, 'tasks', 'dry-task', 'contexts');
+    mkdirSync(ctxDir, { recursive: true });
+    const ctxFile = join(ctxDir, 'safe-ctx.jsonl');
+    createJsonl(ctxFile, SMALL_CONTEXT);
+
+    const result = await runScript(
+      'delete-context',
+      ['dry-task', 'safe-ctx', '--dry-run'],
+      ctx.projectDir,
+      { CLAUDE_HOME: ctx.personalBase }
+    );
+
+    expect(result.exitCode).toBe(0);
+    // Output must name what would be deleted
+    const output = result.stdout + result.stderr;
+    expect(output).toContain('safe-ctx');
+    // The file must still exist — dry-run must not delete anything
+    expect(fileExists(ctxFile)).toBe(true);
+  });
+
+  // T-MANAGE-5: rename-context exits 0; old path gone; new path is valid JSONL
+  it('T-MANAGE-5: rename-context renames context file; old path gone, new path valid JSONL', async () => {
+    await runScript('task-create', ['rename-task', 'Rename task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+
+    const ctxDir = join(ctx.personalDir, 'tasks', 'rename-task', 'contexts');
+    mkdirSync(ctxDir, { recursive: true });
+    createJsonl(join(ctxDir, 'old-name.jsonl'), SMALL_CONTEXT);
+
+    const result = await runScript(
+      'rename-context',
+      ['rename-task', 'old-name', 'new-name'],
+      ctx.projectDir,
+      { CLAUDE_HOME: ctx.personalBase }
+    );
+
+    expect(result.exitCode).toBe(0);
+    // Old path must be gone
+    expect(fileExists(join(ctxDir, 'old-name.jsonl'))).toBe(false);
+    // New path must exist and be valid JSONL
+    const newPath = join(ctxDir, 'new-name.jsonl');
+    expect(fileExists(newPath)).toBe(true);
+    expect(isValidJsonl(newPath)).toBe(true);
+    expect(readFile(newPath).trim().length).toBeGreaterThan(0);
+  });
+
+  // T-MANAGE-6: archive-context moves context to archives/; original path gone
+  it('T-MANAGE-6: archive-context moves context to archives/ subdirectory', async () => {
+    await runScript('task-create', ['archive-task', 'Archive task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+
+    const ctxDir = join(ctx.personalDir, 'tasks', 'archive-task', 'contexts');
+    mkdirSync(ctxDir, { recursive: true });
+    createJsonl(join(ctxDir, 'old-work.jsonl'), SMALL_CONTEXT);
+
+    const result = await runScript(
+      'archive-context',
+      ['archive-task', 'old-work'],
+      ctx.projectDir,
+      { CLAUDE_HOME: ctx.personalBase }
+    );
+
+    expect(result.exitCode).toBe(0);
+    // Original path must be gone
+    expect(fileExists(join(ctxDir, 'old-work.jsonl'))).toBe(false);
+    // File must exist at archives/ path and be valid JSONL
+    const archivePath = join(ctxDir, 'archives', 'old-work.jsonl');
+    expect(fileExists(archivePath)).toBe(true);
+    expect(isValidJsonl(archivePath)).toBe(true);
   });
 });

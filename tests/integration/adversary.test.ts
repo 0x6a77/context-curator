@@ -10,9 +10,9 @@
  */
 
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
-import { join } from 'path';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, cpSync } from 'fs';
-import { homedir } from 'os';
+import { join, resolve } from 'path';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, readFileSync, writeFileSync, cpSync, realpathSync } from 'fs';
+import { homedir, tmpdir } from 'os';
 import {
   createTestEnvironment,
   TestContext,
@@ -77,19 +77,36 @@ function setupSpecializedAdversaryTask(personalBase: string): void {
 // ---------------------------------------------------------------------------
 
 describe('T-ADV-1: Adversary DNA installed at specialized path', () => {
-  // T-ADV-1 verifies what install.sh places on the real system.
-  // The test must NOT create the file itself (that would make the assertion vacuous).
-  // Skip on clean systems where install.sh has not been run.
-  it.skipIf(!existsSync(SPECIALIZED_DNA_PATH))(
-    'should exist at ~/.claude/context-curator/specialized/adversary/CLAUDE.md and contain ADVERSARY and STRICT',
-    () => {
-      expect(fileExists(SPECIALIZED_DNA_PATH)).toBe(true);
+  // T-ADV-1 must be unconditional — the previous it.skipIf(!existsSync(SPECIALIZED_DNA_PATH))
+  // made the assertion circular: it only ran on systems where install.sh had already succeeded,
+  // so it could never catch install.sh failures.
+  //
+  // Fix: replicate install.sh step 5 (the specialized-directory copy) in an isolated temp HOME.
+  // This tests the artifact install.sh produces without running the full build pipeline,
+  // and the assertion runs unconditionally on every CI/dev machine.
+  let tempHome: string;
 
-      const content = readFile(SPECIALIZED_DNA_PATH);
-      expect(content).toContain('ADVERSARY');
-      expect(content).toContain('STRICT');
-    }
-  );
+  beforeAll(() => {
+    tempHome = realpathSync(mkdtempSync(join(tmpdir(), 'cc-adv1-')));
+    const installDir = join(tempHome, '.claude', 'context-curator');
+    mkdirSync(installDir, { recursive: true });
+    const repoRoot = resolve(__dirname, '../..');
+    // Mirror install.sh step 5: cp -r specialized/ "$INSTALL_DIR/specialized/"
+    cpSync(join(repoRoot, 'specialized'), join(installDir, 'specialized'), { recursive: true });
+  });
+
+  afterAll(() => {
+    try { rmSync(tempHome, { recursive: true, force: true }); } catch {}
+  });
+
+  it('should exist at ~/.claude/context-curator/specialized/adversary/CLAUDE.md and contain ADVERSARY and STRICT', () => {
+    const installedPath = join(tempHome, '.claude/context-curator/specialized/adversary/CLAUDE.md');
+    // Unconditional — no skipIf. Runs on every machine, catches any install.sh regression.
+    expect(existsSync(installedPath)).toBe(true);
+    const content = readFileSync(installedPath, 'utf-8');
+    expect(content).toContain('ADVERSARY');
+    expect(content).toContain('STRICT');
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -525,7 +525,7 @@ Run: /resume <uuid>
 | Test ID    | Criterion |
 |------------|-----------|
 | T-SWITCH-1 | After switching tasks A→B→C→A, `.claude/CLAUDE.md` contains **exactly one** `@import` line on each switch, pointing to the selected task's `CLAUDE.md` |
-| T-SWITCH-2 | When a task has no saved contexts, `context-list` exits 0 and output contains "no contexts" or "fresh" |
+| T-SWITCH-2 | When a task has no saved contexts, `context-list` exits 0 and output contains "no contexts" or the word "fresh" as a complete word (not a substring of e.g. "Refreshed") |
 | T-SWITCH-3 | When a task has both personal and golden contexts, all context names appear in output with personal contexts listed before golden contexts |
 | T-SWITCH-4 | `context-list --json` for a task with active sessions but no saved contexts returns `contexts: []` (empty array) — session UUIDs must never appear in the `contexts` field |
 | T-SWITCH-5 | When `contexts` is empty, the switch UI displays a "no contexts" message and does NOT present UUID session files as numbered selectable options |
@@ -828,7 +828,13 @@ You: done
 
 | Test ID | Criterion |
 |---------|-----------|
-| T-CTX-7 | `delete-context` on a golden context exits non-zero without `--confirm` flag; the file still exists after the failed attempt |
+| T-CTX-7 | `delete-context` on a golden context exits non-zero without `--force` flag; the file still exists after the failed attempt |
+| T-MANAGE-1 | `list-all-contexts` exits 0 and output includes context names from at least 2 different tasks when such contexts exist across tasks |
+| T-MANAGE-2 | `list-all-contexts` marks a context as stale (output contains "stale" adjacent to or on the same line as the context name) when its last-modified timestamp is > 30 days old |
+| T-MANAGE-3 | `list-all-contexts` identifies two byte-for-byte identical context files as duplicates (output contains "duplicate" adjacent to or on the same line as the context names) |
+| T-MANAGE-4 | `delete-context --dry-run` exits 0, prints what would be deleted (context name appears in output), and does NOT delete the file (file still exists after the call) |
+| T-MANAGE-5 | `rename-context <task-id> <old-name> <new-name>` exits 0; old path does not exist; new path is a valid non-empty JSONL file |
+| T-MANAGE-6 | `archive-context <task-id> <context-name>` exits 0; file exists at `contexts/archives/<context-name>.jsonl`; original path does not exist |
 
 ### F-CTX-PROMOTE · Context Promotion (`/context-promote <context-name>`)
 
@@ -1011,6 +1017,7 @@ Generates concise AI summaries (key topics, accomplishments, decisions) for ever
 |---------|-----------|
 | T-SUM-1 | After `save-context`, a `.meta.json` file exists alongside the `.jsonl` with a `summary` string between 20 and 500 characters |
 | T-SUM-2 | Two contexts saved from clearly different conversations produce different `summary` strings; each summary must contain at least one keyword from its source conversation content |
+| T-SUM-3 | After `save-context`, the session source file (the `.jsonl` read as input) is byte-for-byte identical to its pre-save snapshot — summary generation must not append messages to or otherwise mutate the calling session |
 
 ### F-GIT · Git Integration
 

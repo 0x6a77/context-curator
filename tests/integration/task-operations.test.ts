@@ -153,25 +153,30 @@ describe('Task Creation Tests (Group 2)', () => {
   });
 
   describe('Test 2.3: Create Task with Multi-line Description', () => {
-    // T-TASK-3: Remove conditional guard; check multiple keywords unconditionally
+    // T-TASK-3: All four description lines must be preserved verbatim in the Focus section.
+    // Keyword-fragment checks alone are insufficient — an implementation that extracts keywords
+    // and rewrites the description would pass those while violating "preserves all lines."
     it('should capture full multi-line description', async () => {
       const description = `This is a complex refactor involving:\n- OAuth 2.0 migration\n- Session state cleanup\n- Token refresh logic`;
 
       const result = await runScript('task-create', ['complex-refactor', description], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
-      // FIX 9: Assert exit code is 0
       expect(result.exitCode).toBe(0);
 
       const taskMdPath = join(ctx.projectDir, '.claude', 'tasks', 'complex-refactor', 'CLAUDE.md');
       expect(fileExists(taskMdPath)).toBe(true);
       const taskContent = readFile(taskMdPath);
 
-      // FIX 10: Assert keywords appear under ## Focus section specifically
+      // Extract the Focus section specifically
       const focusIdx = taskContent.indexOf('## Focus');
       const nextSectionIdx = taskContent.indexOf('##', focusIdx + 1);
       const focusSection = taskContent.slice(focusIdx, nextSectionIdx === -1 ? undefined : nextSectionIdx);
-      expect(focusSection.toLowerCase()).toContain('oauth');
-      expect(focusSection.toLowerCase()).toContain('session');
-      expect(focusSection.toLowerCase()).toContain('token');
+
+      // T-TASK-3: every line of the description must appear verbatim in the Focus section.
+      // A keyword-rewriting implementation would fail these literal assertions.
+      expect(focusSection).toContain('This is a complex refactor involving:');
+      expect(focusSection).toContain('- OAuth 2.0 migration');
+      expect(focusSection).toContain('- Session state cleanup');
+      expect(focusSection).toContain('- Token refresh logic');
     });
   });
 
@@ -309,12 +314,14 @@ describe('Task Switching Tests (Group 3)', () => {
       await runScript('task-create', ['empty-task', 'No contexts'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
     });
 
-    // T-SWITCH-2: When a task has no contexts, output contains "fresh", "empty", or "no contexts" and exits 0
+    // T-SWITCH-2: When a task has no contexts, output contains "no contexts" or the word "fresh"
+    // as a complete word. The previous /fresh/i without a word boundary matched substrings like
+    // "Refreshed task listing", which satisfies the regex while not communicating the no-contexts state.
     it('T-SWITCH-2: should indicate no contexts available and offer fresh start', async () => {
       const result = await runScript('task-list', ['empty-task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toMatch(/no contexts|fresh/i);
+      expect(result.stdout).toMatch(/no contexts|\bfresh\b/i);
     });
 
     it('should still allow task switch', async () => {

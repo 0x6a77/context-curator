@@ -19,6 +19,7 @@ import {
 async function main() {
   const args = process.argv.slice(2);
   const force = args.includes('--force');
+  const dryRun = args.includes('--dry-run');
   const positional = args.filter(a => !a.startsWith('--'));
   const [taskId, contextName] = positional;
   
@@ -51,6 +52,16 @@ async function main() {
   
   // Get stats before deletion
   const stats = await getSessionStats(contextPath);
+
+  // Dry-run: show what would be deleted without actually deleting
+  if (dryRun) {
+    console.log(`[dry-run] Would delete context: ${contextName}`);
+    console.log(`[dry-run] Task: ${taskId}`);
+    console.log(`[dry-run] Location: ${location} (${contextPath})`);
+    console.log(`[dry-run] Size: ${stats.messages} messages, ~${Math.round(stats.tokens / 1000)}k tokens`);
+    console.log(`[dry-run] No files were deleted.`);
+    return;
+  }
 
   // Protect golden contexts from accidental deletion
   if (location === 'golden' && !force) {
