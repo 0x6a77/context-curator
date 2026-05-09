@@ -524,7 +524,7 @@ If task doesn't exist:
 
 | Test ID | Criterion |
 |---------|-----------|
-| T-TASK-1 | task-create produces a CLAUDE.md with all four required section headers (## Task, ## Focus, ## Context, ## Notes) and the description keyword appears under the ## Focus section |
+| T-TASK-1 | task-create produces a CLAUDE.md with all required section headers (`# Task: <taskId>`, `## Focus`, `## Key Areas`, `## Guidelines`) and the description keyword appears under the `## Focus` section |
 | T-TASK-2 | task-create exits non-zero and creates no directory for a task name containing uppercase letters |
 | T-TASK-3 | A four-line description has all four lines preserved verbatim in the Focus section |
 | T-TASK-4 | task-create exits non-zero and creates no directory when given empty description |

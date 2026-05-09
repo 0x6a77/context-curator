@@ -98,6 +98,51 @@ export function runScript(
 }
 
 /**
+ * Run a script with stdin data (needed for scripts that read hook payloads from stdin)
+ */
+export function runScriptWithStdin(
+  scriptName: string,
+  stdinData: string,
+  args: string[] = [],
+  cwd: string = process.cwd(),
+  env: Record<string, string> = {},
+  timeoutMs: number = 15000
+): Promise<CommandResult> {
+  return new Promise((resolve) => {
+    const scriptPath = join(SCRIPTS_DIR, `${scriptName}.ts`);
+    const child = spawn(TSX, [scriptPath, ...args], {
+      cwd,
+      env: { ...process.env, ...env },
+      stdio: ['pipe', 'pipe', 'pipe'],
+      detached: true,
+    });
+
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
+    child.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
+
+    child.stdin!.write(stdinData);
+    child.stdin!.end();
+
+    const timer = setTimeout(() => {
+      try { process.kill(-child.pid!, 'SIGKILL'); } catch {}
+      resolve({ stdout, stderr: stderr + '\n[TIMEOUT]', exitCode: 124 });
+    }, timeoutMs);
+
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      resolve({ stdout, stderr, exitCode: code ?? 1 });
+    });
+
+    child.on('error', (err) => {
+      clearTimeout(timer);
+      resolve({ stdout, stderr: err.message, exitCode: 1 });
+    });
+  });
+}
+
+/**
  * Run a script synchronously (for setup/teardown)
  */
 export function runScriptSync(
