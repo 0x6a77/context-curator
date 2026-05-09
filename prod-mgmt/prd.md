@@ -1263,6 +1263,43 @@ A human-editable style guide that governs HTML generation. Specifies typeface ch
 
 ---
 
+### F-PROCESS · Process Sequencing Skill (`/prd-process`)
+
+Provides a lightweight state machine that detects the current phase of the PRD-driven development process and resists attempts to perform phases out of order. The most critical guard is the **adversary staleness check**: if `prd.md` has been modified after `test-inventory.md`, the skill warns that the adversary run is stale and implementation work should pause until Phase 5 re-runs.
+
+The skill does not hard-block — it warns and requires an explicit bypass (`--force`) for exceptions. This allows intentional out-of-order steps (e.g., a trivial typo fix) while making accidental skips visible and named.
+
+**Phase detection heuristics:**
+
+| Phase | Complete When |
+|-------|---------------|
+| 1 — PRD Authoring | `prod-mgmt/prd.md` exists with ≥1 `### F-` section |
+| 1a — User Documentation | `docs/html/` exists with files newer than `prd.md` |
+| 2 — Test Plan | `prod-mgmt/test-plan.md` exists |
+| 3 — Dev Plan | `prod-mgmt/dev-plan.md` exists |
+| 4 — Implementation | `.test.ts` files exist in `tests/` |
+| 5 — Adversarial Review | `prod-mgmt/test-inventory.md` exists AND newer than `prd.md` |
+
+**Expected Behaviors:**
+- `/prd-process` with all artifacts present reports the current phase and next step
+- When `prd.md` is newer than `test-inventory.md`, the skill warns that the adversary run is stale before proceeding with any Phase 4 work
+- When the user requests implementation work and the adversary is stale, the skill refuses and outputs a correction sequence
+- With `--force` acknowledged, the skill warns but proceeds
+- With no `prd.md` present, the script exits non-zero with a message containing "PRD"
+
+**Acceptance Criteria:**
+
+| Test ID | Criterion |
+|---------|-----------|
+| T-PROC-1 | With only `prod-mgmt/prd.md` present (no test-plan, dev-plan, or test-inventory), `prd-process-status` exits 0 and outputs valid JSON with `currentPhase` equal to 1 and `nextPhase` equal to 2 |
+| T-PROC-2 | With `test-inventory.md` modified before `prd.md`, output JSON has `adversaryStale === true` and `warnings` is a non-empty array containing a string matching `/stale|adversary/i` |
+| T-PROC-3 | With `test-inventory.md` modified after `prd.md` (all prior artifacts present), output JSON has `adversaryStale === false` and `warnings` does not contain any adversary-stale warning |
+| T-PROC-4 | With no `prod-mgmt/prd.md` present, `prd-process-status` exits non-zero and stderr or stdout contains the string "PRD" |
+| T-PROC-5 | With test-plan and dev-plan present but no `test-inventory.md`, output JSON has `currentPhase` equal to 4 and `nextPhase` equal to 5 |
+| T-PROC-6 | Output is always valid JSON with fields `completedPhases` (array), `currentPhase` (number or string), `nextPhase` (number or string), `adversaryStale` (boolean), and `warnings` (array) |
+
+---
+
 ## Skills Implementation
 
 ### Skills Are Slash Commands
@@ -1300,6 +1337,9 @@ The same directory tree is used at both scopes (user or project). Skills are nam
 │   │   └── scripts/
 │   ├── test-inventory/
 │   │   ├── SKILL.md                   # /test-inventory — adversary output format
+│   │   └── scripts/
+│   ├── prd-process/
+│   │   ├── SKILL.md                   # /prd-process — process sequencing guard
 │   │   └── scripts/
 │   ├── docs-markdown/
 │   │   ├── SKILL.md                   # /docs-markdown — markdown base update, feature-section mapping
@@ -1485,6 +1525,10 @@ oauth-flow.v3.jsonl  # After mobile app integration
 
 ## Version History
 
+- **v21.0** (2026-05-09): Process sequencing skill added
+    - **F-PROCESS (new):** `/prd-process` skill detects current phase via artifact presence and mtime heuristics; adversary-staleness check warns when `prd.md` is newer than `test-inventory.md`; resists out-of-order implementation requests; `--force` bypass available for intentional exceptions; T-PROC-1 through T-PROC-6 added
+    - **`prd-process` added to authoring bundle:** skill directory added to `authoring/prd-process/`; `scripts/prd-process-status.ts` provides the underlying state-machine scan
+    - **prd-driven-development.md updated:** "Process State Machine" section added describing phase detection heuristics, staleness check formula, and resistance model
 - **v20.1** (2026-05-09): T-XXX code collision fix
     - **F-DOC AC codes corrected:** T-DOC-1 through T-DOC-8 renamed to T-UDOC-1 through T-UDOC-8; T-DOC-1/6 codes belong exclusively to F-DOC-SKILLS; T-UDOC-* namespace is reserved for F-DOC (user documentation system)
 - **v20.0** (2026-05-09): User documentation system added

@@ -4358,6 +4358,149 @@ def test_html_images_have_alt():
 
 ---
 
+## 23. Process Sequencing Tests · F-PROCESS
+
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-PROC-1 | With only `prod-mgmt/prd.md` present (no test-plan, dev-plan, or test-inventory), `prd-process-status` exits 0 and outputs valid JSON with `currentPhase` equal to 1 and `nextPhase` equal to 2 |
+| T-PROC-2 | With `test-inventory.md` modified before `prd.md`, output JSON has `adversaryStale === true` and `warnings` is a non-empty array containing a string matching `/stale|adversary/i` |
+| T-PROC-3 | With `test-inventory.md` modified after `prd.md` (all prior artifacts present), output JSON has `adversaryStale === false` and no adversary-stale warning |
+| T-PROC-4 | With no `prod-mgmt/prd.md` present, `prd-process-status` exits non-zero and stderr or stdout contains "PRD" |
+| T-PROC-5 | With test-plan and dev-plan present but no `test-inventory.md`, output JSON has `currentPhase` equal to 4 and `nextPhase` equal to 5 |
+| T-PROC-6 | Output is always valid JSON with fields `completedPhases` (array), `currentPhase`, `nextPhase`, `adversaryStale` (boolean), and `warnings` (array) |
+
+### Test 23.1: PRD-only project reports Phase 1 / nextPhase 2 (T-PROC-1)
+
+**Setup:**
+```typescript
+// Create project directory with only prod-mgmt/prd.md
+mkdirSync(join(ctx.projectDir, 'prod-mgmt'), { recursive: true });
+writeFileSync(join(ctx.projectDir, 'prod-mgmt', 'prd.md'),
+  '### F-ALPHA · Alpha Feature\n\n| T-ALPHA-1 | criterion |');
+```
+
+**Execution:**
+```bash
+npx tsx scripts/prd-process-status.ts
+# cwd = ctx.projectDir
+```
+
+**Validation:**
+```typescript
+expect(result.exitCode).toBe(0);
+const status = JSON.parse(result.stdout);
+expect(Array.isArray(status.completedPhases)).toBe(true);
+expect(status.currentPhase).toBe(1);
+expect(status.nextPhase).toBe(2);
+```
+
+**Expected Output:** Valid JSON with `currentPhase: 1`, `nextPhase: 2`, `adversaryStale: false`.
+
+---
+
+### Test 23.2: Stale adversary flagged when prd.md is newer (T-PROC-2)
+
+**Setup:**
+```typescript
+mkdirSync(join(ctx.projectDir, 'prod-mgmt'), { recursive: true });
+// Write test-inventory.md first, then update prd.md (making it newer)
+writeFileSync(invPath, '| T-ALPHA-1 | F-ALPHA | test.ts | PASS |');
+utimesSync(invPath, past, past);            // mtime = 100s ago
+writeFileSync(prdPath, '### F-ALPHA\n...\n| T-ALPHA-1 | criterion |');
+utimesSync(prdPath, now, now);             // mtime = now (newer)
+```
+
+**Validation:**
+```typescript
+expect(result.exitCode).toBe(0);
+const status = JSON.parse(result.stdout);
+expect(status.adversaryStale).toBe(true);
+expect(status.warnings.length).toBeGreaterThan(0);
+expect(status.warnings.some((w: string) => /stale|adversary/i.test(w))).toBe(true);
+```
+
+---
+
+### Test 23.3: Non-stale adversary when test-inventory is newer (T-PROC-3)
+
+**Setup:**
+```typescript
+// prd.md written first (older mtime), test-inventory.md written second (newer)
+writeFileSync(prdPath, '### F-BETA · Beta\n...\n| T-BETA-1 | criterion |');
+utimesSync(prdPath, past, past);
+writeFileSync(invPath, '| T-BETA-1 | F-BETA | test.ts | PASS |');
+// Plus test-plan.md and dev-plan.md
+writeFileSync(join(ctx.projectDir, 'prod-mgmt', 'test-plan.md'), '# Test Plan\n');
+writeFileSync(join(ctx.projectDir, 'prod-mgmt', 'dev-plan.md'), '# Dev Plan\n');
+// Plus a test file
+mkdirSync(join(ctx.projectDir, 'tests'), { recursive: true });
+writeFileSync(join(ctx.projectDir, 'tests', 'example.test.ts'), '// test');
+```
+
+**Validation:**
+```typescript
+expect(result.exitCode).toBe(0);
+const status = JSON.parse(result.stdout);
+expect(status.adversaryStale).toBe(false);
+// No adversary-stale warning
+expect(status.warnings.every((w: string) => !/stale|adversary/i.test(w))).toBe(true);
+```
+
+---
+
+### Test 23.4: No prd.md → non-zero exit containing "PRD" (T-PROC-4)
+
+**Setup:**
+```typescript
+// Empty project — no prod-mgmt/prd.md
+```
+
+**Validation:**
+```typescript
+expect(result.exitCode).not.toBe(0);
+const combined = result.stdout + result.stderr;
+expect(combined).toMatch(/PRD/i);
+```
+
+---
+
+### Test 23.5: No test-inventory → Phase 4 with nextPhase 5 (T-PROC-5)
+
+**Setup:**
+```typescript
+// prd.md + test-plan.md + dev-plan.md + a test file, but NO test-inventory.md
+writeFileSync(prdPath, '### F-GAMMA\n...\n| T-GAMMA-1 | criterion |');
+writeFileSync(testPlanPath, '# Test Plan\n');
+writeFileSync(devPlanPath, '# Dev Plan\n');
+mkdirSync(testsDir, { recursive: true });
+writeFileSync(join(testsDir, 'gamma.test.ts'), '// test');
+```
+
+**Validation:**
+```typescript
+const status = JSON.parse(result.stdout);
+expect(status.currentPhase).toBe(4);
+expect(status.nextPhase).toBe(5);
+```
+
+---
+
+### Test 23.6: Output is always valid JSON with required fields (T-PROC-6)
+
+**Validation (any valid project state):**
+```typescript
+const status = JSON.parse(result.stdout);   // must not throw
+expect(Array.isArray(status.completedPhases)).toBe(true);
+expect(typeof status.currentPhase === 'number' || typeof status.currentPhase === 'string').toBe(true);
+expect(typeof status.nextPhase === 'number' || typeof status.nextPhase === 'string').toBe(true);
+expect(typeof status.adversaryStale).toBe('boolean');
+expect(Array.isArray(status.warnings)).toBe(true);
+```
+
+---
+
 ## Summary
 
 This test plan provides comprehensive coverage of context-curator functionality through integration tests. The tests:
@@ -4391,6 +4534,7 @@ This test plan provides comprehensive coverage of context-curator functionality 
 - ✅ PostCompact task re-injection hook (F-HOOK-POST) — T-HOOK-POST-1 through T-HOOK-POST-3
 - ✅ Context monitor — status line, threshold warnings, cost estimation (F-CTX-MONITOR) — T-MON-1 through T-MON-13
 - ✅ User documentation system (F-DOC) — T-UDOC-1 through T-UDOC-8
+- ✅ Process sequencing skill (F-PROCESS) — T-PROC-1 through T-PROC-6
 
 **Next Steps:**
 1. Implement test utilities and base classes

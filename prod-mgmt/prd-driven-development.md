@@ -1111,6 +1111,86 @@ The documentation process described above can be extended in several directions.
 
 ---
 
+## Process State Machine and the `/prd-process` Skill
+
+### The Problem This Solves
+
+The process phases described above are easy to follow when you're starting fresh. They become easy to skip when you've been heads-down for a week. The most common violation is implementing new features after the PRD has changed without re-running the adversary — the adversary's test inventory is now stale, covering the old feature set, not the current one.
+
+This is not malice. It's the normal cognitive failure mode of working in a fast-moving context: you update the PRD, update the dev plan, start implementing, and never notice that Phase 5 (Adversarial Review) is now stale. The skill makes the staleness **visible and named** at the moment the out-of-order step is attempted.
+
+### Phase Detection Heuristics
+
+The `/prd-process` skill calls `scripts/prd-process-status.ts`, which scans the project directory and uses file presence and modification timestamps to determine which phases are complete:
+
+| Signal | Phase Implied |
+|--------|---------------|
+| `prod-mgmt/prd.md` exists with ≥1 `### F-` heading | Phase 1 complete |
+| `docs/html/` has files newer than `prd.md` | Phase 1a complete |
+| `prod-mgmt/test-plan.md` exists | Phase 2 complete |
+| `prod-mgmt/dev-plan.md` exists | Phase 3 complete |
+| `.test.ts` files exist in `tests/` | Phase 4 in progress |
+| `prod-mgmt/test-inventory.md` exists AND newer than `prd.md` | Phase 5 complete |
+
+The most important signal is **adversary staleness**: if `prd.md` has a newer modification time than `test-inventory.md`, the adversary run does not cover the current PRD state. This triggers a warning on any Phase 4 work.
+
+### The Staleness Check
+
+```
+adversaryStale = test-inventory.md.mtime < prd.md.mtime
+```
+
+A `true` result means: you have changed the PRD since the last adversary run. The adversary has not reviewed tests against the current feature set. Before writing more implementation code, the adversary should run.
+
+This check deliberately uses mtime rather than content diff. Any modification to `prd.md` — even a trivial wording fix — resets the staleness flag. This is intentional: even small PRD changes may introduce ambiguities the adversary should see.
+
+### Resistance Model
+
+The skill **warns and requires explicit bypass** — it does not hard-block.
+
+When the adversary is stale and the user requests implementation work:
+1. The skill outputs a clearly formatted warning naming the staleness condition
+2. The skill provides the correct correction sequence (run adversary → address findings → resume implementation)
+3. The skill refuses to proceed until the user explicitly says `--force` or acknowledges the warning
+
+The bypass phrase is intentional: saying "proceed with implementation --force" is a conscious act. It transforms an accidental skip into a documented, named decision. If the user invokes `--force` repeatedly, that pattern is itself a signal that the process needs review.
+
+### When to Use `/prd-process`
+
+- At the start of any implementation session: confirms you're on the right phase
+- Before starting a new dev-plan phase: checks whether the adversary is stale
+- When switching from PRD editing back to code: catches the prd-updated-adversary-stale case
+- After a long break: re-orients you to where the project stands in the cycle
+
+### Output Format
+
+`prd-process-status.ts` always outputs JSON to stdout:
+
+```json
+{
+  "completedPhases": [1, 2, 3, 4],
+  "currentPhase": 4,
+  "nextPhase": 5,
+  "adversaryStale": true,
+  "warnings": [
+    "prod-mgmt/prd.md was modified after test-inventory.md — adversary run is stale. Run /task adversary before continuing with implementation."
+  ],
+  "artifacts": {
+    "prd": { "exists": true, "features": 22 },
+    "docs": { "exists": false, "upToDate": false },
+    "testPlan": { "exists": true },
+    "devPlan": { "exists": true },
+    "tests": { "exists": true, "count": 8 },
+    "testInventory": { "exists": true, "stale": true },
+    "riskAcceptances": { "exists": true }
+  }
+}
+```
+
+The `/prd-process` skill reads this JSON and formats it for display. The raw script is also usable from CI to block merges when the adversary is stale.
+
+---
+
 ## Relationship to Context Curator
 
 Boss-Fight Coding and Context Curator are designed to work together:

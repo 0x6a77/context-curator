@@ -110,8 +110,8 @@ cat > "$HOME/.claude/context-curator-manifest.json" << EOF
   "installedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "bundles": {
     "authoring": {
-      "description": "PRD, test plan, dev plan, and test inventory authoring skills",
-      "skills": ["authoring/prd", "authoring/test-plan", "authoring/dev-plan", "authoring/test-inventory", "authoring/docs-markdown", "authoring/docs-html"]
+      "description": "PRD, test plan, dev plan, test inventory, and process sequencing authoring skills",
+      "skills": ["authoring/prd", "authoring/test-plan", "authoring/dev-plan", "authoring/test-inventory", "authoring/prd-process", "authoring/docs-markdown", "authoring/docs-html"]
     },
     "session": {
       "description": "Full context management stack",

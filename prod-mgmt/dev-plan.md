@@ -723,6 +723,37 @@ and exit.
 - [ ] `/test-inventory` outside adversary task exits with error message containing "adversary"
 - [ ] Inside adversary task, skill loads successfully
 
+### 9.5 prd-process/SKILL.md (F-PROCESS)
+
+The process sequencing skill is part of the authoring bundle. The underlying state-machine logic lives in `scripts/prd-process-status.ts` (already implemented); the SKILL.md wraps it with guidance for Claude.
+
+```markdown
+---
+name: prd-process
+description: >
+  PRD-driven development process sequencing guard. Detects current phase and warns
+  when steps are attempted out of order — most critically, when prd.md is newer
+  than test-inventory.md (adversary run is stale).
+invocation: explicit
+---
+```
+
+**Implementation:** `scripts/prd-process-status.ts`
+
+Key logic:
+- Scans `prod-mgmt/` for artifact presence
+- Compares `prd.md` mtime vs `test-inventory.md` mtime → `adversaryStale`
+- Outputs JSON: `{ completedPhases, currentPhase, nextPhase, adversaryStale, warnings, artifacts }`
+- Non-zero exit if `prod-mgmt/prd.md` is absent
+
+**Testing (T-PROC-1 through T-PROC-6):**
+- [ ] T-PROC-1: PRD-only project → `currentPhase=1`, `nextPhase=2`
+- [ ] T-PROC-2: `test-inventory.md` older than `prd.md` → `adversaryStale=true`, non-empty `warnings` matching `/stale|adversary/i`
+- [ ] T-PROC-3: `test-inventory.md` newer than `prd.md` → `adversaryStale=false`, no stale warning
+- [ ] T-PROC-4: No `prd.md` → non-zero exit, output contains "PRD"
+- [ ] T-PROC-5: test-plan + dev-plan + tests, no test-inventory → `currentPhase=4`, `nextPhase=5`
+- [ ] T-PROC-6: Output always valid JSON with `completedPhases`, `currentPhase`, `nextPhase`, `adversaryStale`, `warnings`
+
 ---
 
 ## Phase 10: User Documentation System (F-DOC)
@@ -932,6 +963,7 @@ async function installProjectScopeSkills(projectRoot: string) {
 | `archive-context.ts` | Archive to contexts/archives/ | 3 ✅ |
 | `scan-secrets.ts` | Secret detection | 4 ✅ |
 | `redact-secrets.ts` | Secret redaction | 4 ✅ |
+| `prd-process-status.ts` | Process phase detection + adversary-staleness check | 9 |
 | `auto-save-context.ts` | PreCompact hook auto-save | 7 |
 | `postcompact-reinject.ts` | PostCompact task re-injection | 7 |
 | `session-start-hook.ts` | SessionStart sentinel clear | 7 |
@@ -950,6 +982,7 @@ async function installProjectScopeSkills(projectRoot: string) {
 | `authoring/test-plan/SKILL.md` | `/test-plan` | authoring | 9 |
 | `authoring/dev-plan/SKILL.md` | `/dev-plan` | authoring | 9 |
 | `authoring/test-inventory/SKILL.md` | `/test-inventory` | authoring | 9 |
+| `authoring/prd-process/SKILL.md` | `/prd-process` | authoring | 9 |
 | `authoring/docs-markdown/SKILL.md` | `/docs-markdown` | authoring | 10 |
 | `authoring/docs-html/SKILL.md` | `/docs-html` | authoring | 10 |
 | `session/task/SKILL.md` | `/task` | session | 6 |
@@ -1077,6 +1110,10 @@ Run `npm run build` to regenerate `dist/version.json`, then re-run `install.sh` 
 
 ## Version History
 
+- **v15.1** (2026-05-09): Process sequencing skill (F-PROCESS) — PRD v21.0
+  - **Phase 9.5**: `prd-process-status.ts` script + `authoring/prd-process/SKILL.md`; phase detection via artifact presence + mtime heuristics; adversary-staleness check; resistance model with `--force` bypass; T-PROC-1 through T-PROC-6 testing checklist
+  - Updated file structure tables to include `prd-process-status.ts` and `authoring/prd-process/`
+  - `install.sh` manifest updated to include `authoring/prd-process` in authoring bundle
 - **v15.0** (2026-05-09): Major update for PRD v20.1
   - **Phase 6**: Skills architecture migration — all commands converted from `~/.claude/commands/` to skills under `~/.claude/skills/context-curator/`; three-bundle namespace (`authoring/`, `session/`, `monitor/`)
   - **Phase 7**: Hooks — PreCompact auto-save (`auto-save-context.ts`), PostCompact re-injection (`postcompact-reinject.ts`), SessionStart sentinel clear (`session-start-hook.ts`)

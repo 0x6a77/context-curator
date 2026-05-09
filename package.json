@@ -16,7 +16,8 @@
     "test:claudemd": "vitest run tests/integration/claude-md-system.test.ts",
     "test:secrets": "vitest run tests/integration/secret-detection.test.ts",
     "test:git": "vitest run tests/integration/git-integration.test.ts",
-    "test:errors": "vitest run tests/integration/error-handling.test.ts"
+    "test:errors": "vitest run tests/integration/error-handling.test.ts",
+    "test:process": "vitest run tests/integration/process-sequencing.test.ts"
   },
   "keywords": [
     "claude",
