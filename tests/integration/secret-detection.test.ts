@@ -40,8 +40,8 @@ describe('Secret Detection Tests (Group 9)', () => {
   beforeEach(async () => {
     ctx = createTestEnvironment('secrets');
     writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test Project\n');
-    await runScript('init-project', [], ctx.projectDir);
-    await runScript('task-create', ['secret-test', 'Testing secrets'], ctx.projectDir);
+    await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    await runScript('task-create', ['secret-test', 'Testing secrets'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
   });
 
   afterEach(() => {

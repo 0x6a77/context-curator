@@ -1,6 +1,6 @@
 # Product Requirements Document: Claude Code Context Curator
 
-**Version:** 20.0
+**Version:** 20.1
 **Last Updated:** May 9, 2026
 **Status:** Ready for Implementation
 
@@ -1252,14 +1252,14 @@ A human-editable style guide that governs HTML generation. Specifies typeface ch
 
 | Test ID | Criterion |
 |---------|-----------|
-| T-DOC-1 | After `/docs-markdown` runs on a PRD with a new F-XXX feature not yet in `feature-section-map.md`, the skill prompts for a product section assignment; after assignment, `feature-section-map.md` contains a row for that F-XXX code |
-| T-DOC-2 | `docs/markdown/toc.md` contains a link to every product section page listed in `feature-section-map.md`; any section page without a TOC link is a FAIL |
-| T-DOC-3 | `docs/markdown/glossary.md` is non-empty after `/docs-markdown` runs on a PRD with defined Core Concepts; every term defined in Core Concepts appears in the glossary |
-| T-DOC-4 | After `/docs-html` runs, `docs/index.html` exists and its content contains the text of `introduction.md` and `toc.md`; file must not be empty |
-| T-DOC-5 | All generated HTML pages contain at least one `<nav>` element; `<nav>` contains links to at least the home page and glossary |
-| T-DOC-6 | Generated HTML heading hierarchy does not skip levels: no `<h3>` appears without a preceding `<h2>` on the same page; no `<h2>` appears without a preceding `<h1>` |
-| T-DOC-7 | When `docs/html/style.md` is absent at invocation time, `/docs-html` writes the file with non-empty content before generating any HTML; the written file contains the strings "color" and "typeface" or "font" |
-| T-DOC-8 | All `<img>` elements in generated HTML have a non-empty `alt` attribute |
+| T-UDOC-1 | After `/docs-markdown` runs on a PRD with a new F-XXX feature not yet in `feature-section-map.md`, the skill prompts for a product section assignment; after assignment, `feature-section-map.md` contains a row for that F-XXX code |
+| T-UDOC-2 | `docs/markdown/toc.md` contains a link to every product section page listed in `feature-section-map.md`; any section page without a TOC link is a FAIL |
+| T-UDOC-3 | `docs/markdown/glossary.md` is non-empty after `/docs-markdown` runs on a PRD with defined Core Concepts; every term defined in Core Concepts appears in the glossary |
+| T-UDOC-4 | After `/docs-html` runs, `docs/index.html` exists and its content contains the text of `introduction.md` and `toc.md`; file must not be empty |
+| T-UDOC-5 | All generated HTML pages contain at least one `<nav>` element; `<nav>` contains links to at least the home page and glossary |
+| T-UDOC-6 | Generated HTML heading hierarchy does not skip levels: no `<h3>` appears without a preceding `<h2>` on the same page; no `<h2>` appears without a preceding `<h1>` |
+| T-UDOC-7 | When `docs/html/style.md` is absent at invocation time, `/docs-html` writes the file with non-empty content before generating any HTML; the written file contains the strings "color" and "typeface" or "font" |
+| T-UDOC-8 | All `<img>` elements in generated HTML have a non-empty `alt` attribute |
 
 ---
 
@@ -1485,8 +1485,10 @@ oauth-flow.v3.jsonl  # After mobile app integration
 
 ## Version History
 
+- **v20.1** (2026-05-09): T-XXX code collision fix
+    - **F-DOC AC codes corrected:** T-DOC-1 through T-DOC-8 renamed to T-UDOC-1 through T-UDOC-8; T-DOC-1/6 codes belong exclusively to F-DOC-SKILLS; T-UDOC-* namespace is reserved for F-DOC (user documentation system)
 - **v20.0** (2026-05-09): User documentation system added
-    - **F-DOC (new):** Two-skill documentation system — `/docs-markdown` (markdown base update, feature-section mapping, glossary, permuted index) and `/docs-html` (HTML generation, a11y validation, style.md bootstrap); documentation is Phase 1a of the development process, immediately after PRD authoring and before test plan; T-DOC-1 through T-DOC-8 added
+    - **F-DOC (new):** Two-skill documentation system — `/docs-markdown` (markdown base update, feature-section mapping, glossary, permuted index) and `/docs-html` (HTML generation, a11y validation, style.md bootstrap); documentation is Phase 1a of the development process, immediately after PRD authoring and before test plan; T-UDOC-1 through T-UDOC-8 added
     - **Documentation skills added to authoring bundle:** `docs-markdown/` and `docs-html/` added to skill structure diagram and personal storage structure
     - **Project structure updated:** `docs/` directory added with full tree (markdown base, html output, style guide, feature-section map)
     - **Git best practices updated:** `docs/` committed as a first-class project artifact

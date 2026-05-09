@@ -47,7 +47,7 @@ describe('Project Initialization Tests', () => {
       // No CLAUDE.md exists
 
       // Execute: Run init-project script
-      const result = await runScript('init-project', [], ctx.projectDir);
+      const result = await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       // FIX 1: Verify script exited successfully
       expect(result.exitCode).toBe(0);
@@ -69,7 +69,7 @@ describe('Project Initialization Tests', () => {
     });
 
     it('should create .gitignore with CLAUDE.md entry', async () => {
-      const result = await runScript('init-project', [], ctx.projectDir);
+      const result = await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       // FIX 3: Verify script exited successfully
       expect(result.exitCode).toBe(0);
@@ -81,7 +81,7 @@ describe('Project Initialization Tests', () => {
     });
 
     it('should not create backup when no original CLAUDE.md exists', async () => {
-      const result = await runScript('init-project', [], ctx.projectDir);
+      const result = await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       // FIX 5: Verify script exited successfully
       expect(result.exitCode).toBe(0);
@@ -96,9 +96,9 @@ describe('Project Initialization Tests', () => {
 
     it('should work with git initialized', async () => {
       // Initialize git first
-      initGit(ctx.projectDir);
+      initGit(ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
-      const result = await runScript('init-project', [], ctx.projectDir);
+      const result = await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       // FIX 6: Verify script exited successfully
       expect(result.exitCode).toBe(0);
@@ -123,7 +123,7 @@ describe('Project Initialization Tests', () => {
     });
 
     it('should not modify root CLAUDE.md', async () => {
-      await runScript('init-project', [], ctx.projectDir);
+      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       // Verify root CLAUDE.md unchanged
       const rootContent = readFile(join(ctx.projectDir, 'CLAUDE.md'));
@@ -153,7 +153,7 @@ describe('Project Initialization Tests', () => {
       const defaultTaskPath = join(ctx.projectDir, '.claude', 'tasks', 'default', 'CLAUDE.md');
       expect(fileExists(defaultTaskPath)).toBe(false);
 
-      const result = await runScript('init-project', [], ctx.projectDir);
+      const result = await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       // FIX 8: Verify script exited successfully
       expect(result.exitCode).toBe(0);
@@ -195,14 +195,14 @@ describe('Project Initialization Tests', () => {
     // Fix 4: Capture content after first run and verify identity after second run
     it('should succeed on both initializations', async () => {
       // First init
-      const result1 = await runScript('init-project', [], ctx.projectDir);
+      const result1 = await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       expect(result1.exitCode).toBe(0);
 
       // Capture .claude/CLAUDE.md content after first init
       const contentAfterFirst = readFile(join(ctx.projectDir, '.claude', 'CLAUDE.md'));
 
       // Second init should not error
-      const result2 = await runScript('init-project', [], ctx.projectDir);
+      const result2 = await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       expect(result2.exitCode).toBe(0);
 
       // T-INIT-4: file contents must be identical between runs
@@ -212,10 +212,10 @@ describe('Project Initialization Tests', () => {
 
     // Fix 5: Add content identity check
     it('should not create duplicate directories', async () => {
-      await runScript('init-project', [], ctx.projectDir);
+      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       const contentAfterFirst = readFile(join(ctx.projectDir, '.claude', 'CLAUDE.md'));
 
-      await runScript('init-project', [], ctx.projectDir);
+      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       // FIX: .claude/CLAUDE.md must exist after second run
       expect(fileExists(join(ctx.projectDir, '.claude', 'CLAUDE.md'))).toBe(true);
@@ -273,7 +273,7 @@ describe('Project Initialization Tests', () => {
     });
 
     it('should preserve existing .claude/ content', async () => {
-      await runScript('init-project', [], ctx.projectDir);
+      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       // Verify existing content preserved
       const existingPath = join(ctx.projectDir, '.claude', 'existing-file.txt');
@@ -282,12 +282,63 @@ describe('Project Initialization Tests', () => {
     });
 
     it('should still create missing initialization files', async () => {
-      await runScript('init-project', [], ctx.projectDir);
+      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       // Verify initialization files created
       expect(fileExists(join(ctx.projectDir, '.claude', '.gitignore'))).toBe(true);
       expect(fileExists(join(ctx.projectDir, '.claude', 'tasks', 'default', 'CLAUDE.md'))).toBe(true);
     });
+  });
+
+  // ---------------------------------------------------------------------------
+  // T-INIT-6: prod-mgmt/risk-acceptances.md created with template content
+  // ---------------------------------------------------------------------------
+  describe('T-INIT-6: prod-mgmt directory created with risk-acceptances.md', () => {
+    it('should create prod-mgmt/risk-acceptances.md containing DISPOSITION and EXPIRY', async () => {
+      const result = await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      expect(result.exitCode).toBe(0);
+
+      const riskPath = join(ctx.projectDir, 'prod-mgmt', 'risk-acceptances.md');
+      expect(fileExists(riskPath)).toBe(true);
+
+      const content = readFile(riskPath);
+      expect(content).toContain('DISPOSITION');
+      expect(content).toContain('EXPIRY');
+    });
+
+    it('should contain RA_ID in risk-acceptances.md (T-PRD-3 companion)', async () => {
+      const result = await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      expect(result.exitCode).toBe(0);
+
+      const riskPath = join(ctx.projectDir, 'prod-mgmt', 'risk-acceptances.md');
+      expect(fileExists(riskPath)).toBe(true);
+      expect(readFile(riskPath)).toContain('RA_ID');
+    });
+
+    it('should be idempotent — risk-acceptances.md not overwritten on second init', async () => {
+      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      const riskPath = join(ctx.projectDir, 'prod-mgmt', 'risk-acceptances.md');
+      const contentAfterFirst = readFile(riskPath);
+
+      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      const contentAfterSecond = readFile(riskPath);
+      expect(contentAfterSecond).toBe(contentAfterFirst);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // T-INIT-7/8/9: project-scope skill install (requires --project-install flag)
+  // ---------------------------------------------------------------------------
+  describe('T-INIT-7: project-scope install creates namespaced skill directories', () => {
+    it.todo('--project-install creates .claude/skills/context-curator/ with task/, context-save/, context-list/, context-manage/, context-promote/ — each with SKILL.md and scripts/');
+  });
+
+  describe('T-INIT-8: project-scope skill takes precedence over user-scope skill', () => {
+    it.todo('After --project-install, /context-save resolves to .claude/skills/context-curator/context-save/SKILL.md, not ~/.claude/skills/.../context-save/SKILL.md');
+  });
+
+  describe('T-INIT-9: cloned repo has commands without running install.sh', () => {
+    it.todo('A fresh clone with .claude/skills/context-curator/ committed and no ~/.claude/skills/ directory recognizes /task as a valid command');
   });
 
   describe('Test 1.5: Multiple Projects Initialization', () => {
@@ -301,14 +352,14 @@ describe('Project Initialization Tests', () => {
         writeFileSync(join(ctx2.projectDir, 'CLAUDE.md'), '# Project 2\n');
 
         await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
-        await runScript('init-project', [], ctx2.projectDir, { CLAUDE_HOME: ctx.personalBase });
+        await runScript('init-project', [], ctx2.projectDir, { CLAUDE_HOME: ctx2.personalBase });
 
         // Verify both have independent .claude/ directories
         expect(fileExists(join(ctx.projectDir, '.claude', 'tasks', 'default'))).toBe(true);
         expect(fileExists(join(ctx2.projectDir, '.claude', 'tasks', 'default'))).toBe(true);
 
         // Verify personal storage paths are different
-        const sanitized1 = sanitizePath(ctx.projectDir);
+        const sanitized1 = sanitizePath(ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
         const sanitized2 = sanitizePath(ctx2.projectDir);
         expect(sanitized1).not.toBe(sanitized2);
 

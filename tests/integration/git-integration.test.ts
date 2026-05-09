@@ -36,7 +36,7 @@ describe('Git Integration Tests (Group 11)', () => {
   beforeEach(async () => {
     ctx = createTestEnvironment('git');
     writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test Project\n');
-    initGit(ctx.projectDir);
+    initGit(ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
     gitAdd(ctx.projectDir, 'CLAUDE.md');
     gitCommit(ctx.projectDir, 'Initial commit');
   });
@@ -47,14 +47,14 @@ describe('Git Integration Tests (Group 11)', () => {
 
   describe('Test 11.1: .gitignore Setup', () => {
     it('should create .gitignore during initialization', async () => {
-      await runScript('init-project', [], ctx.projectDir);
+      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const gitignorePath = join(ctx.projectDir, '.claude', '.gitignore');
       expect(fileExists(gitignorePath)).toBe(true);
     });
 
     it('should include CLAUDE.md in .gitignore', async () => {
-      await runScript('init-project', [], ctx.projectDir);
+      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const gitignorePath = join(ctx.projectDir, '.claude', '.gitignore');
       const content = readFile(gitignorePath);
@@ -64,21 +64,21 @@ describe('Git Integration Tests (Group 11)', () => {
 
   describe('Test 11.2: Task Files Tracked by Git', () => {
     beforeEach(async () => {
-      await runScript('init-project', [], ctx.projectDir);
+      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
     });
 
     it('should allow task CLAUDE.md to be tracked', async () => {
-      await runScript('task-create', ['auth-work', 'Auth task'], ctx.projectDir);
+      await runScript('task-create', ['auth-work', 'Auth task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const taskMdPath = '.claude/tasks/auth-work/CLAUDE.md';
       gitAdd(ctx.projectDir, taskMdPath);
 
-      const status = getGitStatus(ctx.projectDir);
+      const status = getGitStatus(ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       expect(status).toContain(taskMdPath);
     });
 
     it('should allow task directory to be committed', async () => {
-      await runScript('task-create', ['auth-work', 'Auth task'], ctx.projectDir);
+      await runScript('task-create', ['auth-work', 'Auth task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       gitAdd(ctx.projectDir, '.claude/tasks/');
       
@@ -91,8 +91,8 @@ describe('Git Integration Tests (Group 11)', () => {
 
   describe('Test 11.3: Golden Contexts Tracked', () => {
     beforeEach(async () => {
-      await runScript('init-project', [], ctx.projectDir);
-      await runScript('task-create', ['task-1', 'Test task'], ctx.projectDir);
+      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      await runScript('task-create', ['task-1', 'Test task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
     });
 
     it('should allow golden context to be tracked', async () => {
@@ -102,7 +102,7 @@ describe('Git Integration Tests (Group 11)', () => {
 
       gitAdd(ctx.projectDir, '.claude/tasks/task-1/contexts/golden-ctx.jsonl');
 
-      const status = getGitStatus(ctx.projectDir);
+      const status = getGitStatus(ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       expect(status).toContain('golden-ctx.jsonl');
     });
 
@@ -120,8 +120,8 @@ describe('Git Integration Tests (Group 11)', () => {
 
   describe('Test 11.4: Personal Storage Never Committed', () => {
     beforeEach(async () => {
-      await runScript('init-project', [], ctx.projectDir);
-      await runScript('task-create', ['task-1', 'Test task'], ctx.projectDir);
+      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      await runScript('task-create', ['task-1', 'Test task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
     });
 
     // Fix 35: Replace with structural isolation check (personal storage is outside projectDir)
@@ -145,7 +145,7 @@ describe('Git Integration Tests (Group 11)', () => {
 
       // Stage everything inside project dir — personal files must not appear
       gitAdd(ctx.projectDir, '.');
-      const status = getGitStatus(ctx.projectDir);
+      const status = getGitStatus(ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       const statusLines = status.split('\n').filter(l => l.trim());
       statusLines.forEach(line => {
         expect(line).not.toContain('my-work');
@@ -157,7 +157,7 @@ describe('Git Integration Tests (Group 11)', () => {
   describe('Test 11.5: No Git Conflicts from Context Operations', () => {
     // Fix 36: Replace vacuous conflict-marker test with meaningful cross-isolation test
     it('should isolate task files between two independent developer workspaces', async () => {
-      await runScript('init-project', [], ctx.projectDir);
+      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const ctx2 = createTestEnvironment('git2');
       try {
@@ -165,17 +165,17 @@ describe('Git Integration Tests (Group 11)', () => {
         initGit(ctx2.projectDir);
         gitAdd(ctx2.projectDir, 'CLAUDE.md');
         gitCommit(ctx2.projectDir, 'Initial commit');
-        await runScript('init-project', [], ctx2.projectDir);
+        await runScript('init-project', [], ctx2.projectDir, { CLAUDE_HOME: ctx2.personalBase });
 
         // Dev 1: create task and golden context
-        await runScript('task-create', ['shared-task', 'Shared work'], ctx.projectDir);
+        await runScript('task-create', ['shared-task', 'Shared work'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
         const goldenDir1 = join(ctx.projectDir, '.claude', 'tasks', 'shared-task', 'contexts');
         createJsonl(join(goldenDir1, 'shared-ctx.jsonl'), SMALL_CONTEXT);
         gitAdd(ctx.projectDir, '.claude/');
         gitCommit(ctx.projectDir, 'Add shared task');
 
         // Dev 2: create different task
-        await runScript('task-create', ['different-task', 'Different work'], ctx2.projectDir);
+        await runScript('task-create', ['different-task', 'Different work'], ctx2.projectDir, { CLAUDE_HOME: ctx2.personalBase });
         const goldenDir2 = join(ctx2.projectDir, '.claude', 'tasks', 'different-task', 'contexts');
         createJsonl(join(goldenDir2, 'other-ctx.jsonl'), SMALL_CONTEXT);
         gitAdd(ctx2.projectDir, '.claude/');
@@ -202,11 +202,11 @@ describe('Git Integration Tests (Group 11)', () => {
 
   describe('Test 11.6: Pull Golden Context and Load', () => {
     beforeEach(async () => {
-      await runScript('init-project', [], ctx.projectDir);
+      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
     });
 
     it('should recognize golden contexts after they exist', async () => {
-      await runScript('task-create', ['shared-task', 'Shared work'], ctx.projectDir);
+      await runScript('task-create', ['shared-task', 'Shared work'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       const goldenDir = join(ctx.projectDir, '.claude', 'tasks', 'shared-task', 'contexts');
       createJsonl(join(goldenDir, 'shared-ctx.jsonl'), SMALL_CONTEXT);
 
@@ -219,12 +219,12 @@ describe('Git Integration Tests (Group 11)', () => {
 
   describe('Test 11.7: .claude/CLAUDE.md Not in Git Status', () => {
     beforeEach(async () => {
-      await runScript('init-project', [], ctx.projectDir);
+      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
     });
 
     it('should not show .claude/CLAUDE.md in status', async () => {
-      await runScript('task-create', ['task-1', 'Task 1'], ctx.projectDir);
-      await runScript('update-import', ['task-1'], ctx.projectDir);
+      await runScript('task-create', ['task-1', 'Task 1'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      await runScript('update-import', ['task-1'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       // Commit the .gitignore so git-ignore behavior is active
       gitAdd(ctx.projectDir, '.claude/.gitignore');
@@ -235,12 +235,12 @@ describe('Git Integration Tests (Group 11)', () => {
       expect(fileExists(workingMdPath)).toBe(true);
       writeFileSync(workingMdPath, '# Modified\n@import ./tasks/task-1/CLAUDE.md\n');
 
-      const status = getGitStatus(ctx.projectDir);
+      const status = getGitStatus(ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       expect(status).not.toContain('.claude/CLAUDE.md');
     });
 
     it('should be ignored by git check-ignore', async () => {
-      await runScript('task-create', ['task-1', 'Task 1'], ctx.projectDir);
+      await runScript('task-create', ['task-1', 'Task 1'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       // Must commit the .gitignore for git check-ignore to activate
       gitAdd(ctx.projectDir, '.claude/.gitignore');
@@ -261,7 +261,7 @@ describe('T-GIT-1 and T-GIT-2: git ignore and porcelain status checks', () => {
   beforeEach(async () => {
     ctx = createTestEnvironment('tgit');
     writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test Project\n');
-    initGit(ctx.projectDir);
+    initGit(ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
     gitAdd(ctx.projectDir, 'CLAUDE.md');
     gitCommit(ctx.projectDir, 'Initial commit');
     await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
@@ -300,7 +300,7 @@ describe('T-GIT-1 and T-GIT-2: git ignore and porcelain status checks', () => {
     gitAdd(ctx.projectDir, '.');
 
     // T-GIT-2: git status --porcelain must not list any path containing the personal storage prefix (~/.claude/projects/...)
-    const status = getGitStatus(ctx.projectDir);
+    const status = getGitStatus(ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
     const statusLines = status.split('\n').filter((l: string) => l.trim().length > 0);
 
     // Personal base is outside the project dir; none of its paths should appear in git status

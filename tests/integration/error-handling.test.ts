@@ -37,7 +37,7 @@ describe('Error Handling Tests (Group 13)', () => {
     // T-ERR-1: Any script run without init exits non-zero with output containing "initialized" or "init" — not a stack trace
     it('T-ERR-1: should handle missing .claude directory gracefully', async () => {
       // Don't run init-project
-      const result = await runScript('task-create', ['some-task', 'desc'], ctx.projectDir);
+      const result = await runScript('task-create', ['some-task', 'desc'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       expect(result.exitCode).not.toBe(0);
       const output = result.stdout.toLowerCase() + result.stderr.toLowerCase();
@@ -49,7 +49,7 @@ describe('Error Handling Tests (Group 13)', () => {
     });
 
     it('should suggest running init', async () => {
-      const result = await runScript('update-import', ['some-task'], ctx.projectDir);
+      const result = await runScript('update-import', ['some-task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const output = result.stdout.toLowerCase() + result.stderr.toLowerCase();
       expect(result.exitCode).not.toBe(0);
@@ -59,18 +59,18 @@ describe('Error Handling Tests (Group 13)', () => {
 
   describe('Test 13.2: Delete .claude/ Mid-Operation', () => {
     beforeEach(async () => {
-      await runScript('init-project', [], ctx.projectDir);
+      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
     });
 
     it('should handle missing .claude directory on task operations', async () => {
       // Create task first
-      await runScript('task-create', ['task-1', 'Task'], ctx.projectDir);
+      await runScript('task-create', ['task-1', 'Task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       
       // Delete .claude directory
       rmSync(join(ctx.projectDir, '.claude'), { recursive: true, force: true });
 
       // Try to use commands
-      const result = await runScript('task-list', ['task-1'], ctx.projectDir);
+      const result = await runScript('task-list', ['task-1'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       // Should handle gracefully
       expect(result.exitCode).not.toBe(0);
@@ -80,8 +80,8 @@ describe('Error Handling Tests (Group 13)', () => {
 
   describe('Test 13.3: Corrupt JSONL Context File', () => {
     beforeEach(async () => {
-      await runScript('init-project', [], ctx.projectDir);
-      await runScript('task-create', ['task-1', 'Task'], ctx.projectDir);
+      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      await runScript('task-create', ['task-1', 'Task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
     });
 
     // T-ERR-2: scan-secrets on malformed JSONL exits non-zero (not 0)
@@ -122,8 +122,8 @@ describe('Error Handling Tests (Group 13)', () => {
 
   describe('Test 13.5: Invalid JSON in Metadata', () => {
     beforeEach(async () => {
-      await runScript('init-project', [], ctx.projectDir);
-      await runScript('task-create', ['task-1', 'Task'], ctx.projectDir);
+      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      await runScript('task-create', ['task-1', 'Task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
     });
 
     it('should handle invalid metadata gracefully', async () => {
@@ -144,7 +144,7 @@ describe('Error Handling Tests (Group 13)', () => {
 
   describe('Test 13.6: Permission Denied Errors', () => {
     beforeEach(async () => {
-      await runScript('init-project', [], ctx.projectDir);
+      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
     });
 
     it('should handle permission errors gracefully', async () => {
@@ -162,7 +162,7 @@ describe('Error Handling Tests (Group 13)', () => {
       }
 
       try {
-        const result = await runScript('task-create', ['new-task', 'desc'], ctx.projectDir);
+        const result = await runScript('task-create', ['new-task', 'desc'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
         const output = result.stdout.toLowerCase() + result.stderr.toLowerCase();
         expect(result.exitCode).not.toBe(0);
@@ -180,7 +180,7 @@ describe('Error Handling Tests (Group 13)', () => {
 
   describe('Test: Input Validation', () => {
     beforeEach(async () => {
-      await runScript('init-project', [], ctx.projectDir);
+      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
     });
 
     it('should validate task ID format', async () => {
@@ -194,7 +194,7 @@ describe('Error Handling Tests (Group 13)', () => {
       ];
 
       for (const id of invalidIds) {
-        const result = await runScript('task-create', [id, 'desc'], ctx.projectDir);
+        const result = await runScript('task-create', [id, 'desc'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
         
         // Should reject invalid IDs
         expect(result.exitCode).not.toBe(0);
@@ -203,7 +203,7 @@ describe('Error Handling Tests (Group 13)', () => {
     });
 
     it('should validate context name format', async () => {
-      await runScript('task-create', ['valid-task', 'desc'], ctx.projectDir);
+      await runScript('task-create', ['valid-task', 'desc'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const invalidNames = [
         'Context With Spaces',
@@ -226,7 +226,7 @@ describe('Error Handling Tests (Group 13)', () => {
 
   describe('Test: Graceful Degradation', () => {
     it('should provide helpful error for non-existent task', async () => {
-      await runScript('init-project', [], ctx.projectDir);
+      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const result = await runScript('context-list', ['nonexistent-task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
@@ -236,7 +236,7 @@ describe('Error Handling Tests (Group 13)', () => {
     });
 
     it('should provide helpful error for non-existent context', async () => {
-      await runScript('init-project', [], ctx.projectDir);
+      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       await runScript('task-create', ['task-1', 'Task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const result = await runScript('promote-context', ['task-1', 'nonexistent'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
@@ -286,7 +286,7 @@ describe('Cross-Platform Compatibility Tests (Group 12)', () => {
 
   describe('Test 12.6: Context File Format Consistency', () => {
     beforeEach(async () => {
-      await runScript('init-project', [], ctx.projectDir);
+      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       await runScript('task-create', ['task-1', 'Task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
     });
 
@@ -312,7 +312,7 @@ describe('Cross-Platform Compatibility Tests (Group 12)', () => {
 
   describe('Test 12.7: Consistent Line Endings in Generated Files', () => {
     it('should use LF line endings in generated files', async () => {
-      await runScript('init-project', [], ctx.projectDir);
+      await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       await runScript('task-create', ['task-1', 'Task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const filesToCheck = [

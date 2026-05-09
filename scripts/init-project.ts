@@ -139,6 +139,25 @@ Add your project-wide guidelines here:
   );
   console.log('✓ Created config file');
   
+  // 11. Create prod-mgmt/risk-acceptances.md (idempotent)
+  const prodMgmtDir = path.join(cwd, 'prod-mgmt');
+  const riskAcceptancesPath = path.join(prodMgmtDir, 'risk-acceptances.md');
+  try {
+    await fs.access(riskAcceptancesPath);
+    console.log('✓ prod-mgmt/risk-acceptances.md already exists');
+  } catch {
+    await fs.mkdir(prodMgmtDir, { recursive: true });
+    await fs.writeFile(riskAcceptancesPath, `# Risk Acceptances
+
+Track accepted security/design risks here.
+
+| RA_ID | Description | DISPOSITION | EXPIRY | Owner |
+|-------|-------------|-------------|--------|-------|
+| RA-TEMPLATE | Example risk entry | accepted | 2099-01-01 | @team |
+`);
+    console.log('✓ Created prod-mgmt/risk-acceptances.md');
+  }
+
   // Done!
   console.log('\n✓ Initialization complete!\n');
   console.log('Two-file system set up:');

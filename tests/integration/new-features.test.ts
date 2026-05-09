@@ -33,8 +33,8 @@ describe('T-CTX-5: 100KB cap on promote-context', () => {
   beforeEach(async () => {
     ctx = createTestEnvironment('ctx5');
     writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test\n');
-    await runScript('init-project', [], ctx.projectDir);
-    await runScript('task-create', ['ctx5-task', 'Promote cap test'], ctx.projectDir);
+    await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    await runScript('task-create', ['ctx5-task', 'Promote cap test'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
   });
 
   afterEach(() => ctx.cleanup());
@@ -84,8 +84,8 @@ describe('T-CTX-6: Overwrite protection', () => {
   beforeEach(async () => {
     ctx = createTestEnvironment('ctx6');
     writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test\n');
-    await runScript('init-project', [], ctx.projectDir);
-    await runScript('task-create', ['ctx6-task', 'Overwrite test'], ctx.projectDir);
+    await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    await runScript('task-create', ['ctx6-task', 'Overwrite test'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
   });
 
   afterEach(() => ctx.cleanup());
@@ -139,8 +139,8 @@ describe('T-MEM-1: MEMORY.md updated after save-context', () => {
   beforeEach(async () => {
     ctx = createTestEnvironment('mem1');
     writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test\n');
-    await runScript('init-project', [], ctx.projectDir);
-    await runScript('task-create', ['mem1-task', 'Memory test'], ctx.projectDir);
+    await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    await runScript('task-create', ['mem1-task', 'Memory test'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
   });
 
   afterEach(() => ctx.cleanup());

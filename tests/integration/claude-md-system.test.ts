@@ -33,10 +33,10 @@ describe('Two-File CLAUDE.md System Tests (Group 8)', () => {
   beforeEach(async () => {
     ctx = createTestEnvironment('claudemd');
     writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), originalContent);
-    initGit(ctx.projectDir);
+    initGit(ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
     gitAdd(ctx.projectDir, 'CLAUDE.md');
     gitCommit(ctx.projectDir, 'Initial commit');
-    await runScript('init-project', [], ctx.projectDir);
+    await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
   });
 
   afterEach(() => {
@@ -50,32 +50,32 @@ describe('Two-File CLAUDE.md System Tests (Group 8)', () => {
     });
 
     it('should not modify root CLAUDE.md during task creation', async () => {
-      await runScript('task-create', ['task-1', 'First task'], ctx.projectDir);
-      await runScript('task-create', ['task-2', 'Second task'], ctx.projectDir);
+      await runScript('task-create', ['task-1', 'First task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      await runScript('task-create', ['task-2', 'Second task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const rootContent = readFile(join(ctx.projectDir, 'CLAUDE.md'));
       expect(rootContent).toBe(originalContent);
     });
 
     it('should not modify root CLAUDE.md during task switching', async () => {
-      await runScript('task-create', ['task-1', 'First task'], ctx.projectDir);
-      await runScript('task-create', ['task-2', 'Second task'], ctx.projectDir);
+      await runScript('task-create', ['task-1', 'First task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      await runScript('task-create', ['task-2', 'Second task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       
-      await runScript('update-import', ['task-1'], ctx.projectDir);
-      await runScript('update-import', ['task-2'], ctx.projectDir);
-      await runScript('update-import', ['default'], ctx.projectDir);
+      await runScript('update-import', ['task-1'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      await runScript('update-import', ['task-2'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      await runScript('update-import', ['default'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const rootContent = readFile(join(ctx.projectDir, 'CLAUDE.md'));
       expect(rootContent).toBe(originalContent);
     });
 
     it('should show no git changes to root CLAUDE.md', async () => {
-      const tcResult = await runScript('task-create', ['task-1', 'First task'], ctx.projectDir);
+      const tcResult = await runScript('task-create', ['task-1', 'First task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       expect(tcResult.exitCode).toBe(0);
-      const uiResult = await runScript('update-import', ['task-1'], ctx.projectDir);
+      const uiResult = await runScript('update-import', ['task-1'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       expect(uiResult.exitCode).toBe(0);
 
-      const gitStatus = getGitStatus(ctx.projectDir);
+      const gitStatus = getGitStatus(ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       // Root CLAUDE.md must NOT appear in git status (it was committed, not modified)
       // .claude/CLAUDE.md is git-ignored so won't appear either
       const rootModified = gitStatus.split('\n').some(line => 
@@ -97,21 +97,21 @@ describe('Two-File CLAUDE.md System Tests (Group 8)', () => {
     });
 
     it('should update on task switch', async () => {
-      await runScript('task-create', ['task-1', 'Task 1'], ctx.projectDir);
+      await runScript('task-create', ['task-1', 'Task 1'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       const workingMdPath = join(ctx.projectDir, '.claude', 'CLAUDE.md');
 
-      const result = await runScript('update-import', ['task-1'], ctx.projectDir);
+      const result = await runScript('update-import', ['task-1'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       expect(result.exitCode).toBe(0);
       const content = readFile(workingMdPath);
       expect(content).toMatch(/@import\s+\S+task-1\S+CLAUDE\.md/);
     });
 
     it('should contain exactly one @import after multiple switches', async () => {
-      await runScript('task-create', ['task-1', 'Task 1'], ctx.projectDir);
-      await runScript('task-create', ['task-2', 'Task 2'], ctx.projectDir);
+      await runScript('task-create', ['task-1', 'Task 1'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      await runScript('task-create', ['task-2', 'Task 2'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
-      await runScript('update-import', ['task-1'], ctx.projectDir);
-      await runScript('update-import', ['task-2'], ctx.projectDir);
+      await runScript('update-import', ['task-1'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      await runScript('update-import', ['task-2'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const workingMdPath = join(ctx.projectDir, '.claude', 'CLAUDE.md');
       const content = readFile(workingMdPath);
@@ -139,8 +139,8 @@ describe('Two-File CLAUDE.md System Tests (Group 8)', () => {
     });
 
     it('should not appear in git status', async () => {
-      await runScript('task-create', ['task-1', 'Task 1'], ctx.projectDir);
-      await runScript('update-import', ['task-1'], ctx.projectDir);
+      await runScript('task-create', ['task-1', 'Task 1'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      await runScript('update-import', ['task-1'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       // Commit the gitignore first so git respects it
       gitAdd(ctx.projectDir, '.claude/.gitignore');
@@ -149,7 +149,7 @@ describe('Two-File CLAUDE.md System Tests (Group 8)', () => {
       // Stage other changes
       gitAdd(ctx.projectDir, '.claude/');
 
-      const gitStatus = getGitStatus(ctx.projectDir);
+      const gitStatus = getGitStatus(ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       // .claude/CLAUDE.md should not be staged
       expect(gitStatus.includes('.claude/CLAUDE.md')).toBe(false);
     });
@@ -157,12 +157,12 @@ describe('Two-File CLAUDE.md System Tests (Group 8)', () => {
 
   describe('Test 8.4: Import Path Updates on Task Switch', () => {
     beforeEach(async () => {
-      await runScript('task-create', ['auth', 'Auth task'], ctx.projectDir);
-      await runScript('task-create', ['payment', 'Payment task'], ctx.projectDir);
+      await runScript('task-create', ['auth', 'Auth task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      await runScript('task-create', ['payment', 'Payment task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
     });
 
     it('should update import to auth task', async () => {
-      const result = await runScript('update-import', ['auth'], ctx.projectDir);
+      const result = await runScript('update-import', ['auth'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       expect(result.exitCode).toBe(0);
 
       const workingMdPath = join(ctx.projectDir, '.claude', 'CLAUDE.md');
@@ -172,7 +172,7 @@ describe('Two-File CLAUDE.md System Tests (Group 8)', () => {
     });
 
     it('should update import to payment task', async () => {
-      const result = await runScript('update-import', ['payment'], ctx.projectDir);
+      const result = await runScript('update-import', ['payment'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       expect(result.exitCode).toBe(0);
 
       const workingMdPath = join(ctx.projectDir, '.claude', 'CLAUDE.md');
@@ -182,8 +182,8 @@ describe('Two-File CLAUDE.md System Tests (Group 8)', () => {
     });
 
     it('should update import to default task', async () => {
-      await runScript('update-import', ['auth'], ctx.projectDir);
-      const result = await runScript('update-import', ['default'], ctx.projectDir);
+      await runScript('update-import', ['auth'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      const result = await runScript('update-import', ['default'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
       expect(result.exitCode).toBe(0);
 
       const workingMdPath = join(ctx.projectDir, '.claude', 'CLAUDE.md');
@@ -199,8 +199,8 @@ describe('Two-File CLAUDE.md System Tests (Group 8)', () => {
       // We verify OUR side of the contract: that .claude/CLAUDE.md has the correct
       // @import path before /resume would fire. Claude Code's side (re-reading on resume)
       // is covered by the manual smoke test T-RESUME-MANUAL.
-      await runScript('task-create', ['oauth-work', 'OAuth focus'], ctx.projectDir);
-      await runScript('update-import', ['oauth-work'], ctx.projectDir);
+      await runScript('task-create', ['oauth-work', 'OAuth focus'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      await runScript('update-import', ['oauth-work'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       const workingMdPath = join(ctx.projectDir, '.claude', 'CLAUDE.md');
       expect(fileExists(workingMdPath)).toBe(true);
@@ -226,15 +226,15 @@ describe('Two-File CLAUDE.md System Tests (Group 8)', () => {
       try {
         // Setup second "developer's" workspace
         writeFileSync(join(ctx2.projectDir, 'CLAUDE.md'), originalContent);
-        await runScript('init-project', [], ctx2.projectDir);
-        
+        await runScript('init-project', [], ctx2.projectDir, { CLAUDE_HOME: ctx2.personalBase });
+
         // Dev 1 creates and switches to auth task
-        await runScript('task-create', ['auth-work', 'Auth'], ctx.projectDir);
-        await runScript('update-import', ['auth-work'], ctx.projectDir);
+        await runScript('task-create', ['auth-work', 'Auth'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+        await runScript('update-import', ['auth-work'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
         // Dev 2 creates and switches to payment task
-        await runScript('task-create', ['payment-work', 'Payment'], ctx2.projectDir);
-        await runScript('update-import', ['payment-work'], ctx2.projectDir);
+        await runScript('task-create', ['payment-work', 'Payment'], ctx2.projectDir, { CLAUDE_HOME: ctx2.personalBase });
+        await runScript('update-import', ['payment-work'], ctx2.projectDir, { CLAUDE_HOME: ctx2.personalBase });
 
         // Verify different .claude/CLAUDE.md content
         const dev1Working = readFile(join(ctx.projectDir, '.claude', 'CLAUDE.md'));

@@ -1,6 +1,6 @@
 # Context Curator Integration Test Plan
 
-**Version:** 3.0  
+**Version:** 3.1  
 **Last Updated:** May 9, 2026  
 **Purpose:** Detailed integration test specifications for context-curator
 
@@ -4160,8 +4160,6 @@ def test_state_file_write_atomic():
 
 ## 22. User Documentation System Tests · F-DOC
 
-> **⚠ T-XXX Code Collision in PRD:** The PRD assigns T-DOC-1 through T-DOC-6 to both F-DOC-SKILLS (section 18 of this plan) and F-DOC. This violates the uniqueness rule ("T-XXX codes are assigned once and never reused"). The PRD must be corrected: F-DOC should use codes T-UDOC-1 through T-UDOC-8. This test plan uses T-UDOC-* for F-DOC until the PRD is corrected.
-
 **Acceptance Criteria:**
 
 | AC ID | Criterion |
@@ -4393,8 +4391,6 @@ This test plan provides comprehensive coverage of context-curator functionality 
 - ✅ PostCompact task re-injection hook (F-HOOK-POST) — T-HOOK-POST-1 through T-HOOK-POST-3
 - ✅ Context monitor — status line, threshold warnings, cost estimation (F-CTX-MONITOR) — T-MON-1 through T-MON-13
 - ✅ User documentation system (F-DOC) — T-UDOC-1 through T-UDOC-8
-
-> **⚠ PRD Fix Required:** F-DOC in the PRD v20.0 assigns T-DOC-1 through T-DOC-8, colliding with F-DOC-SKILLS T-DOC-1 through T-DOC-6. The F-DOC codes must be renamed to T-UDOC-1 through T-UDOC-8 in the PRD before the next adversary run.
 
 **Next Steps:**
 1. Implement test utilities and base classes
