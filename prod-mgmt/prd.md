@@ -1,6 +1,6 @@
 # Product Requirements Document: Claude Code Context Curator
 
-**Version:** 19.0
+**Version:** 20.0
 **Last Updated:** May 9, 2026
 **Status:** Ready for Implementation
 
@@ -21,6 +21,7 @@ Working on large, legacy codebases requires significant warm-up time before Clau
 - **No git conflicts** = Two-file CLAUDE.md system keeps projects clean
 - **Hooks integration** = Automatic context protection on compaction events
 - **PRD-driven development** = Structured upstream quality that makes AI-generated code trustworthy
+- **User documentation as feedback loop** = Markdown-first docs generated after every PRD update; shared with users before code is written
 
 **Key Innovation:**
 Claude Code's `/resume` re-reads CLAUDE.md from disk, enabling us to swap task-specific instructions at resume-time without polluting the project directory or causing git conflicts. Skills carry forward through compaction, and hooks fire deterministically — together these enable automatic context protection that doesn't require manual intervention.
@@ -204,6 +205,19 @@ my-project/
 │   ├── risk-acceptances.md            # ← Human-reviewed risk acceptances
 │   └── test-inventory.md             # ← Adversary output (not committed)
 │
+├── docs/                              # ← User documentation (committed)
+│   ├── index.html                     # ← Entry point; built from toc + intro
+│   ├── feature-section-map.md         # ← Feature → product section mapping
+│   ├── markdown/                      # ← Source of truth; always updated first
+│   │   ├── toc.md
+│   │   ├── introduction.md
+│   │   ├── glossary.md
+│   │   ├── permuted-index.md
+│   │   └── [product-section].md
+│   └── html/                          # ← Generated; never hand-edited
+│       ├── style.md                   # ← Style guide (typeface, color, a11y)
+│       └── [product-section].html
+│
 ├── src/
 ├── tests/
 └── package.json
@@ -223,7 +237,9 @@ my-project/
 │       │   ├── prd/SKILL.md           # /prd
 │       │   ├── test-plan/SKILL.md     # /test-plan
 │       │   ├── dev-plan/SKILL.md      # /dev-plan
-│       │   └── test-inventory/SKILL.md # /test-inventory (adversary only)
+│       │   ├── test-inventory/SKILL.md # /test-inventory (adversary only)
+│       │   ├── docs-markdown/SKILL.md # /docs-markdown — markdown base update
+│       │   └── docs-html/SKILL.md     # /docs-html — HTML generation
 │       ├── session/                   # Session management skills
 │       │   ├── task/SKILL.md          # /task
 │       │   ├── context-save/SKILL.md  # /context-save
@@ -1132,7 +1148,7 @@ The first bundled specialized task. A LoD2 red-team operator that independently 
 
 ### F-PRD · PRD-Driven Development
 
-Establishes the PRD as the authoritative source of truth for the project, with a structured artifact triad — PRD, dev plan, and test plan — that together carry a feature from specification through implementation and verification. The LoD2 adversary challenges the triad as a whole. See `prd-driven-development.md` for the full process description.
+Establishes the PRD as the authoritative source of truth for the project, with a structured artifact triad — PRD, dev plan, and test plan — that together carry a feature from specification through implementation and verification. Immediately after every PRD update, user documentation is generated and shared (see F-DOC). The LoD2 adversary challenges the triad as a whole. See `prd-driven-development.md` for the full process description.
 
 **The artifact triad:**
 
@@ -1184,6 +1200,67 @@ Establishes the PRD as the authoritative source of truth for the project, with a
 | T-PRD-3 | `prod-mgmt/risk-acceptances.md` contains the strings "DISPOSITION", "EXPIRY", and "RA_ID" after `task-init` |
 | T-PRD-4 | `prod-mgmt/test-inventory.md` (when it exists) references only T-XXX codes that appear in the current PRD; orphaned T-XXX codes in the test inventory are a FAIL |
 
+### F-DOC · User Documentation System
+
+Establishes a markdown-first, HTML-derived documentation workflow that runs immediately after every PRD update. Documentation is shared with users before code is written, creating a feedback loop that surfaces requirements mismatches at the cheapest possible point in the development cycle. The system generates two synchronized artifact sets: a base markdown set and an accessible, navigable HTML set. See `prd-driven-development.md` for the full rationale.
+
+**Design invariant:** The markdown set is always updated first. HTML is always derived from markdown. HTML files in `docs/html/` are never hand-edited.
+
+**Accessibility invariant:** All generated HTML complies with WCAG 2.1 AA. The animating principle is: *good design is accessible design.* Accessibility is not a post-generation check — it is a generation constraint.
+
+**The base markdown set:**
+
+| File | Purpose |
+|------|---------|
+| `docs/markdown/toc.md` | Table of contents; links to all product sections and glossary |
+| `docs/markdown/introduction.md` | Plain-language system overview; audience-facing, not spec-facing |
+| `docs/markdown/glossary.md` | All significant terms defined; linked from first occurrence in each page |
+| `docs/markdown/permuted-index.md` | Every term rotated to front for multi-angle lookup; regenerated by skill |
+| `docs/markdown/[section].md` | One file per product section; sections defined by designer-developer |
+
+**Product sections vs. features:**
+
+PRD features are atomic engineering specifications. Product sections are user-coherent topics. A single product section may cover multiple features; a complex feature may warrant its own section. The mapping is maintained in `docs/feature-section-map.md` and updated interactively by the `/docs-markdown` skill when new features are added.
+
+**Linking conventions:**
+
+- Every product section name linked on first mention in any page
+- Every feature name (not F-XXX code) linked on first mention to its product section
+- Every glossary term linked on first mention in each page (not on repeat mentions)
+- Internal links use relative paths
+
+**The HTML set:**
+
+Generated from markdown by `/docs-html`. Entry point is `docs/index.html` (rendered from `toc.md` + `introduction.md`). Every page includes consistent keyboard-accessible navigation. Style and a11y governed by `docs/html/style.md`.
+
+**`docs/html/style.md`:**
+
+A human-editable style guide that governs HTML generation. Specifies typeface choices, color palette with explicit contrast ratios, language register, and layout preferences. Read by `/docs-html` before generating any output. If absent or empty at first run, the skill generates sensible accessible defaults and reports them for review.
+
+**Expected Behaviors:**
+- `/docs-markdown` runs after every PRD update that introduces or changes user-facing behavior
+- `/docs-markdown` identifies changed features, prompts for product section assignments when needed, updates affected pages, regenerates permuted index
+- `/docs-html` reads `docs/html/style.md`, generates all HTML from markdown source, validates a11y of output
+- `/docs-html` reports any a11y issues found (non-blocking — HTML is still written — but clearly logged)
+- `docs/index.html` is the shareable entry point: contains introduction + TOC inline
+- All generated HTML pages include consistent navigation linking to all product sections and glossary
+- Navigation is keyboard-accessible and works on mobile viewports
+- If `style.md` is absent, `/docs-html` writes defaults and notifies the designer-developer
+- `docs/feature-section-map.md` is updated by the skill when new feature-to-section assignments are made
+
+**Acceptance Criteria:**
+
+| Test ID | Criterion |
+|---------|-----------|
+| T-DOC-1 | After `/docs-markdown` runs on a PRD with a new F-XXX feature not yet in `feature-section-map.md`, the skill prompts for a product section assignment; after assignment, `feature-section-map.md` contains a row for that F-XXX code |
+| T-DOC-2 | `docs/markdown/toc.md` contains a link to every product section page listed in `feature-section-map.md`; any section page without a TOC link is a FAIL |
+| T-DOC-3 | `docs/markdown/glossary.md` is non-empty after `/docs-markdown` runs on a PRD with defined Core Concepts; every term defined in Core Concepts appears in the glossary |
+| T-DOC-4 | After `/docs-html` runs, `docs/index.html` exists and its content contains the text of `introduction.md` and `toc.md`; file must not be empty |
+| T-DOC-5 | All generated HTML pages contain at least one `<nav>` element; `<nav>` contains links to at least the home page and glossary |
+| T-DOC-6 | Generated HTML heading hierarchy does not skip levels: no `<h3>` appears without a preceding `<h2>` on the same page; no `<h2>` appears without a preceding `<h1>` |
+| T-DOC-7 | When `docs/html/style.md` is absent at invocation time, `/docs-html` writes the file with non-empty content before generating any HTML; the written file contains the strings "color" and "typeface" or "font" |
+| T-DOC-8 | All `<img>` elements in generated HTML have a non-empty `alt` attribute |
+
 ---
 
 ## Skills Implementation
@@ -1221,8 +1298,14 @@ The same directory tree is used at both scopes (user or project). Skills are nam
 │   ├── dev-plan/
 │   │   ├── SKILL.md                   # /dev-plan — dev plan format, phase structure
 │   │   └── scripts/
-│   └── test-inventory/
-│       ├── SKILL.md                   # /test-inventory — adversary output format
+│   ├── test-inventory/
+│   │   ├── SKILL.md                   # /test-inventory — adversary output format
+│   │   └── scripts/
+│   ├── docs-markdown/
+│   │   ├── SKILL.md                   # /docs-markdown — markdown base update, feature-section mapping
+│   │   └── scripts/
+│   └── docs-html/
+│       ├── SKILL.md                   # /docs-html — HTML generation, a11y validation, style.md bootstrap
 │       └── scripts/
 │
 ├── session/                           # Session management skills
@@ -1331,6 +1414,7 @@ These rules are mandatory. A test that violates them is a failing test regardles
 - `.claude/skills/context-curator/session/` — Session management skills, if using project-scope install
 - `.claude/skills/context-curator/monitor/` — Monitor skills, if using project-scope install
 - `.claude/context-curator-manifest.json` — Plugin manifest for `/plugin marketplace` discovery
+- `docs/` — All documentation (markdown base, generated HTML, style guide, feature-section map)
 
 ### What NOT to commit:
 - `.claude/CLAUDE.md` — Auto-generated, each developer has their own
@@ -1394,11 +1478,20 @@ oauth-flow.v3.jsonl  # After mobile app integration
 | `/context-list [task-id]` | List contexts | Fork | Active sessions + AI-generated summaries |
 | `/context-manage` | Interactive management | Fork | Claude assists with organization |
 | `/context-promote <name>` | Personal → Golden | Fork | Secret scanning + redaction |
+| `/docs-markdown` | Update markdown docs base | Main | Runs after every PRD update; prompts for feature-section mapping |
+| `/docs-html` | Regenerate HTML from markdown | Main | Always run after `/docs-markdown`; validates a11y; bootstraps style.md if absent |
 
 ---
 
 ## Version History
 
+- **v20.0** (2026-05-09): User documentation system added
+    - **F-DOC (new):** Two-skill documentation system — `/docs-markdown` (markdown base update, feature-section mapping, glossary, permuted index) and `/docs-html` (HTML generation, a11y validation, style.md bootstrap); documentation is Phase 1a of the development process, immediately after PRD authoring and before test plan; T-DOC-1 through T-DOC-8 added
+    - **Documentation skills added to authoring bundle:** `docs-markdown/` and `docs-html/` added to skill structure diagram and personal storage structure
+    - **Project structure updated:** `docs/` directory added with full tree (markdown base, html output, style guide, feature-section map)
+    - **Git best practices updated:** `docs/` committed as a first-class project artifact
+    - **Overview updated:** user documentation feedback loop added to key innovations
+    - **prd-driven-development.md updated:** Phase 1a added to process flow; full documentation system specification; evidence-based rationale for early user iteration; two documentation skills specified; improvement suggestions section added; artifact triad expanded to five-artifact set
 - **v19.0** (2026-05-09): Substantial update across architecture, features, and process artifacts
     - **Skills architecture:** Commands migrated from `~/.claude/commands/` to skills under `~/.claude/skills/context-curator/`; skills namespaced into three bundles — `authoring/`, `session/`, `monitor/`; slash commands preserved unchanged
     - **Installation scopes:** Two install paths added — global (`~/.claude/skills/`) for individual developers, project-scope (`.claude/skills/`) for zero-setup team installs; project scope takes precedence when both present; T-INIT-7/8/9 added

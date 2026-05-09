@@ -1,6 +1,6 @@
 # PRD-Driven Development with Boss-Fight Coding
 
-**Version:** 1.0
+**Version:** 2.0
 **Last Updated:** May 9, 2026
 
 ---
@@ -11,26 +11,61 @@
 
 ## Overview
 
-PRD-Driven Development is a software development process that shifts cognitive labor upstream — into requirements, acceptance criteria, and adversarial test review — rather than concentrating it in code generation. The insight behind this approach: code is increasingly the cheapest part of the system. The expensive parts are always and have always been understanding what to build, specifying it precisely enough to verify, and having an honest accounting of what you actually have.
+PRD-Driven Development is a software development process that shifts cognitive labor upstream — into requirements, acceptance criteria, user documentation, and adversarial test review — rather than concentrating it in code generation. The insight behind this approach: code is increasingly the cheapest part of the system. The expensive parts are always and have always been understanding what to build, specifying it precisely enough to verify, getting honest feedback from users before you've over-built the wrong thing, and having an honest accounting of what you actually have.
 
 The name **Boss-Fight Coding** captures the spirit of it. The boss fight at the end of a level is the hardest part — the thing you must defeat to advance. In this process, the boss is the LoD2 adversary: an isolated, structurally adversarial reviewer that has no interest in helping you pass. If your acceptance criteria are vague, it will say so. If your tests are vacuous, it will say so. If you can't beat the adversary, your code doesn't ship. That forces quality investment into the only place it actually leads to better outcomes: the upstream artifacts.
 
-This document describes the full process from PRD authoring through adversarial review, remediation, and risk acceptance — including the formats for all core artifacts.
+This document describes the full process from PRD authoring through documentation, adversarial review, remediation, and risk acceptance — including the formats for all core artifacts and the two documentation skills.
 
 ---
 
 ## Why This Process Works
 
-The traditional development workflow concentrates effort on code. PRD-Driven Development concentrates effort on specifications and tests — the artifacts that determine whether code is correct. This distinction matters most with AI-generated code:
+The traditional development workflow concentrates effort on code. PRD-Driven Development concentrates effort on specifications, user documentation, and tests — the artifacts that determine whether code is correct and whether users can actually use it. This distinction matters most with AI-generated code:
 
 - AI can generate code from good specs reliably
 - AI cannot generate good specs from nothing
 - AI cannot honestly evaluate whether its own output is correct
+- AI can produce excellent user documentation from a well-structured PRD — but only if directed to do so
 - A structurally adversarial AI with STRICT context isolation can honestly evaluate whether tests cover specs
 
-The process exploits AI where it is strong (generation, pattern-matching, code execution) and uses structural controls (isolation, governance roles, explicit acceptance criteria) to compensate for where it is weak (honest self-evaluation, adversarial perspective).
+The process exploits AI where it is strong (generation, pattern-matching, documentation, code execution) and uses structural controls (isolation, governance roles, explicit acceptance criteria) to compensate for where it is weak (honest self-evaluation, adversarial perspective).
 
 The key insight from financial services LoD governance: the value of a second line of defense is entirely dependent on its independence from the first line. An adversary that shares context with the constructor is not an adversary — it's a collaborator with a different label. STRICT isolation is not just a technical detail; it is the load-bearing element of the entire control.
+
+---
+
+## Why Early User Documentation Is the Most Powerful Upstream Investment
+
+### The Core Idea
+
+After every meaningful PRD update, before any code is written, generate user documentation and share it. Not the PRD — the PRD is a specification document, written for engineers, dense with acceptance criteria and technical detail. User documentation is written for the people who will use the system. It explains what the system does in terms of their workflows, not the system's internals.
+
+This is not a documentation step tacked on at the end. It is a feedback mechanism that sits immediately downstream of the PRD, upstream of everything else. Its purpose is to find the gap between what you think you're building and what users actually need — before you've written a line of code.
+
+### The Evidence
+
+**The cost of upstream errors compounds exponentially.** Barry Boehm's foundational studies, later extended by NASA and IBM's Systems Sciences Institute, established that errors found during requirements and design cost roughly 1x to fix; the same error found after release costs 50–100x. While the exact multipliers have been debated in modern agile contexts (modern tooling and fast refactoring reduce some of the gradient), the directional truth is not seriously contested: requirements errors are the most expensive class of defect, and catching them before code exists is categorically cheaper than catching them after. Documentation shared with users during requirements discovery is, in effect, requirements testing at the 1x cost point.
+
+**Users cannot evaluate specifications, but they can evaluate documentation.** A PRD feature section with acceptance criteria written in T-XXX format is illegible to a non-technical user. User documentation written in plain language, organized around workflows, is legible to anyone. Norman's foundational work in *The Design of Everyday Things* (1988, rev. 2013) establishes that understanding and discoverability are the two most critical properties of a usable system — and both are properties that only users can evaluate. The designer always has the system's conceptual model already loaded; users encounter it cold. Documentation is the mechanism that bridges the gap between the designer's model and the user's model. There is no other mechanism that works as cheaply.
+
+**The "release early, release often" principle applies to documentation, not just code.** Eric Raymond's formulation in *The Cathedral and the Bazaar* and the broader open-source software tradition established that frequent releases to users produce fast feedback loops. The Lean Startup methodology (Ries, 2011) applied this principle to product development explicitly: the value of early releases is not the code delivered but the learning captured. Fred Brooks, in an interview recorded in *Business & Information Systems Engineering* (2010), affirmed that Harlan Mills proposed this concept as early as 1971: build the basic backbone early, deliver it to users as soon as something is useful, and really start getting feedback from the field. Documentation, unlike code, has no deployment cost. It is the purest possible early release artifact.
+
+**Sharing documentation catches mismatches before over-investment.** Jez Humble's *Continuous Delivery* (2010, Jolt Award winner) emphasizes fast feedback loops and building quality in, rather than inspecting for quality after. The organizational cost that Humble identifies — poor communication flow between developers and users — is precisely what documentation-first development addresses. A designer-developer who shares documentation after each PRD update creates a tight feedback loop where user misunderstandings are discovered before they become architectural mistakes.
+
+**Iteration requires something concrete to iterate on.** Research on market-driven requirements engineering (Carreno & Winbladh, 2013; Iacob & Harrison, 2013) confirms that users are highly effective at identifying bugs, feature requests, and user experience problems — but only when they have something concrete to respond to. A verbal description of a feature produces abstract feedback. A two-page plain-language doc with a workflow example produces concrete, actionable feedback: "I'd never do it that way," "what happens when X," "this assumes I already have Y set up." That is the feedback that prevents building the wrong thing.
+
+**Documentation is not a translation of the PRD — it is a pressure test of it.** When you sit down to write user documentation for a feature, you are forced to explain it in terms of what the user does and what the system does in response. This exercise regularly surfaces ambiguities that survived the PRD because they never had to be explained in non-technical terms. A feature that is internally consistent as an engineering spec may be confusing or incomplete as a user workflow. Writing the documentation exposes this before code exists.
+
+### The Specific Claim
+
+Every PRD update that introduces or changes user-facing behavior should be followed immediately by:
+
+1. An update to the base markdown documentation
+2. Regeneration of the HTML documentation from the markdown base
+3. Sharing the HTML documentation with the user community
+
+This is not a post-release documentation step. It is a mid-development feedback mechanism. The users who see this documentation may be collaborators, early adopters, or stakeholders — what they are not is the engineer who wrote the PRD. Their response, however informal, provides a signal that no amount of solo PRD review will produce: whether the system makes sense to someone encountering it fresh.
 
 ---
 
@@ -85,29 +120,205 @@ The upstream investment pays forward through every phase. A PRD that has been ge
 
 ---
 
-## The Artifact Triad
+## The Artifact Triad (Plus Documentation)
 
-Three documents carry a feature from idea to verified implementation:
+Five documents carry a feature from idea to verified, documented implementation:
 
 | Artifact | Audience | Purpose |
 |----------|----------|---------|
 | `prd.md` | Everyone | What the system does; acceptance criteria; the authoritative reference |
+| `docs/markdown/` | Author / AI | Base documentation set; always updated first |
+| `docs/html/` | Users | Navigable, accessible HTML docs derived from markdown; shared after every PRD update |
 | `test-plan.md` | Verifier / Adversary | How to verify it; one test group per F-XXX feature; AC table + concrete test cases |
 | `dev-plan.md` | Builder (LoD1) | How to build it; phased implementation informed by the test plan; design decisions; troubleshooting |
 
-A fourth document is adversary output, not a human-authored artifact:
+Two documents are adversary output or governance records, not human-authored development artifacts:
 
 | Artifact | Author | Purpose |
 |----------|--------|---------|
 | `prod-mgmt/test-inventory.md` | LoD2 Adversary | Test-by-test verdict on coverage; AC gap analysis |
-
-And a fifth document records human governance decisions:
-
-| Artifact | Author | Purpose |
-|----------|--------|---------|
 | `prod-mgmt/risk-acceptances.md` | Human reviewer (outside LoD1) | Documented decisions to accept known adversarial findings |
 
-Every feature gets a short code when it's defined in the PRD — `F-INIT`, `F-CTX-SAVE`, and so on. Every acceptance criterion within that feature gets its own sub-code — `T-INIT-1`, `T-INIT-2`. Those same codes appear in the dev plan (so you know which phase implements which feature), in the test plan (so you know which test case covers which criterion), in the test inventory (so the adversary can say exactly which criterion a test passes or fails), and in risk acceptances (so a human decision to accept a gap is tied to the exact criterion it covers). The result is a straight line from "here is what the system must do" all the way to "here is the evidence that it does it" — with no ambiguity about whether something was missed, because every criterion either has a passing test, an inadequate test the adversary flagged, or a documented human decision to accept the gap.
+---
+
+## The Documentation System
+
+### Design Philosophy: Good Design Is Accessible Design
+
+Documentation in this process follows a single animating principle: **good design is accessible design**. Accessibility (a11y) is not a compliance checkbox — it is the measure of whether a document is actually usable by the widest possible audience. A document that only works for sighted users, or desktop users, or users with high cognitive load tolerance, is a document with an incomplete design. Accessibility requirements are respected in every generated artifact, from heading hierarchy to color contrast to link clarity.
+
+This principle applies equally to the organization of the documentation, the choice of language, the navigation structure, and the visual design.
+
+### Two-Tier Documentation: Markdown Base, HTML Derived
+
+Documentation is maintained in two synchronized sets. **The markdown set is always updated first.** The HTML set is always derived from the markdown — never the reverse.
+
+```
+docs/
+├── index.html                  ← Entry point; built from markdown toc + intro
+├── style.md                    ← Style guide for HTML generation
+│
+├── markdown/                   ← Source of truth for all documentation
+│   ├── toc.md                  ← Table of contents with section links
+│   ├── introduction.md         ← System overview, purpose, audience
+│   ├── glossary.md             ← All terms defined; linked from first use in other docs
+│   ├── permuted-index.md       ← Every significant term, rotated for multi-angle lookup
+│   └── [section-pages].md      ← One file per product section (see below)
+│
+└── html/                       ← Generated from markdown; never hand-edited
+    ├── [section-pages].html    ← One page per product section
+    ├── glossary.html
+    ├── permuted-index.html
+    └── style.md                ← Style guide (see below)
+```
+
+**Why markdown-first?** HTML is difficult to update incrementally. A modest feature change in a PRD may require edits scattered across a complex HTML file — easy to miss, easy to break. Markdown is plain text; a feature change produces a small, readable diff. HTML is then regenerated cleanly from the updated markdown source. This makes documentation diffs reviewable in the same way code diffs are reviewable.
+
+### The Markdown Documentation Set
+
+The base markdown set always contains four structural documents plus the product section pages:
+
+**`toc.md` — Table of Contents**
+The navigational backbone of the documentation. Links to every section page, every major concept, and the glossary. Updated whenever a product section is added or renamed. The TOC is the artifact users use to orient themselves — it should reflect the user's mental model of the product, not the PRD's F-XXX code taxonomy.
+
+**`introduction.md` — Introduction**
+A plain-language overview of what the system is, who it is for, and what problems it solves. Written for a first-time reader who has no prior context. No acceptance criteria, no T-XXX codes, no engineering detail. This is the document you share when someone asks "what is this thing?"
+
+**`glossary.md` — Glossary**
+Every significant term used in the documentation, defined in plain language. Terms are linked from their **first occurrence** in every product section page. The glossary is not optional and is not a post-release artifact — it is written alongside the first documentation iteration and updated with each PRD cycle.
+
+**`permuted-index.md` — Permuted Index**
+Every significant term from the glossary and documentation, with each term rotated to the front for multi-angle lookup. A user who knows "warm-up" can find it; so can a user who thinks of it as "session quality" or "context quality." The permuted index is generated from the documentation terms, not written by hand — use the `/docs-markdown` skill to regenerate it after changes.
+
+**Product section pages**
+User-facing documentation pages organized around how users understand and work with the product. These are **not** a one-to-one mapping of PRD feature sections. Features are grouped into product sections based on the user's workflow perspective.
+
+### Feature-to-Section Mapping
+
+PRD features are atomic engineering specifications. Product sections are user-coherent topics. A single product section may cover multiple features; a complex feature may warrant its own section.
+
+The mapping between features and product sections is maintained in a living document:
+
+**`docs/feature-section-map.md`**
+
+```markdown
+# Feature → Product Section Mapping
+
+| PRD Feature | Feature Description | Product Section | Notes |
+|-------------|---------------------|-----------------|-------|
+| F-INIT      | Project initialization | Getting Started | Combined with F-TASK |
+| F-TASK      | Task creation/switching | Getting Started | |
+| F-CTX-SAVE  | Context save/restore | Managing Contexts | |
+| F-CTX-MONITOR | Context monitoring | Managing Contexts | Sub-features combined |
+| F-SPEC      | Specialized tasks | Advanced Usage | |
+| F-ADVERSARY | Adversary task | Boss-Fight Workflow | |
+| F-PRD       | PRD-driven development | Boss-Fight Workflow | |
+| F-DOC-SKILLS | Documentation skills | Boss-Fight Workflow | |
+```
+
+**The mapping is established by the designer-developer, not by the documentation process.** When updating documentation after a PRD change, the `/docs-markdown` skill asks: "Which product section should [F-XXX] be documented in? (Existing sections: [list]. Or enter a new section name.)" This prompt is deliberate — forcing a decision about where the feature lives from the user's perspective, not just the engineer's.
+
+### Linking Conventions
+
+Markdown documentation uses links generously:
+
+- Every **product section** is linked on first mention in any other page
+- Every **feature name** (not F-XXX code) is linked on first mention to its product section page
+- Every **glossary term** is linked on first mention in each page (not on repeat mentions in the same page)
+- Internal links use relative paths so the documentation works from the file system, not just from a server
+
+### The HTML Documentation Set
+
+The HTML set is a navigable website generated from the markdown base. Key properties:
+
+**Entry point:** `docs/index.html` — contains the introduction and table of contents inline. This is the file users bookmark and share. Navigation to all other pages is accessible from this page.
+
+**Navigation:** Every HTML page includes a consistent navigation header with links to all product sections, the glossary, and the index. On mobile viewports, navigation collapses to a usable menu. Navigation is keyboard-accessible.
+
+**Accessibility (a11y):** Every generated HTML page complies with WCAG 2.1 AA:
+- Semantic heading hierarchy (h1 → h2 → h3, never skipped)
+- All images have alt text
+- Color is never the sole means of conveying information
+- Minimum contrast ratio of 4.5:1 for body text
+- Focus indicators visible on all interactive elements
+- All navigation operable by keyboard
+
+**`docs/html/style.md` — Style Guide**
+A human-editable file that guides HTML generation. Contains typeface choices, color choices, style choices, language choices, and any project-specific conventions. The `/docs-html` skill reads this file before generating any HTML. If the file is empty or absent, the skill uses sensible accessible defaults and prompts the designer-developer to populate it.
+
+Suggested style.md structure:
+
+```markdown
+# Documentation Style Guide
+
+## Typeface
+- Body: [e.g., system-ui, or a Google Font name]
+- Code: [e.g., JetBrains Mono, monospace]
+- Headings: [same as body, or distinct]
+
+## Colors
+- Background: [hex]
+- Body text: [hex]  (contrast ratio vs background: N:1)
+- Heading text: [hex]
+- Link color: [hex]  (contrast ratio vs background: N:1)
+- Code background: [hex]
+
+## Language
+- Audience level: [e.g., developer, general, technical non-developer]
+- Voice: [e.g., direct and concrete; avoid passive voice; second person]
+- Avoid: [e.g., jargon without definition, scare quotes, marketing language]
+
+## Layout
+- Max content width: [e.g., 72ch]
+- Navigation position: [top / sidebar]
+- Code blocks: [syntax highlighting theme]
+```
+
+### Documentation Skills
+
+Two skills implement the documentation workflow:
+
+#### `/docs-markdown` — Markdown Documentation Skill
+
+**Purpose:** Create, update, and organize the markdown documentation set. Invoked after every PRD update that introduces or changes user-facing behavior.
+
+**What it does:**
+1. Reads the current PRD and identifies changed or new features
+2. Reads `docs/feature-section-map.md` to understand current section assignments
+3. For new features: asks the designer-developer which product section they belong in
+4. Updates the affected product section pages
+5. Updates `toc.md` if sections were added or renamed
+6. Updates `glossary.md` with any new terms
+7. Regenerates `permuted-index.md` from the full term set
+8. Updates `docs/feature-section-map.md` with any new feature-to-section assignments
+9. Reports what changed
+
+**What it asks:**
+- For each new feature: "Which product section should [Feature Name] be documented in? Existing sections: [list]. Enter a name to add a new section."
+- After generating: "Does this documentation accurately describe the feature from a user's perspective? Any terms to add to the glossary?"
+
+**Linking rule enforcement:** The skill verifies that every glossary term is linked on first occurrence in each updated page and flags any missing links.
+
+**Location:** `~/.claude/skills/context-curator/authoring/docs-markdown/SKILL.md`
+
+#### `/docs-html` — HTML Documentation Skill
+
+**Purpose:** Generate the HTML documentation set from the markdown base. Always invoked after `/docs-markdown` completes.
+
+**What it does:**
+1. Reads `docs/html/style.md` for typeface, color, and style directives
+2. Reads all markdown files in `docs/markdown/`
+3. Generates `docs/index.html` from `introduction.md` + `toc.md`
+4. Generates one HTML page per product section, glossary, and permuted index
+5. Generates consistent navigation across all pages
+6. Validates a11y compliance for generated output (heading hierarchy, contrast, alt text)
+7. Reports what was generated
+
+**Style.md bootstrap:** If `docs/html/style.md` is absent or empty, the skill generates sensible accessible defaults and writes them to the file, then reports: "Style guide written to docs/html/style.md. Review and customize before next generation."
+
+**Validation:** After generation, the skill reports any a11y issues found in the output. Issues are not blocking (the HTML is still written) but are logged clearly so they can be addressed.
+
+**Location:** `~/.claude/skills/context-curator/authoring/docs-html/SKILL.md`
 
 ---
 
@@ -507,6 +718,66 @@ RISK_ACCEPTED — RA_ID applied; human has documented decision to accept this ga
 
 ## The Full Process Flow
 
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Phase 1: PRD Authoring                                          │
+│  Features → F-XXX codes → T-XXX AC tables                       │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Phase 1a: User Documentation                                    │
+│  /docs-markdown → update markdown base                          │
+│  /docs-html → regenerate navigable HTML                         │
+│  Share docs/index.html with users → capture feedback            │
+│  Incorporate feedback → return to Phase 1 if needed             │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Phase 2: Test Plan                                              │
+│  T-XXX AC clauses → concrete test cases (Setup/Exec/Validate)   │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Phase 3: Dev Plan                                              │
+│  T-XXX AC clauses → concrete test cases (Setup/Exec/Validate)   │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Phase 4: Implementation                                         │
+│  Follow dev plan phases → pass tests                            │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Phase 5: Adversarial Review (Boss Fight)                        │
+│  /task adversary → fresh session → test-inventory.md            │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+              ┌────────────┴────────────┐
+              │ FAIL / INADEQUATE?      │ All PASS / ACCEPTED?
+              ▼                         ▼
+┌────────────────────────┐   ┌──────────────────────────────────┐
+│  Phase 6: Remediation  │   │  Phase 8: Verification           │
+│  Fix PRD/test plan/    │   │  Tests pass + adversary clean    │
+│  tests upstream-first  │   │  Manual tests documented         │
+└────────────┬───────────┘   └──────────────────────────────────┘
+             │
+             │ Oscillating?
+             ▼
+┌────────────────────────┐
+│  Phase 7: Risk         │
+│  Acceptance            │
+│  Add RA entry, re-run  │
+│  adversary             │
+└────────────┬───────────┘
+             │
+             └──────────────► Back to Phase 5
+```
+
 ### Phase 1: PRD Authoring
 
 **Who:** Developer (LoD1)
@@ -518,6 +789,32 @@ RISK_ACCEPTED — RA_ID applied; human has documented decision to accept this ga
 4. Review for falsifiability: write a mental test for each criterion — if you can't construct a failing case, rewrite the criterion
 
 **Output:** PRD with all features coded and AC tables populated.
+
+---
+
+### Phase 1a: User Documentation
+
+**Who:** Developer (LoD1) with `/docs-markdown` and `/docs-html` skills
+**Artifacts:** `docs/markdown/` (updated), `docs/html/` (regenerated), `docs/index.html`
+
+This phase is immediate, mandatory, and iterative. It runs after every PRD update that introduces or changes user-facing behavior.
+
+1. Run `/docs-markdown`
+   - The skill reads the PRD and identifies what changed
+   - For new features: answer the prompt about which product section they belong in
+   - Confirm or adjust the feature-to-section mapping
+   - Review the generated markdown for clarity and accuracy — this is where mismatches between your mental model and user readability surface
+2. Run `/docs-html`
+   - HTML is generated from the updated markdown base
+   - Review any a11y warnings the skill reports
+3. Share `docs/index.html` with users or collaborators
+   - The audience here is not engineers reviewing a spec — it is the users who will operate the system
+   - Gather feedback informally: do they understand what the system does? Does anything confuse them? Is anything missing?
+4. If feedback surfaces mismatches with the PRD, return to Phase 1 before proceeding
+
+**Why this is Phase 1a, not Phase N:** User documentation written at the end of a development cycle documents what was built. User documentation written immediately after PRD authoring documents what you *intend* to build — and user response to that documentation is the cheapest possible way to find out whether you've specified the right thing. A confused user reading your documentation before you've written any code costs a PRD revision. A confused user encountering your released product costs a feature rewrite.
+
+**Output:** Updated markdown base, regenerated HTML, and — most importantly — user feedback incorporated into the PRD before implementation begins.
 
 ---
 
@@ -703,6 +1000,12 @@ A project with five well-documented risk acceptances is in better shape than a p
                            │
                            ▼
 ┌─────────────────────────────────────────────────────────────────┐
+│  Phase 1a: User Documentation  ← NEW                            │
+│  /docs-markdown + /docs-html → share → iterate                  │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
 │  Phase 2: Test Plan                                              │
 │  T-XXX AC clauses → concrete test cases (Setup/Exec/Validate)   │
 └──────────────────────────┬──────────────────────────────────────┘
@@ -780,13 +1083,39 @@ RA_ID / SCOPE / FINDING / SEVERITY / DISPOSITION / RATIONALE / APPROVED_BY / APP
 - EXPIRY is a date, named condition, or PERMANENT (with justification)
 - Never delete lapsed entries — move to Expired section
 
+### Documentation Update Checklist (after every PRD change)
+
+- [ ] Run `/docs-markdown` — confirm feature-to-section mapping is correct
+- [ ] Run `/docs-html` — address any a11y warnings
+- [ ] Share updated `docs/index.html` with users
+- [ ] Update `docs/feature-section-map.md` if sections changed
+- [ ] Confirm glossary covers all new terms introduced
+
+---
+
+## Suggestions for Further Improving the Documentation Process
+
+The documentation process described above can be extended in several directions. These are not current commitments — they are directions worth considering:
+
+**1. Documentation coverage as an adversary check.** Extend the adversary task to verify that every F-XXX feature is covered by at least one product section page. A PRD feature with no documentation coverage is a gap that the current adversary does not flag. An additional structural check — "does `feature-section-map.md` contain an entry for every F-XXX code in the PRD?" — closes this loop.
+
+**2. Versioned documentation snapshots.** Because documentation is updated early and often (Phase 1a runs after every PRD update), the git history of `docs/markdown/` becomes a record of how the product's user-facing description evolved. Tagging documentation snapshots alongside PRD version bumps would allow a team to reconstruct "what did the documentation say at PRD v14.0?" — useful for understanding why certain design decisions were made.
+
+**3. Structured user feedback capture.** Currently, Phase 1a calls for informal feedback from users. A lightweight feedback form embedded in the HTML documentation — generated by `/docs-html` — would allow feedback to be captured in a structured way without requiring users to find another channel. Feedback items can be written directly to a `docs/feedback.md` file and reviewed at the start of the next PRD cycle.
+
+**4. Documentation as onboarding test.** Ask a user who has never seen the system before to complete a task using only the documentation. This is a user experience research technique (cognitive walkthrough) that surfaces gaps invisible to the designer. The result is a set of documentation improvements that no amount of the designer reading their own docs will produce. The fact that documentation is updated in Phase 1a — before code exists — means this walkthrough can be performed on paper, without a live system, at the cheapest possible point.
+
+**5. A11y linting as part of the skill.** The `/docs-html` skill currently reports a11y issues but does not block on them. Adding an optional `--strict-a11y` flag that treats a11y issues as blocking would allow teams that want to enforce accessibility to do so as part of their process gate, not as a best-effort check.
+
+**6. Dark mode and reduced-motion variants.** The `docs/html/style.md` style guide currently covers basic color and typography. Extending it with explicit dark mode color tokens (via CSS `prefers-color-scheme`) and explicit support for `prefers-reduced-motion` would make the generated documentation accessible to a wider audience without additional design work per page.
+
 ---
 
 ## Relationship to Context Curator
 
 Boss-Fight Coding and Context Curator are designed to work together:
 
-- Context Curator manages the **session context** that makes AI-assisted PRD authoring, dev planning, test planning, and code generation efficient — deep subsystem understanding doesn't have to be rebuilt from scratch each session
+- Context Curator manages the **session context** that makes AI-assisted PRD authoring, documentation generation, dev planning, test planning, and code generation efficient — deep subsystem understanding doesn't have to be rebuilt from scratch each session
 - The adversary task is a **specialized context** within Context Curator with STRICT isolation enforced by hooks
 - Golden contexts from deep PRD authoring or architecture sessions can be saved and shared with the team
 - The `prod-mgmt/` directory is part of the project structure created by `/task-init`
@@ -813,3 +1142,11 @@ Context Curator preserves the human + AI knowledge that goes into authoring good
 **Context Rot:** The degradation of AI recall quality as context fills. Even with 1M token windows, output quality degrades well before the window fills. Saving warmed-up contexts before rot sets in is the core value of Context Curator.
 
 **Artifact Triad:** The three human-authored documents that define a feature: PRD (what), dev plan (how to build), test plan (how to verify).
+
+**Feature-to-Section Mapping:** The living document (`docs/feature-section-map.md`) that records how PRD F-XXX features are grouped into user-facing product sections in the documentation.
+
+**Product Section:** A user-coherent documentation page covering one aspect of the system as users experience it. May cover multiple PRD features. Named and organized around user workflows, not engineering taxonomy.
+
+**Base Markdown Set:** The source-of-truth documentation in `docs/markdown/`. Always updated first, before HTML is regenerated.
+
+**Style Guide:** `docs/html/style.md` — the human-editable file that governs typeface, color, language, and layout choices for generated HTML documentation.
