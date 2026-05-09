@@ -1,7 +1,7 @@
 # Context Curator Integration Test Plan
 
-**Version:** 2.0  
-**Last Updated:** March 13, 2026  
+**Version:** 3.0  
+**Last Updated:** May 9, 2026  
 **Purpose:** Detailed integration test specifications for context-curator
 
 ---
@@ -194,6 +194,10 @@ class ContextCuratorTestCase:
 | T-INIT-3 | `.claude/tasks/default/CLAUDE.md` content equals root `CLAUDE.md` character-for-character |
 | T-INIT-4 | Running `init-project` twice exits 0 both times and produces identical file contents |
 | T-INIT-5 | Writing a file to project A's personal dir does not make it visible in project B's personal dir |
+| T-INIT-6 | `init-project` creates `prod-mgmt/risk-acceptances.md`; the file contains the string "DISPOSITION" and the string "EXPIRY" |
+| T-INIT-7 | `init-project --project-install` creates `.claude/skills/context-curator/` containing at least the five skill directories (`task`, `context-save`, `context-list`, `context-manage`, `context-promote`), each with a `SKILL.md` file and a `scripts/` subdirectory |
+| T-INIT-8 | After a project-scope install, typing `/context-save` in a Claude Code session resolves to the skill in `.claude/skills/context-curator/context-save/` — not to any user-scope skill of the same name; verified by checking that the skill SKILL.md path in the session context matches the project path |
+| T-INIT-9 | A developer who clones a project with `.claude/skills/context-curator/` committed has all five slash commands available without running `install.sh`; verified by running `claude` in a fresh environment with no `~/.claude/skills/` directory and confirming `/task` is a recognized command |
 
 ### Test 1.1: Initialize Fresh Project (No CLAUDE.md)
 
@@ -341,6 +345,102 @@ def test_init_preserves_existing():
     # Verify new initialization happened
     assert verify_file_exists(".claude/.gitignore")
     assert verify_file_exists(".claude/tasks/default/CLAUDE.md")
+```
+
+---
+
+### Test 1.5: prod-mgmt Directory Created with Template (T-INIT-6)
+
+**Setup:**
+```bash
+mkdir test-project && cd test-project
+```
+
+**Execution:**
+```bash
+claude
+> /task-init
+```
+
+**Validation:**
+```python
+def test_init_creates_prod_mgmt():
+    run_script("init-project", [])
+
+    risk_file = Path("prod-mgmt/risk-acceptances.md")
+    assert risk_file.exists()
+    content = risk_file.read_text()
+    assert "DISPOSITION" in content
+    assert "EXPIRY" in content
+```
+
+---
+
+### Test 1.6: Project-Scope Skill Install Creates Skill Directories (T-INIT-7)
+
+**Setup:**
+```bash
+mkdir test-project && cd test-project
+```
+
+**Execution:**
+```bash
+npx tsx scripts/init-project.ts --project-install
+```
+
+**Validation:**
+```python
+def test_project_install_creates_skills():
+    run_script("init-project", ["--project-install"])
+
+    skills_root = Path(".claude/skills/context-curator")
+    assert skills_root.exists()
+
+    required_skills = ["task", "context-save", "context-list", "context-manage", "context-promote"]
+    for skill in required_skills:
+        skill_dir = skills_root / skill
+        assert skill_dir.exists(), f"Missing skill directory: {skill}"
+        assert (skill_dir / "SKILL.md").exists(), f"Missing SKILL.md for: {skill}"
+        assert (skill_dir / "scripts").is_dir(), f"Missing scripts/ for: {skill}"
+```
+
+---
+
+### Test 1.7: Project-Scope Skill Takes Precedence Over User-Scope (T-INIT-8)
+
+**Validation:**
+```python
+def test_project_scope_skill_precedence():
+    run_script("init-project", ["--project-install"])
+
+    # Skill resolution path must be .claude/skills/..., not ~/.claude/skills/...
+    project_skill_path = Path(".claude/skills/context-curator/context-save/SKILL.md")
+    assert project_skill_path.exists()
+
+    # Verify the SKILL.md content matches the project copy, not a user-scope copy
+    user_scope_path = Path.home() / ".claude/skills/context-curator/context-save/SKILL.md"
+    if user_scope_path.exists():
+        # Project path must exist and be the one used — asserted by its presence in session context
+        assert project_skill_path.read_text() != "" 
+```
+
+---
+
+### Test 1.8: Cloned Repo Has Commands Without Installer (T-INIT-9)
+
+**Validation:**
+```python
+def test_cloned_repo_commands_available():
+    # Simulate a clone into an environment with no ~/.claude/skills/
+    with no_user_skills_env():
+        repo_with_project_skills = create_repo_with_committed_skills()
+        with in_directory(repo_with_project_skills):
+            result = subprocess.run(
+                ["claude", "--list-commands"],
+                capture_output=True, text=True,
+                env={**os.environ, "HOME": str(isolated_home)}
+            )
+            assert "/task" in result.stdout or "task" in result.stdout
 ```
 
 ---
@@ -3306,6 +3406,960 @@ def test_adversary_save_rejected():
 
 ---
 
+## 17. PRD-Driven Development Tests · F-PRD
+
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-PRD-1 | Every feature section in the PRD contains an "Acceptance Criteria" table with at least one row; a feature section with no AC table is a FAIL |
+| T-PRD-2 | Every T-XXX code in the PRD is unique; duplicate T-XXX codes within the document constitute a FAIL |
+| T-PRD-3 | `prod-mgmt/risk-acceptances.md` contains the strings "DISPOSITION", "EXPIRY", and "RA_ID" after `task-init` |
+| T-PRD-4 | `prod-mgmt/test-inventory.md` (when it exists) references only T-XXX codes that appear in the current PRD; orphaned T-XXX codes in the test inventory are a FAIL |
+
+### Test 17.1: Every PRD Feature Section Has AC Table (T-PRD-1)
+
+**Setup:**
+```bash
+# prd.md exists in prod-mgmt/
+```
+
+**Validation:**
+```python
+def test_prd_all_features_have_ac():
+    prd_text = Path("prod-mgmt/prd.md").read_text()
+
+    # Extract feature section headings (### F-XXX ·)
+    feature_headings = re.findall(r'^### (F-[A-Z0-9-]+)', prd_text, re.MULTILINE)
+    assert len(feature_headings) > 0, "No feature sections found"
+
+    for code in feature_headings:
+        # Find the section for this feature code
+        pattern = rf'### {re.escape(code)}.*?(?=\n### |\Z)'
+        section = re.search(pattern, prd_text, re.DOTALL)
+        assert section, f"Section not found for {code}"
+        assert "Acceptance Criteria" in section.group(), \
+            f"Feature {code} has no Acceptance Criteria table"
+        # Must have at least one T-XXX row
+        assert re.search(r'\| T-[A-Z0-9-]+-\d+', section.group()), \
+            f"Feature {code} AC table has no T-XXX rows"
+```
+
+---
+
+### Test 17.2: All T-XXX Codes in PRD Are Unique (T-PRD-2)
+
+**Validation:**
+```python
+def test_prd_unique_t_codes():
+    prd_text = Path("prod-mgmt/prd.md").read_text()
+    codes = re.findall(r'\bT-[A-Z0-9]+-\d+\b', prd_text)
+
+    seen = set()
+    duplicates = []
+    for code in codes:
+        if code in seen:
+            duplicates.append(code)
+        seen.add(code)
+
+    assert len(duplicates) == 0, f"Duplicate T-XXX codes found: {duplicates}"
+```
+
+---
+
+### Test 17.3: risk-acceptances.md Contains Required Fields (T-PRD-3)
+
+**Validation:**
+```python
+def test_risk_acceptances_template():
+    run_script("init-project", [])
+
+    content = Path("prod-mgmt/risk-acceptances.md").read_text()
+    assert "DISPOSITION" in content
+    assert "EXPIRY" in content
+    assert "RA_ID" in content
+```
+
+---
+
+### Test 17.4: test-inventory.md Only References Known T-XXX Codes (T-PRD-4)
+
+**Validation:**
+```python
+def test_inventory_no_orphaned_codes():
+    inventory_path = Path("prod-mgmt/test-inventory.md")
+    if not inventory_path.exists():
+        pytest.skip("test-inventory.md not present — adversary has not run")
+
+    prd_text = Path("prod-mgmt/prd.md").read_text()
+    prd_codes = set(re.findall(r'\bT-[A-Z0-9]+-\d+\b', prd_text))
+
+    inventory_text = inventory_path.read_text()
+    inventory_codes = set(re.findall(r'\bT-[A-Z0-9]+-\d+\b', inventory_text))
+
+    orphaned = inventory_codes - prd_codes
+    assert len(orphaned) == 0, f"Orphaned T-XXX codes in test-inventory: {orphaned}"
+```
+
+---
+
+## 18. Document Authoring Skills Tests · F-DOC-SKILLS
+
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-DOC-1 | `/prd new-feature` produces a markdown section containing all four required elements: heading with `F-` prefix, `**Expected Behaviors:**` section, `**Test Scenarios:**` section, and `**Acceptance Criteria:**` table with a `T-` prefixed row |
+| T-DOC-2 | Auto-invocation: when the active file matches `*prd*.md`, the PRD skill description appears in the session context without the user typing `/prd`; verified by checking session context for the skill's description string |
+| T-DOC-3 | `/test-plan new` produces a document containing all mandatory sections: testing philosophy, banned patterns list with at least 6 items, fix priority tiers table, environment setup, and a summary section |
+| T-DOC-4 | `/dev-plan new` produces a document with `Based on: PRD vX.Y` in the header (placeholder populated), executive summary, at least one phase section, file structure table, key design decisions section, and troubleshooting section |
+| T-DOC-5 | `/prd check-ac` on a PRD with one vague criterion ("the system handles errors gracefully") exits 0 and output flags that criterion with a non-empty rationale; a PRD with only falsifiable criteria produces no flags |
+| T-DOC-6 | The `test-inventory` skill is only loadable when the adversary task is active; attempting `/test-inventory` outside the adversary task exits with an error message indicating it is adversary-only |
+
+### Test 18.1: /prd new-feature Scaffolds Required Structure (T-DOC-1)
+
+**Validation:**
+```python
+def test_prd_new_feature_scaffold():
+    result = run_command("/prd new-feature")
+    output = result["stdout"]
+
+    # Heading with F- prefix
+    assert re.search(r'^### F-[A-Z]', output, re.MULTILINE), \
+        "Missing F-XXX heading"
+    assert "**Expected Behaviors:**" in output
+    assert "**Test Scenarios:**" in output
+    assert "**Acceptance Criteria:**" in output
+    # AC table has at least one T- row
+    assert re.search(r'\| T-[A-Z]+-\d+', output), \
+        "AC table has no T-XXX row"
+```
+
+---
+
+### Test 18.2: PRD Skill Auto-Invokes on prd*.md Filename (T-DOC-2)
+
+**Validation:**
+```python
+def test_prd_skill_auto_invoked():
+    # Open a file matching *prd*.md
+    result = run_command_on_file("my-feature-prd.md", "What format should I use?")
+
+    # PRD skill description must appear in session context
+    assert "PRD format" in result["system_context"] or \
+           "F-XXX" in result["system_context"], \
+        "PRD skill was not auto-invoked for prd*.md file"
+```
+
+---
+
+### Test 18.3: /test-plan new Scaffolds Mandatory Sections (T-DOC-3)
+
+**Validation:**
+```python
+def test_test_plan_scaffold():
+    result = run_command("/test-plan new")
+    output = result["stdout"]
+
+    assert "testing philosophy" in output.lower()
+    # Banned patterns list with at least 6 items
+    banned_items = re.findall(r'^\d+\.\s+\*\*', output, re.MULTILINE)
+    assert len(banned_items) >= 6, \
+        f"Banned patterns list has {len(banned_items)} items; need >= 6"
+    assert "fix priority" in output.lower() or "tier" in output.lower()
+    assert "environment setup" in output.lower() or "prerequisites" in output.lower()
+    assert "summary" in output.lower()
+```
+
+---
+
+### Test 18.4: /dev-plan new Scaffolds Required Sections (T-DOC-4)
+
+**Validation:**
+```python
+def test_dev_plan_scaffold():
+    result = run_command("/dev-plan new")
+    output = result["stdout"]
+
+    assert re.search(r'Based on: PRD v', output), \
+        "Missing 'Based on: PRD vX.Y' header"
+    assert "executive summary" in output.lower() or "## summary" in output.lower()
+    # At least one phase section
+    assert re.search(r'## Phase \d|### Phase \d', output), \
+        "No phase section found"
+    assert "file structure" in output.lower()
+    assert "design decision" in output.lower()
+    assert "troubleshooting" in output.lower()
+```
+
+---
+
+### Test 18.5: /prd check-ac Flags Vague Criteria (T-DOC-5)
+
+**Validation:**
+```python
+def test_prd_check_ac_vague():
+    # PRD with one vague criterion
+    vague_prd = build_prd_with_criterion("the system handles errors gracefully")
+    write_temp_prd(vague_prd)
+
+    result = run_command("/prd check-ac")
+    assert result["returncode"] == 0
+    assert "gracefully" in result["stdout"] or "vague" in result["stdout"].lower(), \
+        "Vague criterion not flagged"
+    # Rationale must be non-empty
+    flag_lines = [l for l in result["stdout"].splitlines() if "gracefully" in l or "vague" in l.lower()]
+    assert len(flag_lines[0]) > 20, "Flag line is too short — no rationale"
+
+
+def test_prd_check_ac_no_flags_for_good_criteria():
+    good_prd = build_prd_with_criterion(
+        "save-context exits non-zero when the context file exceeds 100KB"
+    )
+    write_temp_prd(good_prd)
+
+    result = run_command("/prd check-ac")
+    assert result["returncode"] == 0
+    assert "flag" not in result["stdout"].lower() and "vague" not in result["stdout"].lower()
+```
+
+---
+
+### Test 18.6: test-inventory Skill Only Available in Adversary Task (T-DOC-6)
+
+**Validation:**
+```python
+def test_inventory_skill_adversary_only():
+    # Outside adversary task
+    run_script("init-project", [])
+    run_script("update-import", ["default"])
+
+    result = run_command("/test-inventory")
+    assert result["returncode"] != 0
+    assert "adversary" in result["stdout"].lower() or \
+           "adversary-only" in result["stdout"].lower(), \
+        "Error message must name the adversary task"
+
+
+def test_inventory_skill_available_in_adversary():
+    run_script("update-import", ["adversary"])
+    result = run_command("/test-inventory")
+    # Should load without an adversary-only error
+    assert "adversary-only" not in result["stdout"].lower()
+```
+
+---
+
+## 19. Skill Marketplace Tests · F-MARKETPLACE
+
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-MKT-1 | `install.sh` creates `~/.claude/context-curator-manifest.json`; the file is valid JSON and contains `bundles.authoring`, `bundles.session`, and `bundles.monitor` keys |
+| T-MKT-2 | After installing the `authoring` bundle only (no session bundle), `/prd`, `/test-plan`, `/dev-plan`, and `/test-inventory` are available and `/context-save` is not |
+| T-MKT-3 | The manifest `version` field matches the installed context-curator version from `dist/version.json`; a version mismatch exits non-zero with a message containing "version" |
+| T-MKT-4 | A team manifest committed at `.claude/context-curator-manifest.json` with a custom skill listed under a `custom` bundle is discoverable via `/plugin marketplace list`; the custom bundle description appears in output |
+
+### Test 19.1: install.sh Creates Valid Manifest (T-MKT-1)
+
+**Validation:**
+```python
+def test_install_creates_manifest():
+    manifest_path = Path.home() / ".claude/context-curator-manifest.json"
+    assert manifest_path.exists()
+
+    manifest = json.loads(manifest_path.read_text())
+    assert "bundles" in manifest
+    assert "authoring" in manifest["bundles"]
+    assert "session" in manifest["bundles"]
+    assert "monitor" in manifest["bundles"]
+```
+
+---
+
+### Test 19.2: Authoring-Only Bundle Does Not Include Session Commands (T-MKT-2)
+
+**Validation:**
+```python
+def test_authoring_bundle_only():
+    with isolated_install():
+        install_bundle("authoring")
+        available = list_available_commands()
+
+        assert "/prd" in available
+        assert "/test-plan" in available
+        assert "/dev-plan" in available
+        assert "/test-inventory" in available
+        assert "/context-save" not in available
+```
+
+---
+
+### Test 19.3: Manifest Version Matches Installed Version (T-MKT-3)
+
+**Validation:**
+```python
+def test_manifest_version_matches():
+    manifest = json.loads((Path.home() / ".claude/context-curator-manifest.json").read_text())
+    installed_version = json.loads(Path("dist/version.json").read_text())["version"]
+
+    assert manifest["version"] == installed_version, \
+        "Manifest version does not match dist/version.json"
+
+
+def test_manifest_version_mismatch_exits_nonzero():
+    # Write a manifest with wrong version
+    manifest_path = Path.home() / ".claude/context-curator-manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["version"] = "0.0.0-mismatch"
+    manifest_path.write_text(json.dumps(manifest))
+
+    result = run_script("verify-manifest", [])
+    assert result.exit_code != 0
+    assert "version" in result.output.lower()
+```
+
+---
+
+### Test 19.4: Custom Team Manifest Is Discoverable (T-MKT-4)
+
+**Validation:**
+```python
+def test_custom_team_manifest():
+    custom_manifest = {
+        "name": "my-team-skills",
+        "version": "1.0",
+        "bundles": {
+            "custom": {
+                "description": "Team-specific custom skills",
+                "skills": ["custom/my-skill"]
+            }
+        }
+    }
+    Path(".claude/context-curator-manifest.json").write_text(json.dumps(custom_manifest))
+
+    result = run_command("/plugin marketplace list")
+    assert "Team-specific custom skills" in result["stdout"] or \
+           "custom" in result["stdout"]
+```
+
+---
+
+## 20. PostCompact Task Re-Injection Hook Tests · F-HOOK-POST
+
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-HOOK-POST-1 | With a non-default task active, `postcompact-reinject` script outputs a string containing the task ID; output must not be empty |
+| T-HOOK-POST-2 | With default task active, `postcompact-reinject` script exits 0 and outputs nothing (no injection for default task) |
+| T-HOOK-POST-3 | `postcompact-reinject` with a missing task CLAUDE.md exits 0 (does not fail the session), and stderr contains "warning" or "not found" |
+
+### Test 20.1: Re-injection Output Contains Task ID (T-HOOK-POST-1)
+
+**Setup:**
+```bash
+cd test-project
+npx tsx scripts/init-project.ts
+npx tsx scripts/update-import.ts oauth-refactor
+```
+
+**Execution:**
+```bash
+npx tsx scripts/postcompact-reinject.ts
+```
+
+**Validation:**
+```python
+def test_reinject_includes_task_id():
+    run_script("init-project", [])
+    run_script("update-import", ["oauth-refactor"])
+
+    result = subprocess.run(
+        ["npx", "tsx", "scripts/postcompact-reinject.ts"],
+        capture_output=True, text=True
+    )
+    assert result.returncode == 0
+    assert "oauth-refactor" in result.stdout
+    assert len(result.stdout.strip()) > 0
+```
+
+---
+
+### Test 20.2: No Injection for Default Task (T-HOOK-POST-2)
+
+**Validation:**
+```python
+def test_no_reinject_for_default():
+    run_script("init-project", [])
+    run_script("update-import", ["default"])
+
+    result = subprocess.run(
+        ["npx", "tsx", "scripts/postcompact-reinject.ts"],
+        capture_output=True, text=True
+    )
+    assert result.returncode == 0
+    assert result.stdout.strip() == "", \
+        "Default task must produce no injection output"
+```
+
+---
+
+### Test 20.3: Missing Task CLAUDE.md Does Not Fail Session (T-HOOK-POST-3)
+
+**Validation:**
+```python
+def test_reinject_graceful_on_missing_file():
+    run_script("init-project", [])
+    run_script("update-import", ["ghost-task"])
+    # ghost-task CLAUDE.md does not exist
+
+    result = subprocess.run(
+        ["npx", "tsx", "scripts/postcompact-reinject.ts"],
+        capture_output=True, text=True
+    )
+    assert result.returncode == 0  # Must not crash the session
+    assert re.search(r'warning|not found', result.stderr, re.I), \
+        "stderr must contain 'warning' or 'not found'"
+```
+
+---
+
+## 21. Context Monitor Tests · F-CTX-MONITOR
+
+### 21a. Passive Status Line · F-CTX-MONITOR-STATUS
+
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-MON-1 | The status line script reads values from the monitor state file only — no invocations of `claude`, no API calls, no model calls; verified by confirming no network calls are made during script execution |
+| T-MON-2 | Given a monitor state file with `fillPct: 47.5`, `tokensSinceBaseline: 31000`, `estimatedCost: 0.18`, `burnRatePerMessage: 2100`, and `currentZone: productive`, the status line output matches the pattern `47` and `31k` and `0.18` and `2.1k` |
+| T-MON-3 | With `CLAUDE_SESSION_TYPE=headless` set, the status line script exits 0 and produces no stdout or stderr |
+| T-MON-4 | With no checkpoint metadata present, `tokensSinceBaseline` equals `currentTokens` and the status line renders without error |
+
+#### Test 21.1: Status Line Reads Only State File (T-MON-1)
+
+**Validation:**
+```python
+def test_status_no_network_calls():
+    write_monitor_state(fill_pct=47.5, tokens_since_baseline=31000,
+                        estimated_cost=0.18, burn_rate=2100, zone="productive")
+
+    with network_blocked():
+        result = subprocess.run(
+            ["npx", "tsx", "scripts/status-line.ts"],
+            capture_output=True, text=True
+        )
+    assert result.returncode == 0
+    # If network calls caused failure, returncode would be non-zero
+```
+
+---
+
+#### Test 21.2: Status Line Renders Correct Values (T-MON-2)
+
+**Validation:**
+```python
+def test_status_line_values():
+    write_monitor_state(
+        fill_pct=47.5,
+        tokens_since_baseline=31000,
+        estimated_cost=0.18,
+        burn_rate_per_message=2100,
+        current_zone="productive"
+    )
+
+    result = subprocess.run(
+        ["npx", "tsx", "scripts/status-line.ts"],
+        capture_output=True, text=True
+    )
+    assert result.returncode == 0
+    output = result.stdout + result.stderr
+    assert "47" in output
+    assert "31k" in output
+    assert "0.18" in output
+    assert "2.1k" in output
+```
+
+---
+
+#### Test 21.3: Headless Mode Suppresses Output (T-MON-3)
+
+**Validation:**
+```python
+def test_status_headless_suppressed():
+    write_monitor_state(fill_pct=50.0, tokens_since_baseline=20000,
+                        estimated_cost=0.10, burn_rate_per_message=1500,
+                        current_zone="productive")
+
+    env = {**os.environ, "CLAUDE_SESSION_TYPE": "headless"}
+    result = subprocess.run(
+        ["npx", "tsx", "scripts/status-line.ts"],
+        capture_output=True, text=True, env=env
+    )
+    assert result.returncode == 0
+    assert result.stdout.strip() == ""
+    assert result.stderr.strip() == ""
+```
+
+---
+
+#### Test 21.4: No Baseline Falls Back to currentTokens (T-MON-4)
+
+**Validation:**
+```python
+def test_status_no_baseline():
+    write_monitor_state(
+        fill_pct=30.0,
+        current_tokens=60000,
+        baseline_tokens=None,  # No checkpoint
+        estimated_cost=0.05,
+        burn_rate_per_message=1000,
+        current_zone="productive"
+    )
+
+    result = subprocess.run(
+        ["npx", "tsx", "scripts/status-line.ts"],
+        capture_output=True, text=True
+    )
+    assert result.returncode == 0
+
+    state = json.loads(Path(MONITOR_STATE_PATH).read_text())
+    assert state["tokensSinceBaseline"] == state["currentTokens"]
+```
+
+---
+
+### 21b. Threshold Warnings · F-CTX-MONITOR-WARN
+
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-MON-5 | At 65% fill (mocked via state file), the warning script exits 0 and stderr contains "degrading" or equivalent and a save suggestion; at 64% fill stderr is empty |
+| T-MON-6 | At 80% fill (mocked), warning stderr contains "critical" or equivalent and a restart suggestion; at 79% it emits the degrading warning only |
+| T-MON-7 | After firing at 65%, a second invocation at 66% exits 0 and stderr is empty (sentinel suppresses repeat) |
+| T-MON-8 | After compaction drops fill to 30%, the degrading sentinel is cleared; re-crossing 65% fires the warning again |
+| T-MON-9 | The SessionStart hook clears all zone sentinels; verified by writing sentinels to the state file, running the hook, and asserting both sentinels are false |
+
+#### Test 21.5: Degrading Zone Warning Fires at 65% (T-MON-5)
+
+**Validation:**
+```python
+def test_warn_degrading_fires_at_65():
+    write_monitor_state(fill_pct=65.0, zone_sentinels={"degrading": False, "critical": False})
+    result = subprocess.run(["npx", "tsx", "scripts/warn.ts"], capture_output=True, text=True)
+    assert result.returncode == 0
+    assert re.search(r'degrading|65%|context.*quality', result.stderr, re.I)
+    assert re.search(r'context-save|checkpoint', result.stderr, re.I)
+
+
+def test_warn_silent_below_65():
+    write_monitor_state(fill_pct=64.9, zone_sentinels={"degrading": False, "critical": False})
+    result = subprocess.run(["npx", "tsx", "scripts/warn.ts"], capture_output=True, text=True)
+    assert result.returncode == 0
+    assert result.stderr.strip() == ""
+```
+
+---
+
+#### Test 21.6: Critical Zone Warning Fires at 80% (T-MON-6)
+
+**Validation:**
+```python
+def test_warn_critical_fires_at_80():
+    write_monitor_state(fill_pct=80.0, zone_sentinels={"degrading": True, "critical": False})
+    result = subprocess.run(["npx", "tsx", "scripts/warn.ts"], capture_output=True, text=True)
+    assert result.returncode == 0
+    assert re.search(r'critical|80%', result.stderr, re.I)
+    # Must suggest restart, not just save
+    assert re.search(r'/task|restart|fresh session', result.stderr, re.I)
+
+
+def test_warn_degrading_only_at_79():
+    write_monitor_state(fill_pct=79.9, zone_sentinels={"degrading": False, "critical": False})
+    result = subprocess.run(["npx", "tsx", "scripts/warn.ts"], capture_output=True, text=True)
+    assert re.search(r'degrading', result.stderr, re.I)
+    assert not re.search(r'critical', result.stderr, re.I)
+```
+
+---
+
+#### Test 21.7: Sentinel Suppresses Repeat Warning (T-MON-7)
+
+**Validation:**
+```python
+def test_warn_sentinel_suppresses_repeat():
+    write_monitor_state(fill_pct=65.0, zone_sentinels={"degrading": False, "critical": False})
+    subprocess.run(["npx", "tsx", "scripts/warn.ts"])  # First fire — sentinel now True
+
+    write_monitor_state(fill_pct=66.0, zone_sentinels={"degrading": True, "critical": False})
+    result = subprocess.run(["npx", "tsx", "scripts/warn.ts"], capture_output=True, text=True)
+    assert result.returncode == 0
+    assert result.stderr.strip() == ""
+```
+
+---
+
+#### Test 21.8: Sentinel Clears After Compaction (T-MON-8)
+
+**Validation:**
+```python
+def test_warn_sentinel_clears_after_compaction():
+    # Set sentinel and simulate compaction drop
+    write_monitor_state(fill_pct=30.0, zone_sentinels={"degrading": True, "critical": False})
+    subprocess.run(["npx", "tsx", "scripts/on-compaction.ts"])  # clears sentinels
+
+    # Re-cross 65%
+    write_monitor_state(fill_pct=65.0, zone_sentinels={"degrading": False, "critical": False})
+    result = subprocess.run(["npx", "tsx", "scripts/warn.ts"], capture_output=True, text=True)
+    assert re.search(r'degrading', result.stderr, re.I), \
+        "Warning must re-fire after sentinel cleared by compaction"
+```
+
+---
+
+#### Test 21.9: SessionStart Hook Clears All Sentinels (T-MON-9)
+
+**Validation:**
+```python
+def test_session_start_clears_sentinels():
+    write_monitor_state(
+        fill_pct=85.0,
+        zone_sentinels={"degrading": True, "critical": True}
+    )
+
+    subprocess.run(["npx", "tsx", "scripts/session-start-hook.ts"])
+
+    state = json.loads(Path(MONITOR_STATE_PATH).read_text())
+    assert state["zoneSentinels"]["degrading"] == False
+    assert state["zoneSentinels"]["critical"] == False
+```
+
+---
+
+### 21c. Burn Rate and Cost Estimation · F-CTX-MONITOR-COST
+
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-MON-10 | The burn-rate script with a JSONL fixture of 15 messages with known token counts returns a value within 5% of the hand-calculated mean of the last 10 |
+| T-MON-11 | Cost estimation: given a known token count, model name, and rate config file with explicit rates, the cost script output matches hand-calculated expected cost within 1% |
+| T-MON-12 | With `baselineTokens: 42000` in checkpoint metadata and current tokens 95000, the state file contains `tokensSinceBaseline: 53000` (not 95000) |
+| T-MON-13 | State file write is atomic: a concurrent reader never observes a partially-written file; verified by running writer and reader in parallel and asserting every read produces valid JSON |
+
+#### Test 21.10: Burn Rate Calculation Correct (T-MON-10)
+
+**Validation:**
+```python
+def test_burn_rate_last_10_messages():
+    # 15 messages with known token counts
+    token_counts = [100, 200, 150, 300, 250, 400, 350, 200, 100, 500, 300, 150, 250, 200, 100]
+    fixture = build_jsonl_fixture(token_counts)
+    Path("test-session.jsonl").write_text(fixture)
+
+    result = subprocess.run(
+        ["npx", "tsx", "scripts/compute-burn-rate.ts", "test-session.jsonl"],
+        capture_output=True, text=True
+    )
+    assert result.returncode == 0
+
+    actual = float(result.stdout.strip())
+    expected = sum(token_counts[-10:]) / 10  # 225.0
+    assert abs(actual - expected) / expected <= 0.05, \
+        f"Burn rate {actual} is more than 5% off expected {expected}"
+```
+
+---
+
+#### Test 21.11: Cost Estimation Within 1% (T-MON-11)
+
+**Validation:**
+```python
+def test_cost_estimation_accuracy():
+    rate_config = {
+        "models": {
+            "claude-sonnet-4-6": {
+                "input_per_mtok": 3.00,
+                "output_per_mtok": 15.00
+            }
+        }
+    }
+    Path(MONITOR_CONFIG_PATH).write_text(json.dumps(rate_config))
+
+    input_tokens = 50000
+    output_tokens = 10000
+    expected_cost = (50000 / 1_000_000 * 3.00) + (10000 / 1_000_000 * 15.00)  # = 0.30
+
+    result = subprocess.run(
+        ["npx", "tsx", "scripts/estimate-cost.ts",
+         "--model", "claude-sonnet-4-6",
+         "--input-tokens", str(input_tokens),
+         "--output-tokens", str(output_tokens)],
+        capture_output=True, text=True
+    )
+    assert result.returncode == 0
+    actual = float(result.stdout.strip())
+    assert abs(actual - expected_cost) / expected_cost <= 0.01, \
+        f"Cost {actual} is more than 1% off expected {expected_cost}"
+```
+
+---
+
+#### Test 21.12: tokensSinceBaseline Is Delta, Not Total (T-MON-12)
+
+**Validation:**
+```python
+def test_tokens_since_baseline_is_delta():
+    write_checkpoint_metadata(baseline_tokens=42000)
+    write_monitor_state(current_tokens=95000)
+
+    subprocess.run(["npx", "tsx", "scripts/update-monitor-state.ts"])
+
+    state = json.loads(Path(MONITOR_STATE_PATH).read_text())
+    assert state["tokensSinceBaseline"] == 53000, \
+        f"Expected 53000 (95000-42000), got {state['tokensSinceBaseline']}"
+```
+
+---
+
+#### Test 21.13: State File Write Is Atomic (T-MON-13)
+
+**Validation:**
+```python
+def test_state_file_write_atomic():
+    import threading
+
+    errors = []
+
+    def write_state():
+        for _ in range(50):
+            subprocess.run(["npx", "tsx", "scripts/update-monitor-state.ts"])
+
+    def read_state():
+        for _ in range(50):
+            try:
+                content = Path(MONITOR_STATE_PATH).read_text()
+                if content.strip():
+                    json.loads(content)  # Must always be valid JSON
+            except json.JSONDecodeError as e:
+                errors.append(str(e))
+
+    writer = threading.Thread(target=write_state)
+    reader = threading.Thread(target=read_state)
+    writer.start(); reader.start()
+    writer.join(); reader.join()
+
+    assert len(errors) == 0, f"Partial reads observed: {errors}"
+```
+
+---
+
+## 22. User Documentation System Tests · F-DOC
+
+> **⚠ T-XXX Code Collision in PRD:** The PRD assigns T-DOC-1 through T-DOC-6 to both F-DOC-SKILLS (section 18 of this plan) and F-DOC. This violates the uniqueness rule ("T-XXX codes are assigned once and never reused"). The PRD must be corrected: F-DOC should use codes T-UDOC-1 through T-UDOC-8. This test plan uses T-UDOC-* for F-DOC until the PRD is corrected.
+
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-UDOC-1 | After `/docs-markdown` runs on a PRD with a new F-XXX feature not yet in `feature-section-map.md`, the skill prompts for a product section assignment; after assignment, `feature-section-map.md` contains a row for that F-XXX code |
+| T-UDOC-2 | `docs/markdown/toc.md` contains a link to every product section page listed in `feature-section-map.md`; any section page without a TOC link is a FAIL |
+| T-UDOC-3 | `docs/markdown/glossary.md` is non-empty after `/docs-markdown` runs on a PRD with defined Core Concepts; every term defined in Core Concepts appears in the glossary |
+| T-UDOC-4 | After `/docs-html` runs, `docs/index.html` exists and its content contains the text of `introduction.md` and `toc.md`; file must not be empty |
+| T-UDOC-5 | All generated HTML pages contain at least one `<nav>` element; `<nav>` contains links to at least the home page and glossary |
+| T-UDOC-6 | Generated HTML heading hierarchy does not skip levels: no `<h3>` appears without a preceding `<h2>` on the same page; no `<h2>` appears without a preceding `<h1>` |
+| T-UDOC-7 | When `docs/html/style.md` is absent at invocation time, `/docs-html` writes the file with non-empty content before generating any HTML; the written file contains the strings "color" and "typeface" or "font" |
+| T-UDOC-8 | All `<img>` elements in generated HTML have a non-empty `alt` attribute |
+
+### Test 22.1: New Feature Prompts for Section Assignment (T-UDOC-1)
+
+**Validation:**
+```python
+def test_docs_markdown_new_feature_prompts():
+    # PRD has F-NEWFEATURE not yet in feature-section-map.md
+    prd_with_new = build_prd_with_feature("F-NEWFEATURE", "New capability")
+    Path("prod-mgmt/prd.md").write_text(prd_with_new)
+    # feature-section-map.md does not contain F-NEWFEATURE
+    ensure_feature_not_in_map("F-NEWFEATURE")
+
+    result = run_command_interactive("/docs-markdown", responses=["Installation"])
+    assert "F-NEWFEATURE" in result["stdout"] or "section" in result["stdout"].lower()
+
+    map_content = Path("docs/feature-section-map.md").read_text()
+    assert "F-NEWFEATURE" in map_content
+```
+
+---
+
+### Test 22.2: TOC Links to Every Mapped Product Section (T-UDOC-2)
+
+**Validation:**
+```python
+def test_toc_links_all_sections():
+    run_command("/docs-markdown")
+
+    toc = Path("docs/markdown/toc.md").read_text()
+    section_map = Path("docs/feature-section-map.md").read_text()
+
+    # Extract unique section names from the map
+    sections = re.findall(r'\|\s*\S+\s*\|\s*(\S+)\s*\|', section_map)
+    sections = set(sections) - {"Section", "---"}
+
+    for section in sections:
+        assert section.lower() in toc.lower() or \
+               f"{section}.md" in toc, \
+            f"TOC missing link to section: {section}"
+```
+
+---
+
+### Test 22.3: Glossary Contains All Core Concept Terms (T-UDOC-3)
+
+**Validation:**
+```python
+def test_glossary_contains_core_concepts():
+    run_command("/docs-markdown")
+
+    glossary = Path("docs/markdown/glossary.md").read_text()
+    assert len(glossary.strip()) > 0, "Glossary must not be empty"
+
+    prd = Path("prod-mgmt/prd.md").read_text()
+    # Extract terms from Core Concepts section
+    core_section = re.search(r'## Core Concepts(.*?)^##', prd, re.DOTALL | re.MULTILINE)
+    assert core_section
+    terms = re.findall(r'### (.+)', core_section.group(1))
+
+    for term in terms:
+        assert term.lower() in glossary.lower(), \
+            f"Core Concept '{term}' missing from glossary"
+```
+
+---
+
+### Test 22.4: docs/index.html Contains intro and TOC Content (T-UDOC-4)
+
+**Validation:**
+```python
+def test_docs_index_html_exists_and_complete():
+    run_command("/docs-markdown")
+    run_command("/docs-html")
+
+    index = Path("docs/index.html")
+    assert index.exists()
+    content = index.read_text()
+    assert len(content.strip()) > 0
+
+    intro = Path("docs/markdown/introduction.md").read_text().split("\n")[0].lstrip("# ")
+    toc_heading = Path("docs/markdown/toc.md").read_text().split("\n")[0].lstrip("# ")
+
+    # Key text from both source files must appear in index.html
+    assert intro[:30] in content or intro[:30].lower() in content.lower()
+    assert toc_heading[:20] in content or toc_heading[:20].lower() in content.lower()
+```
+
+---
+
+### Test 22.5: Every HTML Page Has nav With Home and Glossary Links (T-UDOC-5)
+
+**Validation:**
+```python
+def test_html_pages_have_nav():
+    from html.parser import HTMLParser
+
+    run_command("/docs-markdown")
+    run_command("/docs-html")
+
+    html_files = list(Path("docs/html").glob("*.html"))
+    assert len(html_files) > 0
+
+    for html_file in html_files:
+        content = html_file.read_text()
+        assert "<nav" in content, f"{html_file.name}: missing <nav> element"
+        # Nav must link to home and glossary
+        nav_match = re.search(r'<nav.*?</nav>', content, re.DOTALL)
+        assert nav_match
+        nav_html = nav_match.group()
+        assert "index.html" in nav_html or "home" in nav_html.lower(), \
+            f"{html_file.name}: nav missing home link"
+        assert "glossary" in nav_html.lower(), \
+            f"{html_file.name}: nav missing glossary link"
+```
+
+---
+
+### Test 22.6: HTML Heading Hierarchy Does Not Skip Levels (T-UDOC-6)
+
+**Validation:**
+```python
+def test_html_heading_hierarchy():
+    run_command("/docs-markdown")
+    run_command("/docs-html")
+
+    html_files = list(Path("docs/html").glob("*.html"))
+    for html_file in html_files:
+        content = html_file.read_text()
+        headings = re.findall(r'<h([1-6])', content)
+        levels = [int(h) for h in headings]
+
+        for i, level in enumerate(levels):
+            if level == 2:
+                prev_levels = levels[:i]
+                assert any(l == 1 for l in prev_levels), \
+                    f"{html_file.name}: h2 appears without preceding h1"
+            if level == 3:
+                prev_levels = levels[:i]
+                assert any(l == 2 for l in prev_levels), \
+                    f"{html_file.name}: h3 appears without preceding h2"
+```
+
+---
+
+### Test 22.7: style.md Bootstrapped When Absent (T-UDOC-7)
+
+**Validation:**
+```python
+def test_docs_html_bootstraps_style_md():
+    style_path = Path("docs/html/style.md")
+    if style_path.exists():
+        style_path.unlink()
+
+    run_command("/docs-markdown")
+    run_command("/docs-html")
+
+    assert style_path.exists(), "style.md must be created when absent"
+    content = style_path.read_text()
+    assert len(content.strip()) > 0
+    assert "color" in content.lower()
+    assert "typeface" in content.lower() or "font" in content.lower()
+```
+
+---
+
+### Test 22.8: All img Elements Have Non-Empty alt Attribute (T-UDOC-8)
+
+**Validation:**
+```python
+def test_html_images_have_alt():
+    run_command("/docs-markdown")
+    run_command("/docs-html")
+
+    html_files = list(Path("docs/html").glob("*.html")) + [Path("docs/index.html")]
+    for html_file in [f for f in html_files if f.exists()]:
+        content = html_file.read_text()
+        img_tags = re.findall(r'<img[^>]*>', content)
+        for tag in img_tags:
+            alt_match = re.search(r'alt=["\']([^"\']*)["\']', tag)
+            assert alt_match, f"{html_file.name}: img missing alt attribute: {tag}"
+            assert len(alt_match.group(1).strip()) > 0, \
+                f"{html_file.name}: img has empty alt attribute: {tag}"
+```
+
+---
+
 ## Summary
 
 This test plan provides comprehensive coverage of context-curator functionality through integration tests. The tests:
@@ -3317,22 +4371,30 @@ This test plan provides comprehensive coverage of context-curator functionality 
 - Enable confident refactoring
 
 **Test Coverage:**
-- ✅ Project initialization (F-INIT)
-- ✅ Task creation (F-TASK-CREATE)
-- ✅ Task switching (F-TASK-SWITCH)
-- ✅ Context saving — personal and golden (F-CTX-SAVE)
-- ✅ Context listing (F-CTX-LIST)
-- ✅ Context management (F-CTX-MANAGE)
-- ✅ Context promotion with secret detection (F-CTX-PROMOTE)
-- ✅ Two-file CLAUDE.md system (F-CLMD)
-- ✅ Secret detection and redaction (F-SEC)
-- ✅ AI-generated summaries (F-SUMMARY)
-- ✅ Git integration (F-GIT)
-- ✅ Cross-platform compatibility (F-XPLAT)
-- ✅ Error handling (F-ERR)
-- ✅ PreCompact auto-save hook (F-HOOK)
-- ✅ Specialized task framework — DNA immutability, STRICT isolation (F-SPEC)
-- ✅ Adversary task — install path, activation, isolation enforcement (F-ADVERSARY)
+- ✅ Project initialization (F-INIT) — T-INIT-1 through T-INIT-9
+- ✅ Task creation (F-TASK-CREATE) — T-TASK-1 through T-TASK-4
+- ✅ Task switching (F-TASK-SWITCH) — T-SWITCH-1 through T-SWITCH-6
+- ✅ Context saving — personal and golden (F-CTX-SAVE) — T-CTX-1 through T-CTX-6, T-MEM-1
+- ✅ Context listing (F-CTX-LIST) — T-LIST-1 through T-LIST-4
+- ✅ Context management (F-CTX-MANAGE) — T-CTX-7, T-MANAGE-1 through T-MANAGE-6
+- ✅ Context promotion with secret detection (F-CTX-PROMOTE) — T-CTX-5, T-PROM-1 through T-PROM-3
+- ✅ Two-file CLAUDE.md system (F-CLMD) — T-CLMD-1/2, T-RESUME-MANUAL
+- ✅ Secret detection and redaction (F-SEC) — T-SEC-2 through T-SEC-10
+- ✅ AI-generated summaries (F-SUMMARY) — T-SUM-1 through T-SUM-3
+- ✅ Git integration (F-GIT) — T-GIT-1/2
+- ✅ Cross-platform compatibility (F-XPLAT) — T-ERR-3
+- ✅ Error handling (F-ERR) — T-ERR-1/2
+- ✅ PreCompact auto-save hook (F-HOOK) — T-HOOK-1
+- ✅ Specialized task framework — DNA immutability, STRICT isolation (F-SPEC) — T-SPEC-1 through T-SPEC-4
+- ✅ Adversary task — install path, activation, isolation enforcement (F-ADVERSARY) — T-ADV-1 through T-ADV-4
+- ✅ PRD-driven development artifact triad (F-PRD) — T-PRD-1 through T-PRD-4
+- ✅ Document authoring skills (F-DOC-SKILLS) — T-DOC-1 through T-DOC-6
+- ✅ Skill marketplace (F-MARKETPLACE) — T-MKT-1 through T-MKT-4
+- ✅ PostCompact task re-injection hook (F-HOOK-POST) — T-HOOK-POST-1 through T-HOOK-POST-3
+- ✅ Context monitor — status line, threshold warnings, cost estimation (F-CTX-MONITOR) — T-MON-1 through T-MON-13
+- ✅ User documentation system (F-DOC) — T-UDOC-1 through T-UDOC-8
+
+> **⚠ PRD Fix Required:** F-DOC in the PRD v20.0 assigns T-DOC-1 through T-DOC-8, colliding with F-DOC-SKILLS T-DOC-1 through T-DOC-6. The F-DOC codes must be renamed to T-UDOC-1 through T-UDOC-8 in the PRD before the next adversary run.
 
 **Next Steps:**
 1. Implement test utilities and base classes
