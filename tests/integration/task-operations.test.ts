@@ -317,8 +317,9 @@ describe('Task Switching Tests (Group 3)', () => {
     // T-SWITCH-2: When a task has no contexts, output contains "no contexts" or the word "fresh"
     // as a complete word. The previous /fresh/i without a word boundary matched substrings like
     // "Refreshed task listing", which satisfies the regex while not communicating the no-contexts state.
+    // AC specifies `context-list`, not `task-list` — these are distinct scripts with different behavior.
     it('T-SWITCH-2: should indicate no contexts available and offer fresh start', async () => {
-      const result = await runScript('task-list', ['empty-task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      const result = await runScript('context-list', ['empty-task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toMatch(/no contexts|\bfresh\b/i);

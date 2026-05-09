@@ -179,12 +179,17 @@ describe('T-MON-1: status line reads only from monitor state file (no external c
 
     const result = await runScript('status-line', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
-    // If the script were making network calls, it would hang or fail in a sandboxed env.
-    // Exit 0 is the primary signal that the script completed without external dependencies.
     expect(result.exitCode).toBe(0);
-    // Output must be non-empty when state is present
     const output = result.stdout + result.stderr;
     expect(output.trim().length).toBeGreaterThan(0);
+
+    // T-MON-1: directly verify status-line.ts source does not import any network or AI SDK modules.
+    // Exit-0 inference alone cannot distinguish a quick-failing network call from a pure file read.
+    const scriptSource = readFileSync(join(__dirname, '..', '..', 'scripts', 'status-line.ts'), 'utf-8');
+    expect(scriptSource).not.toMatch(/@anthropic-ai\/sdk/);
+    expect(scriptSource).not.toMatch(/node-fetch|cross-fetch|axios/);
+    expect(scriptSource).not.toMatch(/from\s+['"]node:(http|https)\b/);
+    expect(scriptSource).not.toMatch(/require\s*\(\s*['"]https?:/);
   });
 });
 
@@ -283,6 +288,11 @@ describe('T-MON-4: no baseline → tokensSinceBaseline equals currentTokens', ()
 
     const state = readMonitorState(ctx.personalBase);
     expect(state.tokensSinceBaseline).toBe(state.currentTokens);
+
+    // T-MON-4: AC second clause — "the status line renders without error"
+    // Verify status-line.ts handles null-baseline state without crashing.
+    const statusResult = await runScript('status-line', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    expect(statusResult.exitCode).toBe(0);
   });
 });
 
@@ -520,16 +530,17 @@ describe('T-MON-11: cost estimation matches hand-calculated value within 1%', ()
     });
 
     expect(result.exitCode).toBe(0);
-    // Output should contain the cost string — look for the total line
     const output = result.stdout + result.stderr;
-    expect(output).toMatch(/0\.5[0-9]/);  // ~$0.54, within 1%
+    expect(output).toMatch(/0\.5[0-9]/);  // ~$0.54, coarse range check
 
-    // Extract the total value from "Total: ~$X.XX" line
+    // T-MON-11: extract exact total and verify within 1%. The `if (match)` guard was a T2
+    // violation: if the "Total:" line disappears, the precise check was silently skipped and
+    // the test passed on the coarser outer regex alone. Assert match is non-null so a format
+    // change is a test failure, not a silent pass.
     const match = output.match(/Total[:\s~$]+([0-9]+\.[0-9]+)/);
-    if (match) {
-      const actual = parseFloat(match[1]);
-      expect(Math.abs(actual - expectedCost) / expectedCost).toBeLessThanOrEqual(0.01);
-    }
+    expect(match).not.toBeNull();
+    const actual = parseFloat(match![1]);
+    expect(Math.abs(actual - expectedCost) / expectedCost).toBeLessThanOrEqual(0.01);
   });
 });
 

@@ -11,7 +11,7 @@
 
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import { join, resolve } from 'path';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, readFileSync, writeFileSync, cpSync, realpathSync } from 'fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, readFileSync, readdirSync, statSync, writeFileSync, cpSync, realpathSync } from 'fs';
 import { homedir, tmpdir } from 'os';
 import {
   createTestEnvironment,
@@ -249,6 +249,24 @@ describe('T-ADV-3 / T-SPEC-1: Adversary DNA unchanged by user task operations', 
 });
 
 // ---------------------------------------------------------------------------
+// Helper: recursively collect all .jsonl files under a directory tree
+// ---------------------------------------------------------------------------
+
+function findJsonlFiles(dir: string): string[] {
+  if (!existsSync(dir)) return [];
+  const results: string[] = [];
+  function walk(d: string): void {
+    for (const name of readdirSync(d)) {
+      const full = join(d, name);
+      if (statSync(full).isDirectory()) walk(full);
+      else if (name.endsWith('.jsonl')) results.push(full);
+    }
+  }
+  walk(dir);
+  return results;
+}
+
+// ---------------------------------------------------------------------------
 // T-ADV-4 / T-SPEC-2: save-context rejected when adversary task is active
 // ---------------------------------------------------------------------------
 
@@ -288,7 +306,7 @@ describe('T-ADV-4 / T-SPEC-2: save-context rejected when adversary task is activ
     expect(/strict.isolation|not.*available|specialized.*task/i.test(output)).toBe(true);
   });
 
-  it('should not create a context file at the adversary personal context path', async () => {
+  it('should not create a context file at any path within the adversary task directories', async () => {
     await runScript(
       'save-context',
       ['adversary', 'should-not-exist', '--personal'],
@@ -296,14 +314,14 @@ describe('T-ADV-4 / T-SPEC-2: save-context rejected when adversary task is activ
       { CLAUDE_HOME: ctx.personalBase }
     );
 
-    const contextFilePath = join(
-      ctx.personalDir,
-      'tasks',
-      'adversary',
-      'contexts',
-      'should-not-exist.jsonl'
-    );
-    expect(fileExists(contextFilePath)).toBe(false);
+    // T-SPEC-2 / T-ADV-4: AC requires "any path within the adversary task directories",
+    // not just one specific filename. Scan both the personal and golden adversary task
+    // directory trees for any .jsonl file.
+    const personalAdversaryDir = join(ctx.personalDir, 'tasks', 'adversary');
+    expect(findJsonlFiles(personalAdversaryDir)).toHaveLength(0);
+
+    const goldenAdversaryContextDir = join(ctx.projectDir, '.claude', 'tasks', 'adversary', 'contexts');
+    expect(findJsonlFiles(goldenAdversaryContextDir)).toHaveLength(0);
   });
 });
 

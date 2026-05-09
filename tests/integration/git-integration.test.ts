@@ -299,15 +299,18 @@ describe('T-GIT-1 and T-GIT-2: git ignore and porcelain status checks', () => {
     // Stage everything inside project dir
     gitAdd(ctx.projectDir, '.');
 
-    // T-GIT-2: git status --porcelain must not list any path containing the personal storage prefix (~/.claude/projects/...)
+    // T-GIT-2: verify personal context was saved OUTSIDE the project directory.
+    // git status --porcelain emits only relative paths, so checking `not.toContain(absolutePath)`
+    // is vacuous — it can never fail. The non-vacuous form: assert the file EXISTS at the personal
+    // path AND that path is outside projectDir, then verify the context filename is absent from
+    // git status (which only tracks files within the project tree).
+    const personalContextPath = join(ctx.personalDir, 'tasks', 'tgit-task', 'contexts', 'tgit-ctx.jsonl');
+    expect(fileExists(personalContextPath)).toBe(true);
+    expect(personalContextPath.startsWith(ctx.projectDir)).toBe(false);
+
     const status = getGitStatus(ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
     const statusLines = status.split('\n').filter((l: string) => l.trim().length > 0);
-
-    // Personal base is outside the project dir; none of its paths should appear in git status
-    const personalPrefix = ctx.personalDir;
     statusLines.forEach((line: string) => {
-      expect(line).not.toContain(personalPrefix);
-      // Also must not contain the project-scoped personal dir name (sanitized path component)
       expect(line).not.toContain('tgit-ctx');
     });
   });

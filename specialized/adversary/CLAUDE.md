@@ -86,10 +86,11 @@ Write the following to `./prod-mgmt/test-inventory.md`:
 
 For every test found, one row:
 
-| TEST_ID | DESCRIPTION | AC_CLAUSE | COVERAGE_RATIONALE | VERDICT |
-|---------|-------------|-----------|-------------------|---------|
+| F-CODE | T-CODE | DESCRIPTION        | AC_CLAUSE | COVERAGE_RATIONALE | VERDICT |
+|--------|--------|--------------------|-----------|--------------------|---------|
 
-- TEST_ID: filename + function/line reference
+- F-CODE: the PRD feature this test covers
+- T-CODE: the test id of the test (that corresponds to the feature's acceptance criteria code)
 - DESCRIPTION: one plain-language sentence — what does this test actually do?
   Not what it claims to do. What does it do?
 - AC_CLAUSE: the exact acceptance criteria clause it claims to cover
