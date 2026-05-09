@@ -1,7 +1,7 @@
 # Product Requirements Document: Claude Code Context Curator
 
-**Version:** 18.0
-**Last Updated:** March 12, 2026
+**Version:** 19.0
+**Last Updated:** May 9, 2026
 **Status:** Ready for Implementation
 
 ---
@@ -11,7 +11,7 @@
 Claude Code Context Curator is a **task-based context management system** that solves the critical problem of losing hard-won context when Claude Code auto-compacts or exceeds token limits. It enables developers to preserve "warmed-up" Claude sessions and return to peak performance on-demand.
 
 **The Problem:**
-Working on large, legacy codebases requires 1-3 hours to warm Claude Code up on a specific subsystem. Once Claude understands the quirks, patterns, and gotchas, it performs exceptionally. But auto-compact destroys this hard-won understanding, forcing developers to start over. This is infuriating and wastes valuable time.
+Working on large, legacy codebases requires significant warm-up time before Claude Code performs at its best on a specific subsystem. Once Claude understands the quirks, patterns, and gotchas, it performs exceptionally. But even with 1M context windows, context quality degrades well before the token ceiling — auto-compact destroys hard-won understanding, and "context rot" sets in at high fill levels regardless of window size. This forces developers to start over or accept degraded output. This is infuriating and wastes valuable time.
 
 **The Solution:**
 - **Tasks** = Focused work environments with dedicated instruction sets
@@ -19,9 +19,11 @@ Working on large, legacy codebases requires 1-3 hours to warm Claude Code up on 
 - **Personal by default** = Your contexts stay private
 - **Golden contexts** = Explicitly share valuable warmed-up sessions with team
 - **No git conflicts** = Two-file CLAUDE.md system keeps projects clean
+- **Hooks integration** = Automatic context protection on compaction events
+- **PRD-driven development** = Structured upstream quality that makes AI-generated code trustworthy
 
 **Key Innovation:**
-Claude Code's `/resume` re-reads CLAUDE.md from disk, enabling us to swap task-specific instructions at resume-time without polluting the project directory or causing git conflicts.
+Claude Code's `/resume` re-reads CLAUDE.md from disk, enabling us to swap task-specific instructions at resume-time without polluting the project directory or causing git conflicts. Skills carry forward through compaction, and hooks fire deterministically — together these enable automatic context protection that doesn't require manual intervention.
 
 ---
 
@@ -30,27 +32,31 @@ Claude Code's `/resume` re-reads CLAUDE.md from disk, enabling us to swap task-s
 ### The Warm-Up Problem
 
 ```
-Hour 0: Start fresh on auth subsystem
+Session start: Begin work on auth subsystem
   "Check the authentication middleware in src/auth/"
-  
-Hour 1-3: Claude warms up
+
+Early session: Claude warms up
   - Understands the legacy OAuth flow
-  - Knows about the weird session token format  
+  - Knows about the weird session token format
   - Remembers the three places auth state is stored
   - Gets the quirky error handling patterns
-  
-Hour 4-6: SWEET SPOT ✨
+
+SWEET SPOT ✨  (typically 50K–200K tokens into context)
   - Claude is crushing it
   - Deep understanding of the auth subsystem
   - Makes changes confidently
   - Suggests good refactors
-  
-Hour 7: Auto-compact happens
+
+Context fills or auto-compact fires
   - Context gets summarized
   - Nuanced understanding lost
   - Back to generic suggestions
-  
-😤 We lose hours of accumulated knowledge
+
+  Note: With 1M context windows, the cliff arrives later — but it
+  still arrives. Context rot (degraded multi-needle recall) sets in
+  well before the window fills. Quality loss is real at any scale.
+
+😤 We lose hard-won knowledge
 ```
 
 ### Tasks
@@ -78,7 +84,7 @@ Specialized tasks differ from user tasks in three ways:
 **Context isolation modes:**
 
 - **STANDARD**: Normal context save/restore behavior. The task switch shows the context menu and supports `/resume` from saved sessions. Used when the specialized task benefits from accumulated warm-up.
-- **STRICT**: No context restoration. No context saving. Every invocation starts a fresh session. The framework bypasses the context menu entirely — this is not left to the model to self-enforce. STRICT isolation is load-bearing for tasks where prior session knowledge would compromise the task's purpose (e.g., an adversarial reviewer that must not be influenced by prior verdicts or by knowledge of the team's intent).
+- **STRICT**: No context restoration. No context saving. Every invocation starts a fresh session. STRICT isolation is enforced by hooks, not by behavioral instruction — a `PreCompact` hook blocks compaction saves and a `SessionStart` hook with `resume` trigger verifies no prior context was loaded when the adversary task is active. STRICT isolation is load-bearing for tasks where prior session knowledge would compromise the task's purpose (e.g., an adversarial reviewer that must not be influenced by prior verdicts or by knowledge of the team's intent).
 
 ### Contexts
 
@@ -126,6 +132,31 @@ This means we can modify `./.claude/CLAUDE.md` between sessions and the new inst
 >
 > **Mitigation:** The `@import` directive is a documented feature, so instruction-loading itself is stable. Add a smoke test: after a `/resume`, verify a known string from the task CLAUDE.md appears in Claude's system context. This catches breakage quickly.
 
+### The Skills Architecture
+
+As of Claude Code v2.x, skills are the idiomatic way to package reusable behaviors. Context Curator commands are implemented as **skills** rather than raw slash commands, with the following advantages:
+
+- Skills survive auto-compaction: Claude Code re-attaches the most recent invocation of each skill after compaction, keeping the first 5,000 tokens per skill (combined 25,000-token budget)
+- Skills are auto-invocable: the description-based trigger means Claude can call context management behaviors without the user invoking the slash command explicitly
+- Skills are composable: supporting files (scripts, templates) live in the skill directory alongside SKILL.md
+
+**Skill locations:**
+- `~/.claude/skills/context-curator/` — user-scoped skills (all CC commands)
+- `.claude/skills/` — project-scoped skills (if project-specific overrides are needed)
+
+### Hooks Integration
+
+Context Curator registers hooks that fire deterministically regardless of Claude's behavior:
+
+| Hook | Trigger | Purpose |
+|------|---------|---------|
+| `PreCompact` | auto/manual | Auto-save current session to timestamped file before compaction |
+| `PostCompact` | (any) | Re-inject current task CLAUDE.md content into session as context reminder |
+| `SessionStart` | resume | Detect active task and validate context isolation mode |
+| `SessionStart` | compact | Re-inject task context summary after compaction |
+
+The `PostCompact` hook is the most transformative addition: it closes the loop between compaction events and task context restoration, so developers working inside a task automatically get a context reminder after every compaction without manual intervention.
+
 ---
 
 ## Architecture
@@ -137,9 +168,19 @@ my-project/
 ├── CLAUDE.md                          # ← Committed, never modified
 │   # Contains universal project instructions
 │
-├── .claude/                           # ← Git-ignored directory
+├── .claude/                           # ← Partially committed (see .gitignore)
 │   ├── CLAUDE.md                      # ← Auto-generated, git-ignored
 │   │   # Contains @import to current task
+│   │
+│   ├── skills/                        # ← Project-scope skills (committed, optional)
+│   │   └── context-curator/           #   Only present if project-scope install chosen
+│   │       ├── task/
+│   │       │   ├── SKILL.md           # ← /task command
+│   │       │   └── scripts/
+│   │       ├── context-save/
+│   │       │   ├── SKILL.md           # ← /context-save command
+│   │       │   └── scripts/
+│   │       └── ...                    #   (other skills)
 │   │
 │   ├── tasks/                         # ← Task definitions (committed)
 │   │   ├── oauth-refactor/
@@ -159,24 +200,44 @@ my-project/
 │   │
 │   └── .gitignore
 │
+├── prod-mgmt/                         # ← PRD-driven development artifacts
+│   ├── risk-acceptances.md            # ← Human-reviewed risk acceptances
+│   └── test-inventory.md             # ← Adversary output (not committed)
+│
 ├── src/
 ├── tests/
 └── package.json
 
 # .claude/.gitignore contents:
 # CLAUDE.md                   # Auto-generated file
+# (skills/ and tasks/ are NOT ignored — they are committed)
 ```
 
 ### Personal Storage Structure (Never Committed)
 
 ```
 ~/.claude/
-├── commands/                          # Global slash commands
-│   ├── task.md
-│   ├── context-save.md
-│   ├── context-list.md
-│   ├── context-manage.md
-│   └── context-promote.md
+├── skills/                            # Global skills (context-curator commands)
+│   └── context-curator/
+│       ├── authoring/                 # Document authoring skills
+│       │   ├── prd/SKILL.md           # /prd
+│       │   ├── test-plan/SKILL.md     # /test-plan
+│       │   ├── dev-plan/SKILL.md      # /dev-plan
+│       │   └── test-inventory/SKILL.md # /test-inventory (adversary only)
+│       ├── session/                   # Session management skills
+│       │   ├── task/SKILL.md          # /task
+│       │   ├── context-save/SKILL.md  # /context-save
+│       │   ├── context-list/SKILL.md  # /context-list
+│       │   ├── context-manage/SKILL.md # /context-manage
+│       │   └── context-promote/SKILL.md # /context-promote
+│       └── monitor/                   # Context monitoring skills
+│           ├── status/SKILL.md
+│           ├── warn/SKILL.md
+│           └── cost/SKILL.md
+│
+├── hooks/                             # Global hooks
+│   ├── precompact-autosave.sh         # PreCompact → auto-save
+│   └── postcompact-reinject.sh        # PostCompact → task context re-injection
 │
 └── projects/                          # Per-project personal state
     └── -Users-dev-my-project/
@@ -189,6 +250,9 @@ my-project/
         │   └── payment-integration/
         │       └── contexts/
         │           └── experiment.jsonl
+        │
+        ├── auto-saves/                # Hook-generated pre-compaction snapshots
+        │   └── 2026-05-09T14-32-00.jsonl
         │
         └── .stash/
             └── original-CLAUDE.md     # Backup of project's CLAUDE.md
@@ -208,28 +272,40 @@ my-project/
 
 ## Installation
 
-### One-Time Global Setup
+### Option A: Global Install (one developer, all projects)
+
+Run once. Skills and hooks become available in every project on this machine.
 
 ```bash
-# 1. Create directories
-mkdir -p ~/.claude/commands
-mkdir -p ~/.claude/projects
+./install.sh
 
-# 2. Download commands from repository
-cd ~/.claude/commands
-curl -O <repo-url>/commands/task.md
-curl -O <repo-url>/commands/context-save.md
-curl -O <repo-url>/commands/context-list.md
-curl -O <repo-url>/commands/context-manage.md
-curl -O <repo-url>/commands/context-promote.md
+# Creates:
+#   ~/.claude/skills/context-curator/  (skill SKILL.md files + scripts)
+#   ~/.claude/hooks/                   (PreCompact, PostCompact, monitor hooks)
+#   ~/.claude/context-curator/         (specialized task DNA, rate config)
+```
 
-# 3. Verify installation
-ls ~/.claude/commands/*.md
+Every developer on a team runs this independently. Nothing is committed to the project repo. Suitable for individual developers or teams who want a personal install.
 
-# 4. Test in any project
-cd ~/my-project
+### Option B: Project Install (whole team, zero per-developer setup)
+
+Skills are committed to the project repository. Any developer who clones the repo gets all context-curator commands immediately — no installer required.
+
+```bash
+# First developer sets up the project:
+./install.sh --project-install /path/to/my-project
+
+# This copies skill directories into .claude/skills/context-curator/
+# and commits them alongside task definitions.
+# Every subsequent developer just clones and runs claude.
+```
+
+Or during per-project initialization:
+
+```bash
 claude
-You: /task oauth-refactor
+You: /task-init
+# Prompted: "Install skills globally (~/.claude) or into this project (.claude)?"
 ```
 
 ### Per-Project Initialization
@@ -244,6 +320,8 @@ You: /task-init
 This creates:
 - `.claude/` directory with `.gitignore`
 - `.claude/tasks/default/CLAUDE.md` (copy of root CLAUDE.md)
+- `.claude/skills/context-curator/` (if project-scope install chosen)
+- `prod-mgmt/` directory for PRD-driven development artifacts
 - Backup of original CLAUDE.md in personal storage
 
 ---
@@ -285,14 +363,7 @@ yes
 
 # Commit to share with team
 git add .claude/tasks/oauth-refactor/contexts/oauth-deep-dive.jsonl
-git commit -m "Add OAuth deep-dive golden context
-
-This context includes:
-- Complete understanding of legacy OAuth flow
-- Session token format quirks  
-- Rate limiting bypass issue
-- Mobile app auth debugging
-"
+git commit -m "Add OAuth deep-dive golden context"
 git push
 ```
 
@@ -306,11 +377,11 @@ git pull
 /task oauth-refactor
 
 > Which context?
-> 
+>
 > Golden contexts:
 > 1. oauth-deep-dive (47 msgs) - by: alice ⭐
 >    Complete OAuth flow analysis with session state deep-dive
-> 
+>
 > Choice: 1
 
 ✓ Context: oauth-deep-dive (47 msgs)
@@ -320,43 +391,43 @@ Run: /resume <uuid>
 # Claude is INSTANTLY warmed up on OAuth subsystem! ✨
 ```
 
-### Managing Contexts
+### Automatic Context Protection (Hooks)
 
-```bash
-/context-manage
+With hooks installed, context protection is automatic:
 
-> I found 8 contexts across 3 tasks
-> What would you like to do?
-
-clean
-
-> Found stale and duplicate contexts
-> Apply recommendations? (yes/no/review)
-
-review
-
-# Interactive cleanup with intelligent suggestions
-# Claude helps you organize and maintain contexts
+```
+[Claude Code] Context at 78% — auto-compact triggered
+[PreCompact hook] → auto-save: ~/.claude/projects/.../auto-saves/2026-05-09T14-32-00.jsonl
+[Auto-compact runs]
+[PostCompact hook] → re-injecting task context for: oauth-refactor
+  "You are working in the oauth-refactor task. Current focus: legacy OAuth
+   implementation in src/auth/. Key understanding: weird session token format,
+   three places auth state is stored..."
+[Session continues with task context restored]
 ```
 
-### Returning to Default/Vanilla
+No manual intervention required.
+
+### Running the LoD2 Adversary
 
 ```bash
-/task default
+# Switch to adversary task (STRICT isolation — always fresh)
+/task adversary
 
-✓ Task: default
-✓ Restored to vanilla project context
+# Adversary scans PRD, tests, risk-acceptances.md
+# Writes output to ./prod-mgmt/test-inventory.md
+# Session ends
 
-Run: /resume <uuid>
+# Review findings
+cat prod-mgmt/test-inventory.md
 
-# Back to general development mode
+# Address findings in PRD/AC/tests, then re-run
+# For findings that cannot be remediated: add risk acceptance entry
 ```
 
 ---
 
 ## Features
-
-Save those precious hours of warming Claude up on complex subsystems. Context Curator preserves hard-won context so you can return to peak performance on-demand — the primary value of the system.
 
 ### Command Reference
 
@@ -374,12 +445,14 @@ Save those precious hours of warming Claude up on complex subsystems. Context Cu
 
 ### F-INIT · Project Initialization (`/task-init`)
 
-Bootstraps a project for context-curator by creating the `.claude/` directory structure, wiring up `.gitignore`, and copying root `CLAUDE.md` into the default task.
+Bootstraps a project for context-curator by creating the `.claude/` directory structure, wiring up `.gitignore`, copying root `CLAUDE.md` into the default task, and creating the `prod-mgmt/` directory for PRD-driven development artifacts.
 
 **Expected Behaviors:**
 - Creates `.claude/` directory if it doesn't exist
 - Creates `.claude/.gitignore` with `CLAUDE.md` entry
 - Creates `.claude/tasks/default/CLAUDE.md` as copy of root `CLAUDE.md`
+- Creates `prod-mgmt/` directory if it doesn't exist
+- Creates `prod-mgmt/risk-acceptances.md` from template if it doesn't exist
 - Backs up original `CLAUDE.md` to `~/.claude/projects/{sanitized-path}/.stash/original-CLAUDE.md`
 - Idempotent: running twice doesn't break anything
 - Works in projects with and without existing `CLAUDE.md`
@@ -401,6 +474,10 @@ Bootstraps a project for context-curator by creating the `.claude/` directory st
 | T-INIT-3 | `.claude/tasks/default/CLAUDE.md` content equals root `CLAUDE.md` character-for-character |
 | T-INIT-4 | Running `init-project` twice exits 0 both times and produces identical file contents |
 | T-INIT-5 | Writing a file to project A's personal dir does not make it visible in project B's personal dir |
+| T-INIT-6 | `init-project` creates `prod-mgmt/risk-acceptances.md`; the file contains the string "DISPOSITION" and the string "EXPIRY" |
+| T-INIT-7 | `init-project --project-install` creates `.claude/skills/context-curator/` containing at least the five skill directories (`task`, `context-save`, `context-list`, `context-manage`, `context-promote`), each with a `SKILL.md` file and a `scripts/` subdirectory |
+| T-INIT-8 | After a project-scope install, typing `/context-save` in a Claude Code session resolves to the skill in `.claude/skills/context-curator/context-save/` — not to any user-scope skill of the same name; verified by checking that the skill SKILL.md path in the session context matches the project path |
+| T-INIT-9 | A developer who clones a project with `.claude/skills/context-curator/` committed has all five slash commands available without running `install.sh`; verified by running `claude` in a fresh environment with no `~/.claude/skills/` directory and confirming `/task` is a recognized command |
 
 ### F-TASK-CREATE · Task Creation (`/task <new-task-id>`)
 
@@ -417,25 +494,6 @@ If task doesn't exist:
 4. Modify `.claude/CLAUDE.md` to import task's CLAUDE.md
 5. Output: "Run: /resume <uuid>"
 
-**Example:**
-
-```
-You: /task oauth-refactor
-
-# If new:
-What should this task focus on?
-
-You: Refactoring the legacy OAuth implementation in src/auth/
-
-✓ Created task: oauth-refactor
-✓ Location: ./.claude/tasks/oauth-refactor/
-
-Run: /resume <uuid>
-
-Your focus:
-  Refactoring the legacy OAuth implementation in src/auth/
-```
-
 **Expected Behaviors:**
 - Prompts user for task focus/description
 - Creates `.claude/tasks/{task-id}/` directory structure
@@ -446,26 +504,18 @@ Your focus:
 - Task ID validation (alphanumeric + hyphens only)
 - Creates both project and personal task directories
 
-**Test Scenarios:**
-1. Create new task in initialized project
-2. Invalid task ID (spaces, special chars, uppercase)
-3. Task creation with multi-line description
-4. Task creation with no description
-5. Verify `.claude/CLAUDE.md` contains correct `@import` directive
-6. Verify task `CLAUDE.md` contains user's description
-
 **Acceptance Criteria:**
 
 | Test ID | Criterion |
 |---------|-----------|
-| T-TASK-1 | `task-create` produces CLAUDE.md with all required sections: `# Task:`, `## Focus`, `## Key Areas`, `## Guidelines` |
-| T-TASK-2 | `task-create` with uppercase name exits non-zero AND creates no task directory |
-| T-TASK-3 | `task-create` with multi-line description preserves all lines in the Focus section |
-| T-TASK-4 | `task-create` with empty description exits non-zero and creates no task directory |
+| T-TASK-1 | task-create produces a CLAUDE.md with all four required section headers (## Task, ## Focus, ## Context, ## Notes) and the description keyword appears under the ## Focus section |
+| T-TASK-2 | task-create exits non-zero and creates no directory for a task name containing uppercase letters |
+| T-TASK-3 | A four-line description has all four lines preserved verbatim in the Focus section |
+| T-TASK-4 | task-create exits non-zero and creates no directory when given empty description |
 
 ### F-TASK-SWITCH · Task Switching (`/task <existing-task-id>`)
 
-Switches the active task context by updating `.claude/CLAUDE.md` and optionally restoring a saved context session for that task.
+Switches to an existing task by loading available contexts, updating the CLAUDE.md import, and preparing a session for `/resume`.
 
 **Command:** `/task <task-id>`
 
@@ -478,29 +528,6 @@ If task exists:
 4. Copy selected context to session file
 5. Output: "Run: /resume <uuid>"
 
-**Example:**
-
-```
-# If exists:
-Which context to load?
-
-Personal contexts:
-1. my-progress (15 msgs) - 2025-01-16
-
-Golden contexts (team shared):
-2. oauth-deep-dive (47 msgs) - 2025-01-15 - by: alice
-   Summary: Complete walkthrough of OAuth flow, token format, session storage
-
-Choice (or enter for default): 2
-
-✓ Task: oauth-refactor  
-✓ Context: oauth-deep-dive (47 msgs)
-
-Run: /resume <uuid>
-
-# Now /resume will read .claude/CLAUDE.md which imports oauth-refactor/CLAUDE.md
-```
-
 **Expected Behaviors:**
 - Lists available contexts (personal + golden) for task
 - Displays context metadata: name, message count, date, author (for golden)
@@ -511,19 +538,10 @@ Run: /resume <uuid>
 - Provides `/resume sess-{id}` instruction
 - Handles task with no contexts (offers to start fresh)
 
-**Test Scenarios:**
-1. Switch to task with personal contexts only
-2. Switch to task with golden contexts only
-3. Switch to task with both personal and golden contexts
-4. Switch to task with no contexts
-5. Switch to `default` task (return to vanilla)
-6. Switch between tasks multiple times
-7. Verify `.claude/CLAUDE.md` updates correctly on each switch
-
 **Acceptance Criteria:**
 
-| Test ID    | Criterion |
-|------------|-----------|
+| Test ID | Criterion |
+|---------|-----------|
 | T-SWITCH-1 | After switching tasks A→B→C→A, `.claude/CLAUDE.md` contains **exactly one** `@import` line on each switch, pointing to the selected task's `CLAUDE.md` |
 | T-SWITCH-2 | When a task has no saved contexts, `context-list` exits 0 and output contains "no contexts" or the word "fresh" as a complete word (not a substring of e.g. "Refreshed") |
 | T-SWITCH-3 | When a task has both personal and golden contexts, all context names appear in output with personal contexts listed before golden contexts |
@@ -533,56 +551,10 @@ Run: /resume <uuid>
 
 ### F-CTX-SAVE · Context Saving (`/context-save <n>`)
 
-Saves the current Claude Code session as a named personal or golden context, including AI-generated summary and metadata. Personal contexts stay local; golden contexts are committed to git for team sharing.
+Saves the current Claude Code session as a named personal or golden context, including AI-generated summary and metadata.
 
 **Command:** `/context-save <name> [--golden]`
 **Execution:** Forked context (has access to current session, does not pollute)
-
-**Behavior:**
-
-1. Scan for secrets (API keys, passwords, tokens)
-2. If secrets found, warn user
-3. Ask: "Save as personal or golden?"
-4. If golden: confirm team sharing implications
-5. Save to appropriate location
-6. If golden: remind to commit via git
-
-**Example:**
-
-```
-You: /context-save oauth-deep-dive
-
-Scanning for secrets...
-✓ No secrets detected
-
-Save this context as:
-1. Personal (only you can access)
-2. Golden (shared with team via git)
-
-Choice (1/2): 2
-
-⚠️  GOLDEN CONTEXT
-
-This will be saved to:
-./.claude/tasks/oauth-refactor/contexts/oauth-deep-dive.jsonl
-
-Team members will be able to:
-- See your conversation history
-- Use this context to warm up Claude
-- View any code snippets discussed
-
-Confirm? (yes/no): yes
-
-✓ Saved as golden context
-✓ Location: ./.claude/tasks/oauth-refactor/contexts/oauth-deep-dive.jsonl
-
-Next steps:
-git add .claude/tasks/oauth-refactor/contexts/oauth-deep-dive.jsonl
-git commit -m "Add OAuth deep-dive golden context"
-git push
-```
-
-> **Note:** Secrets are scanned at save time for ALL contexts (personal and golden). For personal saves, secrets trigger a warning with the option to redact before saving — they do not block the save. For golden promotion, secrets must be acknowledged and optionally redacted before proceeding.
 
 **Expected Behaviors:**
 - Saves current session to personal context by default
@@ -593,16 +565,7 @@ git push
 - Stores metadata: timestamp, message count, author
 - Validates context name (alphanumeric + hyphens + underscores)
 - Prevents overwriting without confirmation
-
-**Test Scenarios:**
-1. Save personal context with valid name
-2. Save golden context with secret detection passing
-3. Attempt to save with invalid name
-4. Attempt to overwrite existing context
-5. Save context with varying message counts (empty, small, large)
-6. Verify `.jsonl` format is valid
-7. Verify summary is generated and stored
-8. Context saved without active task (should error or prompt)
+- Scans for secrets before any save (warns on personal, blocks on golden)
 
 **Acceptance Criteria:**
 
@@ -622,52 +585,6 @@ Lists available contexts for the current or specified task, grouped by type (per
 **Command:** `/context-list [task-id]`
 **Execution:** Forked context (can read files and generate summaries)
 
-**Behavior:**
-
-1. List personal contexts from `~/.claude/projects/.../`
-2. List golden contexts from `./.claude/tasks/.../contexts/`
-3. For each context:
-   - Read sample of messages
-   - Generate 1-2 sentence summary
-   - Show metadata (size, date, author for golden)
-
-**Example:**
-
-```
-You: /context-list oauth-refactor
-
-# Context List
-
-**Project:** /Users/dev/my-project
-**Task:** oauth-refactor
-
-Sessions:
-  8e14f625... (current)  23 msgs   ~6k - just now
-  a1b2c3d4...            45 msgs  ~11k - 2 hours ago
-
-Personal contexts:
-  my-progress           15 msgs - yesterday [oauth-refactor]
-  edge-cases             8 msgs - 2 days ago [oauth-refactor]
-
-Golden contexts:
-  oauth-deep-dive       47 msgs - 2 days ago [oauth-refactor] ⭐
-  warmed-up             32 msgs - 3 days ago [oauth-refactor] ⭐
-
----
-Save: `/context-save <name>` | Load: `/task oauth-refactor`
-```
-
-**Output Format:**
-- Compact single-line format for each context
-- Sorted newest first within each section
-- Task shown in brackets `[task-id]`
-- Golden contexts marked with ⭐
-
-**Active Sessions:**
-- Located in `~/.claude/projects/<project-id>/` as UUID-named `.jsonl` files
-- The most recently modified session is marked as "(current)"
-- Shows message count, tokens, and relative time
-
 **Expected Behaviors:**
 - Lists contexts for current task if no task-id specified
 - Lists contexts for specified task if task-id provided
@@ -677,14 +594,6 @@ Save: `/context-save <name>` | Load: `/task oauth-refactor`
 - Groups by type: personal first, then golden
 - Handles tasks with no contexts gracefully
 - Shows context file sizes
-
-**Test Scenarios:**
-1. List contexts for current task
-2. List contexts for different task
-3. List contexts when none exist
-4. List contexts with mix of personal and golden
-5. Verify summary display is truncated/formatted properly
-6. List contexts for non-existent task (should error)
 
 **Acceptance Criteria:**
 
@@ -702,107 +611,6 @@ Scans all task contexts, identifies stale or duplicate entries, and provides int
 **Command:** `/context-manage`
 **Execution:** Forked context (full file access and intelligent suggestions)
 
-**Behavior:**
-
-Claude scans all contexts and presents an interactive menu:
-
-```
-Available actions:
-
-Organize:
-- rename <number> - Rename a context
-- delete <number> - Delete a context
-- merge <numbers> - Merge multiple contexts
-
-Share:
-- promote <number> - Make a golden context
-- demote <number> - Make personal again
-
-Inspect:
-- view <number> - View full summary and details
-- diff <num1> <num2> - Compare two contexts
-- secrets <number> - Scan for secrets
-
-Bulk:
-- clean - Find and remove old/duplicate contexts
-- archive - Archive contexts older than 30 days
-```
-
-**Example Session:**
-
-```
-You: /context-manage
-
-Scanning contexts...
-
-I found **8 contexts** across **3 tasks**:
-
-### oauth-refactor (current)
-**Personal:**
-1. `my-progress` - 15 msgs - OAuth token validation work
-2. `edge-cases` - 8 msgs - Session timeout edge cases
-
-**Golden:**
-3. `oauth-deep-dive` ⭐ - 47 msgs - Complete OAuth analysis (by: alice)
-
-### payment-integration
-**Personal:**
-4. `stripe-work` - 12 msgs - Webhook handling
-5. `experiment` - 3 msgs - Testing refund flow
-
-**Golden:**
-6. `stripe-flow` ⭐ - 32 msgs - Production integration (by: you)
-
-### legacy-migration
-**Personal:**
-7. `old-approach` - 5 msgs - Failed migration attempt (60 days old)
-
-**Golden:**
-8. `migration-strategy` ⭐ - 62 msgs - Comprehensive plan (by: you)
-
----
-
-What would you like to do?
-
-You: clean
-
-Let me analyze for cleanup opportunities...
-
-Found:
-
-**Stale contexts:**
-- `old-approach` (legacy-migration) - 5 msgs, 60 days old
-  Superseded by migration-strategy
-  → Recommend: Archive
-
-**Very small contexts:**
-- `experiment` (payment-integration) - 3 msgs
-  Might be incomplete
-  → Recommend: Delete or merge with stripe-work
-
-Apply recommendations? (yes/no/review)
-
-You: review
-
-1. Archive `old-approach`? (yes/no/skip)
-You: yes
-✓ Archived to ./.claude/tasks/legacy-migration/archive/old-approach.jsonl
-
-2. Delete `experiment`? (yes/no/skip/merge)
-You: merge
-Merge into which context? (4 or 6)
-You: 4
-✓ Merged experiment → stripe-work (now 15 msgs)
-
-Cleanup complete!
-
-Anything else? (or 'done' to exit)
-
-You: done
-
-✓ Context management complete
-```
-
 **Expected Behaviors:**
 - Scans all tasks for contexts
 - Reports total count across tasks
@@ -813,16 +621,6 @@ You: done
 - Provides dry-run/preview before deletion
 - Respects user confirmation for destructive actions
 - Preserves golden contexts (warns before deletion)
-
-**Test Scenarios:**
-1. Manage when no contexts exist
-2. Manage with multiple stale contexts
-3. Manage with duplicate contexts
-4. Review mode: shows details before action
-5. Clean mode: confirms then deletes
-6. Cancel: exits without changes
-7. Verify no golden contexts deleted without explicit confirmation
-8. Verify personal contexts can be cleaned
 
 **Acceptance Criteria:**
 
@@ -838,60 +636,10 @@ You: done
 
 ### F-CTX-PROMOTE · Context Promotion (`/context-promote <context-name>`)
 
-Promotes a personal context to a golden (team-shared) context after scanning for secrets and obtaining user confirmation, making it available to all team members via git. New teammates ramp up faster and proven debugging approaches are preserved as team assets.
+Promotes a personal context to a golden (team-shared) context after scanning for secrets and obtaining user confirmation.
 
 **Command:** `/context-promote <name>`
 **Execution:** Forked context
-
-**Behavior:**
-
-1. Find personal context
-2. Scan for secrets
-3. Optionally redact secrets
-4. Copy to `./.claude/tasks/.../contexts/`
-5. Remind to commit via git
-
-**Example:**
-
-```
-You: /context-promote edge-cases
-
-Promoting: edge-cases (oauth-refactor)
-
-Scanning for secrets...
-
-⚠️  Found potential secrets:
-- Line 89: API key pattern (pk_test_...)
-- Line 124: Database password
-
-Options:
-1. Continue anyway (not recommended)
-2. Let me help redact secrets first
-3. Cancel
-
-You: 2
-
-Creating sanitized version...
-
-Redacted 2 secrets:
-- Line 89: pk_test_4eC39... → pk_test_[REDACTED]
-- Line 124: postgres://user:pass@... → postgres://user:[REDACTED]@...
-
-Save this cleaned version as golden? (yes/no)
-
-You: yes
-
-✓ Promoted to golden context
-✓ Location: ./.claude/tasks/oauth-refactor/contexts/edge-cases.jsonl
-
-Personal copy remains at:
-  ~/.claude/projects/.../oauth-refactor/contexts/edge-cases.jsonl
-
-Next steps:
-  git add .claude/tasks/oauth-refactor/contexts/edge-cases.jsonl
-  git commit -m "Share edge-cases context for OAuth work"
-  git push
-```
 
 **Expected Behaviors:**
 - Finds personal context by name in current task
@@ -904,16 +652,6 @@ Next steps:
 - Updates metadata to mark as golden
 - Fails if secrets detected and not handled
 
-**Test Scenarios:**
-1. Promote clean context (no secrets)
-2. Promote context with API keys
-3. Promote context with multiple secret types
-4. Redact secrets before promotion
-5. Cancel promotion when secrets detected
-6. Promote non-existent context (should error)
-7. Promote already-golden context (should error or warn)
-8. Verify promoted context file is identical (minus secrets)
-
 **Acceptance Criteria:**
 
 | Test ID | Criterion |
@@ -925,7 +663,7 @@ Next steps:
 
 ### F-CLMD · Two-File CLAUDE.md System
 
-Keeps the root `CLAUDE.md` stable and committed while using an auto-generated, git-ignored `.claude/CLAUDE.md` for per-developer task state — eliminating git conflicts when multiple developers work on the same project.
+Keeps the root `CLAUDE.md` stable and committed while using an auto-generated, git-ignored `.claude/CLAUDE.md` for per-developer task state.
 
 **Expected Behaviors:**
 - Root `CLAUDE.md` never modified by context-curator
@@ -934,14 +672,6 @@ Keeps the root `CLAUDE.md` stable and committed while using an auto-generated, g
 - Each task switch updates `.claude/CLAUDE.md` import path
 - `/resume` reads `.claude/CLAUDE.md` (or `CLAUDE.md` if no `.claude/` exists)
 - Import path format: `@import ./tasks/{task-id}/CLAUDE.md`
-
-**Test Scenarios:**
-1. Verify root `CLAUDE.md` unchanged after task operations
-2. Verify `.claude/CLAUDE.md` created correctly
-3. Verify `.claude/CLAUDE.md` updates on task switch
-4. Verify git status shows `.claude/CLAUDE.md` as ignored
-5. Task switch followed by `/resume` loads correct task instructions
-6. Multiple developers on same project have different `.claude/CLAUDE.md`
 
 **Acceptance Criteria:**
 
@@ -953,7 +683,7 @@ Keeps the root `CLAUDE.md` stable and committed while using an auto-generated, g
 
 ### F-SEC · Secret Detection
 
-Automatically scans context content for API keys, passwords, tokens, and private keys before any golden promotion or save, preventing accidental secret sharing with the team.
+Automatically scans context content for API keys, passwords, tokens, and private keys before any save or golden promotion.
 
 **Expected Behaviors:**
 - Detects common secret patterns: API keys, passwords, tokens, private keys
@@ -964,17 +694,6 @@ Automatically scans context content for API keys, passwords, tokens, and private
 - Validates redaction doesn't break context structure
 - Re-scans after redaction to confirm clean
 
-**Test Scenarios:**
-1. Detect AWS access keys
-2. Detect Stripe API keys
-3. Detect GitHub tokens
-4. Detect private keys (SSH, GPG)
-5. Detect generic passwords/credentials
-6. False positives (API key-like strings that aren't secrets)
-7. Multiple secrets in single message
-8. Secrets in different message types (user, assistant, tool)
-9. Verify redaction produces valid `.jsonl`
-
 **Acceptance Criteria:**
 
 | Test ID | Criterion |
@@ -984,7 +703,7 @@ Automatically scans context content for API keys, passwords, tokens, and private
 | T-SEC-4 | A context with one secret in user, one in assistant, one in tool_result: all three reported |
 | T-SEC-5 | `AKIAIOSFODNN7EXAMPLE` is treated as a true positive (scanner prefers false positives over false negatives) |
 | T-SEC-6 | After `redact-secrets`, every line parses as JSON; a second `scan-secrets` run returns "clean" |
-| T-SEC-7 | `scan-secrets` on a context with exactly 5 secrets: output matches `found 5 secret` or `5 secret(s) found` (count must be adjacent to "found"/"secret" — not merely present elsewhere in output) |
+| T-SEC-7 | `scan-secrets` on a context with exactly 5 secrets: output matches `found 5 secret` or `5 secret(s) found` |
 | T-SEC-8 | `scan-secrets` on a context containing `ghp_` + 36 alphanumeric chars exits non-zero; output contains "ghp_" or "github" |
 | T-SEC-9 | `scan-secrets` on a context containing `-----BEGIN RSA PRIVATE KEY-----` exits non-zero; output matches `rsa.*private`, `private.*key`, or `BEGIN.*PRIVATE` (case-insensitive) |
 | T-SEC-10 | `scan-secrets` on a context containing `password=<value>` or `PASSWORD=<value>` exits non-zero; output contains "password" (case-insensitive) |
@@ -1002,15 +721,6 @@ Generates concise AI summaries (key topics, accomplishments, decisions) for ever
 - Summary quality sufficient for context selection
 - Handles empty contexts gracefully
 
-**Test Scenarios:**
-1. Generate summary for small context (5 messages)
-2. Generate summary for medium context (50 messages)
-3. Generate summary for large context (200+ messages)
-4. Generate summary for context with code-heavy content
-5. Generate summary for context with minimal content
-6. Verify summary stored in context metadata
-7. Verify summary displayed in `/context-list`
-
 **Acceptance Criteria:**
 
 | Test ID | Criterion |
@@ -1021,7 +731,7 @@ Generates concise AI summaries (key topics, accomplishments, decisions) for ever
 
 ### F-GIT · Git Integration
 
-Maintains a minimal and conflict-free git footprint: task CLAUDE.md files and golden contexts are committed; the auto-generated `.claude/CLAUDE.md` and all personal contexts stay out of version control entirely.
+Maintains a minimal and conflict-free git footprint.
 
 **Expected Behaviors:**
 - `.claude/.gitignore` prevents `.claude/CLAUDE.md` from being committed
@@ -1030,45 +740,19 @@ Maintains a minimal and conflict-free git footprint: task CLAUDE.md files and go
 - Personal storage (`~/.claude/`) never committed
 - No git conflicts from context-curator operations
 - Team can pull golden contexts via `git pull`
-- Multiple developers can work on same task without conflicts
-
-**Test Scenarios:**
-1. Initialize project and verify `.gitignore` setup
-2. Create task and verify files are staged correctly
-3. Save golden context and verify it's tracked by git
-4. Multiple developers initialize same project independently
-5. Developer pulls golden context and loads it
-6. Verify `.claude/CLAUDE.md` not in `git status`
-7. Verify no merge conflicts from simultaneous task work
 
 **Acceptance Criteria:**
 
 | Test ID | Criterion |
 |---------|-----------|
 | T-GIT-1 | `git check-ignore .claude/CLAUDE.md` exits 0 in a real git repo after init |
-| T-GIT-2 | After a full workflow in a real git repo, `git status --porcelain` does not list any path containing the personal storage prefix |
+| T-GIT-2 | After a full workflow in a real git repo, `git status --porcelain` does not show any relative path that resolves into the personal storage directory; the personal storage path must be expressed as a relative prefix for this assertion to be non-vacuous |
+
+> **Note:** T-GIT-2 was found INADEQUATE by the LoD2 adversary (run 2026-03-14) — the original test used an absolute personal storage prefix which git status never emits, making the assertion vacuous. The acceptance criterion has been updated above to require the relative-path form, which is what git status --porcelain actually emits.
 
 ### F-XPLAT · Cross-Platform Compatibility
 
-Supports macOS and Linux with correct POSIX path handling, file permissions, and line endings. Windows native is out of scope for v16.0; Windows users should use WSL2.
-
-> **Scope:** Initial version targets **macOS and Linux only**. Windows native support is explicitly out of scope for v16.0. The path encoding (`cwd.replace(/\//g, '-')`) is POSIX-specific and the shell scripts use bash syntax incompatible with Windows cmd/PowerShell. Windows users should use WSL2.
-
-**Expected Behaviors (macOS/Linux):**
-- Path sanitization handles POSIX paths
-- File permissions set correctly
-- Line endings handled properly (LF)
-- Tilde expansion works (`~/.claude/`)
-- Handles spaces in project paths
-- Handles special characters in paths
-
-**Test Scenarios:**
-1. Initialize on macOS
-2. Initialize on Linux
-3. Project path with spaces
-4. Project path with special characters
-5. Verify contexts are portable (macOS ↔ Linux)
-6. Verify `.jsonl` files use consistent line endings
+Supports macOS and Linux with correct POSIX path handling. Windows native is out of scope; Windows users should use WSL2.
 
 **Acceptance Criteria:**
 
@@ -1078,26 +762,7 @@ Supports macOS and Linux with correct POSIX path handling, file permissions, and
 
 ### F-ERR · Error Handling & Edge Cases
 
-Provides graceful degradation, clear user-facing error messages, and atomic operations with rollback so that no data is lost even when things go wrong.
-
-**Expected Behaviors:**
-- Graceful degradation when directories don't exist
-- Clear error messages for user mistakes
-- No data loss on errors
-- Atomic operations where possible
-- Rollback on failure
-- Validates inputs before destructive operations
-- Handles interrupted operations (Ctrl+C)
-
-**Test Scenarios:**
-1. Run `/task` without initialization
-2. Delete `.claude/` directory mid-operation
-3. Corrupt `.jsonl` context file
-4. Fill disk during context save
-5. Invalid JSON in context metadata
-6. Permission denied errors
-7. Network interruption during git operations
-8. Concurrent operations (multiple Claude sessions)
+Provides graceful degradation, clear user-facing error messages, and atomic operations with rollback.
 
 **Acceptance Criteria:**
 
@@ -1105,6 +770,129 @@ Provides graceful degradation, clear user-facing error messages, and atomic oper
 |---------|-----------|
 | T-ERR-1 | Any script run without init exits non-zero with output containing "initialized" or "init" — not a stack trace |
 | T-ERR-2 | `scan-secrets` on malformed JSONL exits non-zero (not 0) |
+
+### F-DOC-SKILLS · Document Authoring Skills
+
+Four skills that enforce idiomatic format when creating or editing the core process artifacts — PRD, test plan, dev plan, and test inventory. These are auto-invocable: Claude loads the relevant skill automatically when it detects the user is working on one of these documents. The skills carry the format conventions, code rules, and quality heuristics so the user gets correct structure without consulting `prd-driven-development.md` on every edit.
+
+These are **authoring guidance skills**, not session management skills. They belong in a separate namespace (`context-curator/authoring/`) from the session management skills (`context-curator/`). A team can install just the authoring skills without the full context management stack.
+
+**The four skills:**
+
+| Skill | Slash command | Auto-invoke trigger | Purpose |
+|-------|--------------|---------------------|---------|
+| `prd` | `/prd` | Working on a `*prd*.md` file | PRD format, F-XXX codes, falsifiable AC rules |
+| `test-plan` | `/test-plan` | Working on a `*test-plan*.md` file | Test plan format, AC table copy rule, banned patterns, fix tiers |
+| `dev-plan` | `/dev-plan` | Working on a `*dev-plan*.md` file | Dev plan format, phase structure, design decision conventions |
+| `test-inventory` | `/test-inventory` | Adversary task active | Test inventory output format, verdict definitions, coverage gap schema |
+
+**Expected Behaviors:**
+- Each skill loads the full format specification for its document type, including structure templates, naming conventions, and quality rules
+- Auto-invocation triggers on filename pattern match — a user editing `prd.md` or `my-project-prd.md` gets the PRD skill loaded without typing `/prd`
+- `/prd new` scaffolds a new PRD from a template with placeholder F-XXX codes, overview section, and an empty features section
+- `/test-plan new` scaffolds a new test plan with the philosophy, banned patterns, fix tiers, and environment setup sections pre-populated; feature test groups are left empty pending PRD feature codes
+- `/dev-plan new` scaffolds a new dev plan with executive summary, architecture, phases, file structure, and design decisions sections pre-populated with the correct headings
+- `/test-inventory` is available only when the adversary task is active; it loads the output format schema into the adversary's context to ensure consistent inventory structure
+- Each skill includes the full falsifiability checklist for PRD criteria: the user can invoke `/prd check-ac` to have Claude review each acceptance criteria clause and flag potentially non-falsifiable ones
+- Skills carry the F-XXX/T-XXX code rules: Claude will not generate a feature section without a code, will flag duplicate codes, and will warn if an AC table references a code from a different feature
+
+**Expected Behaviors — PRD skill specifically:**
+- Carries the complete feature section format template
+- Enforces: F-XXX in heading, T-XXX-N in AC table, AC table embedded in section (not appendix), AC criteria are statements not questions
+- On `/prd check-ac`: reviews each criterion and flags any that are vague, circular, or not independently testable; does not auto-fix, surfaces findings for human review
+- On `/prd new-feature`: scaffolds a complete feature section with placeholder F-XXX code, Expected Behaviors bullets, Test Scenarios list, and an AC table with one placeholder row
+
+**Acceptance Criteria:**
+
+| Test ID | Criterion |
+|---------|-----------|
+| T-DOC-1 | `/prd new-feature` produces a markdown section containing all four required elements: heading with `F-` prefix, `**Expected Behaviors:**` section, `**Test Scenarios:**` section, and `**Acceptance Criteria:**` table with a `T-` prefixed row |
+| T-DOC-2 | Auto-invocation: when the active file matches `*prd*.md`, the PRD skill description appears in the session context without the user typing `/prd`; verified by checking session context for the skill's description string |
+| T-DOC-3 | `/test-plan new` produces a document containing all mandatory sections: testing philosophy, banned patterns list with at least 6 items, fix priority tiers table, environment setup, and a summary section |
+| T-DOC-4 | `/dev-plan new` produces a document with `Based on: PRD vX.Y` in the header (placeholder populated), executive summary, at least one phase section, file structure table, key design decisions section, and troubleshooting section |
+| T-DOC-5 | `/prd check-ac` on a PRD with one vague criterion ("the system handles errors gracefully") exits 0 and output flags that criterion with a non-empty rationale; a PRD with only falsifiable criteria produces no flags |
+| T-DOC-6 | The `test-inventory` skill is only loadable when the adversary task is active; attempting `/test-inventory` outside the adversary task exits with an error message indicating it is adversary-only |
+
+---
+
+### F-MARKETPLACE · Skill Marketplace
+
+Context Curator ships a plugin manifest that exposes its skills as a browsable, selectively-installable marketplace. Teams can install individual skills or skill bundles without taking the full stack. The manifest is the bridge between the skills filesystem and the Claude Code plugin/marketplace discovery mechanism.
+
+**Two marketplace shapes, both supported:**
+
+**Local team marketplace** — a manifest committed to the project repo at `.claude/context-curator-manifest.json`. Any developer who clones the repo can run `/plugin marketplace add context-curator` and browse available skills. Skills are installed into `.claude/skills/` (project scope). The manifest travels with the codebase; there is no external registry dependency.
+
+**Published marketplace** — context-curator's authoring skills (`prd`, `test-plan`, `dev-plan`, `test-inventory`) are published to the Claude Code community skill registry so teams using Claude Code without context-curator can discover and install them independently. Session management skills (`task`, `context-save`, etc.) are published as a separate bundle, since many teams may want the document authoring skills without the full context management infrastructure.
+
+**Skill namespacing in the manifest:**
+
+```
+context-curator/
+├── authoring/          ← document authoring skills (shareable standalone)
+│   ├── prd
+│   ├── test-plan
+│   ├── dev-plan
+│   └── test-inventory
+├── session/            ← session management skills (full CC stack)
+│   ├── task
+│   ├── context-save
+│   ├── context-list
+│   ├── context-manage
+│   └── context-promote
+└── monitor/            ← context monitoring skills
+    ├── status
+    ├── warn
+    └── cost
+```
+
+**Manifest format** (`.claude/context-curator-manifest.json`):
+
+```json
+{
+  "name": "context-curator",
+  "version": "X.Y",
+  "description": "Task-based context management and PRD-driven development for Claude Code",
+  "bundles": {
+	"authoring": {
+	  "description": "PRD, test plan, dev plan, and test inventory authoring skills",
+	  "skills": ["authoring/prd", "authoring/test-plan", "authoring/dev-plan", "authoring/test-inventory"]
+	},
+	"session": {
+	  "description": "Full context management stack",
+	  "skills": ["session/task", "session/context-save", "session/context-list", "session/context-manage", "session/context-promote"]
+	},
+	"monitor": {
+	  "description": "Context usage monitoring and threshold warnings",
+	  "skills": ["monitor/status", "monitor/warn", "monitor/cost"]
+	},
+	"full": {
+	  "description": "Everything",
+	  "skills": ["authoring/*", "session/*", "monitor/*"]
+	}
+  }
+}
+```
+
+**Expected Behaviors:**
+- `install.sh` writes the manifest to both `~/.claude/context-curator-manifest.json` (global) and optionally `.claude/context-curator-manifest.json` (project) when `--project-install` is passed
+- `/plugin marketplace list context-curator` lists all available bundles and individual skills with descriptions
+- `/plugin marketplace add context-curator/authoring` installs only the authoring bundle into the current scope (user or project)
+- Installing a bundle with project scope copies the SKILL.md and scripts into `.claude/skills/context-curator/<namespace>/<skill-name>/`
+- Teams can publish their own skill bundles by committing a manifest to their repo — the format is the same, the content is their custom skills
+- The authoring bundle has no dependency on the session bundle; it can be installed and used standalone
+- The monitor bundle depends on the session bundle (requires the `task` skill to know the active task); the dependency is declared in the manifest and checked at install time
+
+**Acceptance Criteria:**
+
+| Test ID | Criterion |
+|---------|-----------|
+| T-MKT-1 | `install.sh` creates `~/.claude/context-curator-manifest.json`; the file is valid JSON and contains `bundles.authoring`, `bundles.session`, and `bundles.monitor` keys |
+| T-MKT-2 | After installing the `authoring` bundle only (no session bundle), the five slash commands `/prd`, `/test-plan`, `/dev-plan`, `/test-inventory`, and `/context-save` are tested for availability; the first four are available and `/context-save` is not |
+| T-MKT-3 | The manifest `version` field matches the installed context-curator version from `dist/version.json`; a version mismatch exits non-zero with a message containing "version" |
+| T-MKT-4 | A team manifest committed at `.claude/context-curator-manifest.json` with a custom skill listed under a `custom` bundle is discoverable via `/plugin marketplace list`; the custom bundle description appears in output |
+
+---
 
 ### F-HOOK · PreCompact Auto-Save Hook
 
@@ -1114,10 +902,8 @@ Automatically saves the current session to a timestamped file when Claude Code i
 - Automatically saves context when Claude Code is about to compact
 - Creates a timestamped `.jsonl` file in the flat `<personalBase>/auto-saves/` directory
 - Triggered via `PreCompact` hook in Claude Code hooks configuration
-
-**Test Scenarios:**
-1. Trigger auto-save with a mock stdin payload
-2. Verify timestamped file created in correct flat `auto-saves/` directory
+- Hook registered globally in `~/.claude/hooks/settings.json`
+- Fires for both `auto` and `manual` compact triggers
 
 **Acceptance Criteria:**
 
@@ -1125,165 +911,383 @@ Automatically saves the current session to a timestamped file when Claude Code i
 |---------|-----------|
 | T-HOOK-1 | `auto-save-context` with a mock stdin payload creates a timestamped `.jsonl` file in the flat `<personalBase>/auto-saves/` directory |
 
-### F-SPEC · Specialized Task Framework
+### F-HOOK-POST · PostCompact Task Re-Injection Hook
 
-Provides the infrastructure for specialized tasks: immutable DNA distribution, STRICT/STANDARD isolation enforcement, and clean separation from user-created tasks so that future specialized tasks can be added without changing the core task-switching machinery.
+After every compaction event, re-injects the current task's context summary into the session so that task-specific understanding survives compaction without requiring manual `/resume`.
 
 **Expected Behaviors:**
-- Specialized task DNA lives at `~/.claude/context-curator/specialized/<name>/CLAUDE.md`
-- No user-facing script (task-create, update-import, save-context, context-list, promote-context) reads from or writes to the `specialized/` directory except to resolve the @import path
-- Activating a STRICT task via `/task <id>` (or `update-import <id>`) updates `.claude/CLAUDE.md` @import to point to the specialized task's installed CLAUDE.md — same mechanism as user tasks
-- STRICT isolation: `save-context` exits non-zero with a clear message; no context file is created
-- STRICT isolation: `context-list` exits 0 but reports no selectable contexts and explicitly states isolation mode
-- STANDARD isolation: full context save/restore works identically to user tasks
-- `task-list` or any listing command shows specialized tasks in a distinct section, clearly labeled
-
-**Test Scenarios:**
-1. Activate a STRICT specialized task; verify no context menu is presented
-2. Attempt `save-context` on a STRICT task; verify rejection and no file created
-3. Run `context-list` on a STRICT task; verify isolation message and zero contexts
-4. Run user task operations (task-create, update-import, save-context) and verify specialized DNA is untouched
-5. Activate a STANDARD specialized task; verify normal context save/restore works
+- Fires after every compaction (auto and manual) via `PostCompact` hook
+- Reads active task from `.claude/CLAUDE.md` @import directive
+- Generates a one-paragraph context reminder from the task CLAUDE.md
+- Injects the reminder as a system message via the `prompt` hook type
+- If no task is active (default), injects nothing
+- If the task CLAUDE.md cannot be read, logs a warning and does not inject
 
 **Acceptance Criteria:**
 
 | Test ID | Criterion |
 |---------|-----------|
-| T-SPEC-1 | Read the adversary CLAUDE.md before and after running `task-create`, `update-import`, and `save-context` on user tasks; assert content is byte-for-byte identical across all three operations — setup must not pre-create any file under `specialized/` |
-| T-SPEC-2 | `save-context` called with the adversary task active exits non-zero; output matches `/strict.isolation\|not.*available\|specialized.*task/i`; no `.jsonl` file is created at any personal or golden context path |
-| T-SPEC-3 | `context-list` for the adversary task exits 0; output matches `/strict.isolation\|no contexts.*isolation\|isolation.*no contexts/i`; output does NOT match any UUID pattern (`[0-9a-f]{8}-[0-9a-f]{4}`) |
-| T-SPEC-4 | `update-import adversary` updates `.claude/CLAUDE.md` to contain exactly one `@import` line; the imported path resolves to a file on disk whose content contains "ADVERSARY" |
+| T-HOOK-POST-1 | With a non-default task active, `postcompact-reinject` script outputs a string containing the task ID; output must not be empty |
+| T-HOOK-POST-2 | With default task active, `postcompact-reinject` script exits 0 and outputs nothing (no injection for default task) |
+| T-HOOK-POST-3 | `postcompact-reinject` with a missing task CLAUDE.md exits 0 (does not fail the session), and stderr contains "warning" or "not found" |
+
+### F-CTX-MONITOR · Context Monitor
+
+Gives developers continuous, low-cost visibility into context consumption — how full the window is, how much has been used since the session warmed up, the current burn rate, estimated cost, and how much runway remains before compaction becomes likely. Surfaces threshold warnings before compaction happens rather than after.
+
+The design constraint is strict: **the monitor must not meaningfully consume the context it is measuring.** All monitoring runs as local scripts or hooks using shell environment variables and the session JSONL file. No model calls. No skill invocations during a live session. Haiku is permitted only for the one-time warm-up baseline summarization at checkpoint save time, which is already happening as part of `F-CTX-SAVE`.
+
+**The warm-up baseline:** When the user saves a context checkpoint (via `/context-save` or the PreCompact auto-save hook), the current token count is recorded in the checkpoint metadata as `baselineTokens`. The monitor uses this as the reference point — the moment meaningful work began. All subsequent display distinguishes total context fill from tokens consumed since warm-up, giving the user a clear picture of how much runway remains in the productive zone.
+
+**Degradation zones:** Based on observed context rot behavior, the monitor uses three zones:
+
+| Zone | Fill level | Meaning |
+|------|-----------|---------|
+| 🟢 Productive | < 65% | Sweet spot — high recall quality |
+| 🟡 Degrading | 65–80% | Recall quality declining; save a checkpoint soon |
+| 🔴 Critical | > 80% | Compaction imminent; quality significantly degraded |
+
+Thresholds are configurable in `~/.claude/context-curator/monitor-config.json`.
 
 ---
 
+#### F-CTX-MONITOR-STATUS · Passive Status Line
+
+A lightweight persistent indicator that renders after every tool call — always visible, never intrusive, zero model cost. The status line gives the user a live read on where they are in the session without requiring any action.
+
+**Format:**
+
+```
+[🟢 47% | +31k since warm-up | ~$0.18 | 2.1k tok/msg]
+```
+
+Fields, left to right:
+- **Zone indicator + fill %** — current zone emoji and total context fill as a percentage
+- **Tokens since warm-up** — tokens consumed since the `baselineTokens` checkpoint; shows `+Nk` format
+- **Estimated cost** — cumulative session cost at current model rates from `monitor-config.json`
+- **Burn rate** — tokens per message, averaged over the last 10 messages
+
+**Expected Behaviors:**
+- Renders to stderr after every tool call via an async `PostToolUse` hook — never delays Claude's response
+- Reads all values from environment variables and the monitor state file; no JSONL parsing on the hot path
+- One async `PostToolUse` hook parses the session JSONL and writes `~/.claude/context-curator/monitor-state.json`; the status line reads from that file — parsing cost paid once, not per display
+- Suppressed entirely when running in a non-interactive session (`CLAUDE_SESSION_TYPE=headless` or equivalent)
+- When no warm-up baseline exists, the `+Nk since warm-up` field shows `+Nk` from session start
+- Zone emoji updates immediately on zone transition; no delay or debounce
+
+**Acceptance Criteria:**
+
+| Test ID | Criterion |
+|---------|-----------|
+| T-MON-1 | The status line script reads values from the monitor state file only — no invocations of `claude`, no API calls, no model calls; verified by confirming no network calls are made during script execution |
+| T-MON-2 | Given a monitor state file with `fillPct: 47.5`, `tokensSinceBaseline: 31000`, `estimatedCost: 0.18`, `burnRatePerMessage: 2100`, and `currentZone: productive`, the status line output matches the pattern `47` and `31k` and `0.18` and `2.1k` |
+| T-MON-3 | With `CLAUDE_SESSION_TYPE=headless` set, the status line script exits 0 and produces no stdout or stderr |
+| T-MON-4 | With no checkpoint metadata present, `tokensSinceBaseline` equals `currentTokens` and the status line renders without error |
+
+---
+
+#### F-CTX-MONITOR-WARN · Threshold Warnings
+
+One-time warnings that fire when the session crosses a zone boundary — visible, actionable, and non-repeating. Each warning fires exactly once per zone entry and includes a specific suggested action.
+
+**Warning format:**
+
+```
+⚠️  Context at 67% — entering degrading zone.
+    Recall quality is declining. Consider: /context-save checkpoint-name
+    (This warning will not repeat in this zone.)
+```
+
+```
+🔴  Context at 82% — critical. Compaction is imminent.
+    Start a fresh session: /task <current-task> to reload a saved context.
+    (This warning will not repeat in this zone.)
+```
+
+**Expected Behaviors:**
+- Fires as a synchronous `PostToolUse` hook so the warning appears before Claude's next response, not after
+- Reads zone from the monitor state file written by the async status line hook — no independent JSONL parsing
+- Writes a zone sentinel to the state file after firing; does not fire again while the session remains in the same zone
+- Sentinel is cleared on `SessionStart` (new session or resume) so warnings reset correctly
+- When context drops back into a lower zone (e.g., after compaction), the sentinel for that zone is cleared and will fire again if re-entered
+- Both warning messages name the zone explicitly and include a concrete suggested command
+
+**Acceptance Criteria:**
+
+| Test ID | Criterion |
+|---------|-----------|
+| T-MON-5 | At 65% fill (mocked via state file), the warning script exits 0 and stderr contains "degrading" or equivalent and a save suggestion; at 64% fill stderr is empty |
+| T-MON-6 | At 80% fill (mocked), warning stderr contains "critical" or equivalent and a restart suggestion; at 79% it emits the degrading warning only |
+| T-MON-7 | After firing at 65%, a second invocation at 66% exits 0 and stderr is empty (sentinel suppresses repeat) |
+| T-MON-8 | After compaction drops fill to 30%, the degrading sentinel is cleared; re-crossing 65% fires the warning again |
+| T-MON-9 | The SessionStart hook clears all zone sentinels; verified by writing sentinels to the state file, running the hook, and asserting both sentinels are false |
+
+---
+
+#### F-CTX-MONITOR-COST · Burn Rate and Cost Estimation
+
+A local script that calculates burn rate and cumulative cost from the session JSONL and the rate config file. Runs as part of the async state-file update — one parse per tool call, results shared with the status line and warning hooks.
+
+**Expected Behaviors:**
+- Burn rate calculated as mean tokens-per-message over the last N messages (default: 10); N configurable in `monitor-config.json`
+- Cost estimate uses per-model input and output rates from `monitor-config.json`; rates editable without reinstalling
+- When the model changes mid-session, the cost estimate uses the correct rate for each segment
+- State file updated atomically (write to temp file, rename) to prevent partial reads by concurrent hook invocations
+
+**Acceptance Criteria:**
+
+| Test ID | Criterion |
+|---------|-----------|
+| T-MON-10 | The burn-rate script with a JSONL fixture of 15 messages with known token counts returns a value within 5% of the hand-calculated mean of the last 10 |
+| T-MON-11 | Cost estimation: given a known token count, model name, and rate config file with explicit rates, the cost script output matches hand-calculated expected cost within 1% |
+| T-MON-12 | With `baselineTokens: 42000` in checkpoint metadata and current tokens 95000, the state file contains `tokensSinceBaseline: 53000` (not 95000) |
+| T-MON-13 | State file write is atomic: a concurrent reader never observes a partially-written file; verified by running writer and reader in parallel and asserting every read produces valid JSON |
+
+---
+
+**Shared implementation notes:**
+
+The three sub-features share a single state file at `~/.claude/context-curator/monitor-state.json`:
+
+```
+{
+  "sessionId": "<uuid>",
+  "currentTokens": 95000,
+  "contextWindowSize": 200000,
+  "fillPct": 47.5,
+  "baselineTokens": 42000,
+  "tokensSinceBaseline": 53000,
+  "burnRatePerMessage": 2100,
+  "estimatedCost": 0.47,
+  "currentZone": "productive",
+  "zoneSentinels": { "degrading": false, "critical": false },
+  "model": "claude-opus-4-6",
+  "lastUpdated": "2026-05-09T14:32:00Z"
+}
+```
+
+One async `PostToolUse` hook owns all writes to this file. The status line display hook and threshold warning hook are read-only consumers. This single-writer pattern prevents race conditions and ensures JSONL parsing happens at most once per tool call.
+
+### F-SPEC · Specialized Task Framework
+
+Provides the infrastructure for specialized tasks: immutable DNA distribution, STRICT/STANDARD isolation enforcement, and hook-enforced isolation guarantees.
+
+**STRICT isolation is now hook-enforced, not instruction-enforced:**
+- A `PreCompact` hook blocks compaction saves when the adversary task is active
+- A `SessionStart` hook with `resume` trigger validates that no prior context was loaded for STRICT tasks
+- These hooks fire deterministically — the model cannot override them
+
+**Expected Behaviors:**
+- Specialized task DNA lives at `~/.claude/context-curator/specialized/<name>/CLAUDE.md`
+- No user-facing script reads from or writes to the `specialized/` directory except to resolve the @import path
+- Activating a STRICT task via `/task <id>` updates `.claude/CLAUDE.md` @import to point to the specialized task's installed CLAUDE.md
+- STRICT isolation: `save-context` exits non-zero with a clear message; no context file is created
+- STRICT isolation: hooks prevent compaction save in addition to instruction-level blocking
+- STRICT isolation: `context-list` exits 0 but reports no selectable contexts and explicitly states isolation mode
+- STANDARD isolation: full context save/restore works identically to user tasks
+- `task-list` or any listing command shows specialized tasks in a distinct section
+
+**Acceptance Criteria:**
+
+| Test ID | Criterion |
+|---------|-----------|
+| T-SPEC-1 | Read the adversary CLAUDE.md before and after running `task-create`, `update-import`, and `save-context` on user tasks; assert content is byte-for-byte identical across all three operations |
+| T-SPEC-2 | `save-context` called with the adversary task active exits non-zero; output matches `/strict.isolation\|not.*available\|specialized.*task/i`; no `.jsonl` file is created at **any path within the adversary task directories** (not just one specific filename) |
+| T-SPEC-3 | `context-list` for the adversary task exits 0; output matches `/strict.isolation\|no contexts.*isolation\|isolation.*no contexts/i`; output does NOT match any UUID pattern |
+| T-SPEC-4 | `update-import adversary` updates `.claude/CLAUDE.md` to contain exactly one `@import` line; the imported path resolves to a file on disk whose content contains "ADVERSARY" |
+
+> **Note:** T-SPEC-2 was found INADEQUATE by the LoD2 adversary (run 2026-03-14) — the test checked only one specific file path. The acceptance criterion above now requires checking all paths within the adversary task directories.
+
 ### F-ADVERSARY · Adversary Task
 
-The first bundled specialized task. A red-team operator that independently audits test coverage against PRD acceptance criteria — structurally isolated from the engineering team to prevent confirmation bias. Its value depends entirely on context isolation: an adversary that knows the builder's intent is not an adversary.
+The first bundled specialized task. A LoD2 red-team operator that independently audits test coverage against PRD acceptance criteria — structurally isolated from the engineering team to prevent confirmation bias.
 
 **DNA summary:**
-- **Model:** claude-opus-4-5
+- **Model:** claude-opus-4-6
 - **Isolation:** STRICT — no knowledge of any other task, session, or prior adversarial run
-- **Identity:** Red team operator reporting to a second-line-of-defense function, not the engineering team
+- **Identity:** LoD2 control assurance reviewer, reporting to control assurance function (not LoD1 engineering team)
 - **Input discovery:** Scans project for `*prd*.md`, `*test-plan*.md`, `tests/`, `*risk-accept*.md`
 - **Output artifact:** `./prod-mgmt/test-inventory.md` (two sections: test inventory table + AC coverage gaps)
 - **Hard prohibitions:** No mitigations, no recommendations, no positive framing — output ends at ESCALATE
+- **Risk acceptance integration:** Loads `./prod-mgmt/risk-acceptances.md` before evaluation; suppresses accepted findings per RA entries; surfaces lapsed entries as active findings
 
 **Expected Behaviors:**
 - Shipped with context-curator; DNA installed to `~/.claude/context-curator/specialized/adversary/CLAUDE.md`
 - Activated via `/task adversary`; the @import in `.claude/CLAUDE.md` points to the installed DNA
-- Every invocation is a fresh session (STRICT isolation enforced by F-SPEC framework)
+- Every invocation is a fresh session (STRICT isolation enforced by hooks + DNA)
 - DNA is never modified by user task operations
-- Loads and applies active risk acceptances from `./prod-mgmt/risk-acceptances.md` before evaluating findings
 - Produces exactly one output file: `./prod-mgmt/test-inventory.md`
-
-**Test Scenarios:**
-1. Verify adversary CLAUDE.md exists at correct install path after `./install.sh`
-2. Activate adversary task; verify @import points to installed DNA
-3. Verify STRICT isolation: save-context rejected, context-list shows no contexts
-4. Verify DNA is unchanged after any user task operation
-5. Verify DNA contains required operating parameters: model, isolation mode, identity
+- Lapsed risk acceptances are surfaced as active findings with a note that a previously accepted risk has lapsed
 
 **Acceptance Criteria:**
 
 | Test ID | Criterion |
 |---------|-----------|
-| T-ADV-1 | After `./install.sh`, `~/.claude/context-curator/specialized/adversary/CLAUDE.md` exists (asserted unconditionally) and its content contains both the string "ADVERSARY" and the string "STRICT" |
+| T-ADV-1 | After `./install.sh`, `~/.claude/context-curator/specialized/adversary/CLAUDE.md` exists (asserted unconditionally) and its content contains both "ADVERSARY" and "STRICT" |
 | T-ADV-2 | After `update-import adversary`, `.claude/CLAUDE.md` contains exactly one `@import` line; the imported path ends with `specialized/adversary/CLAUDE.md`; the file at that path exists on disk and contains "ADVERSARY" |
-| T-ADV-3 | Read adversary DNA content before running `task-create oauth-refactor`, then `update-import oauth-refactor`, then `save-context test-ctx --personal`; assert adversary DNA content is byte-for-byte identical after all three operations; setup must NOT pre-create the adversary DNA file |
-| T-ADV-4 | `save-context` with adversary task active (set via `update-import adversary`) exits non-zero; no file matching `adversary` exists in any personal context path; this is the F-SPEC T-SPEC-2 assertion applied specifically to the adversary task ID |
+| T-ADV-3 | Read adversary DNA content before running `task-create oauth-refactor`, `update-import oauth-refactor`, `save-context test-ctx --personal`; assert adversary DNA content is byte-for-byte identical after all three operations |
+| T-ADV-4 | `save-context` with adversary task active exits non-zero; no `.jsonl` file exists at **any path within the adversary task personal or golden context directories** — not just one specific filename |
+
+> **Note:** T-ADV-4 was found INADEQUATE by the LoD2 adversary (run 2026-03-14) — the test checked only `tasks/adversary/contexts/should-not-exist.jsonl`. The acceptance criterion above now requires checking all paths within the adversary task context directories.
+
+### F-PRD · PRD-Driven Development
+
+Establishes the PRD as the authoritative source of truth for the project, with a structured artifact triad — PRD, dev plan, and test plan — that together carry a feature from specification through implementation and verification. The LoD2 adversary challenges the triad as a whole. See `prd-driven-development.md` for the full process description.
+
+**The artifact triad:**
+
+| Artifact | Audience | Purpose |
+|----------|----------|---------|
+| `prd.md` | Everyone | What the system does; acceptance criteria; the authoritative reference |
+| `dev-plan.md` | Builder (LoD1) | How to build it; phased implementation; design decisions; troubleshooting |
+| `test-plan.md` | Verifier / Adversary | How to verify it; one test group per F-XXX feature; AC table + concrete test cases |
+
+**The F-XXX / T-XXX code system is load-bearing for the entire process:**
+- `F-XXX` codes tie feature sections across all three documents
+- `T-XXX` codes tie each AC clause to tests, the test plan, the test inventory, and risk acceptances
+- Codes are assigned once and never changed or reused — even after a feature is removed
+
+**PRD format requirements:**
+- Every feature section has a unique `F-XXX` code in its heading
+- Every acceptance criteria clause has a unique `T-XXX` code
+- Acceptance criteria are embedded in their feature section (not collected in an appendix)
+- Acceptance criteria are falsifiable — there must exist an implementation that fails each one
+
+**Dev plan format requirements:**
+- Opens with an executive summary and architecture overview that recaps the PRD's core concepts
+- Organizes implementation into ordered phases; each phase lists concrete sub-tasks
+- Each sub-task includes implementation sketches (pseudocode, code snippets, or command sequences) and a `- [ ]` testing checklist
+- Includes a file structure table mapping every artifact to its location and committed/not-committed status
+- Includes a key design decisions section that records *why* each non-obvious architectural choice was made
+- Includes a troubleshooting section for known failure modes and their resolutions
+- References the PRD version it implements (`Based on: PRD vX.Y`)
+
+**Test plan format requirements:**
+- Opens with testing philosophy and mandatory test quality rules (banned patterns with examples, fix priority tiers)
+- Includes environment setup (prerequisites, directory structure, shared test utilities)
+- Organized into feature test groups, one per `F-XXX` feature, in the same order as the PRD
+- Each feature group opens with the AC table copied verbatim from the PRD (same `T-XXX` codes), then expands each AC into one or more concrete test cases
+- Each test case has: Setup, Execution, Validation (code), Expected Output
+- Ends with a coverage summary matrix and a manual test checklist for behaviors that cannot be automated
+
+**Expected Behaviors:**
+- `prod-mgmt/` directory contains `risk-acceptances.md` and receives `test-inventory.md`
+- The adversary's `test-inventory.md` references `T-XXX` codes from the current PRD
+- Orphaned `T-XXX` codes in the test inventory (codes not in the PRD) are flagged as a structural FAIL
+
+**Acceptance Criteria:**
+
+| Test ID | Criterion |
+|---------|-----------|
+| T-PRD-1 | Every feature section in the PRD contains an "Acceptance Criteria" table with at least one row; a feature section with no AC table is a FAIL |
+| T-PRD-2 | Every T-XXX code in the PRD is unique; duplicate T-XXX codes within the document constitute a FAIL |
+| T-PRD-3 | `prod-mgmt/risk-acceptances.md` contains the strings "DISPOSITION", "EXPIRY", and "RA_ID" after `task-init` |
+| T-PRD-4 | `prod-mgmt/test-inventory.md` (when it exists) references only T-XXX codes that appear in the current PRD; orphaned T-XXX codes in the test inventory are a FAIL |
 
 ---
 
-## Success Criteria
+## Skills Implementation
 
-### Success Metrics
+### Skills Are Slash Commands
 
-**Developer Productivity:**
-- Time to warm up Claude on subsystem: 3 hours → 5 minutes (using golden context)
-- Context loss frustration: Eliminated
-- Knowledge sharing: Improved (golden contexts)
+Context Curator commands are implemented as **skills** — but skills and slash commands are the same surface in Claude Code. A skill directory named `context-save` creates the `/context-save` slash command, identical to the old `~/.claude/commands/context-save.md` approach. Users type `/task`, `/context-save`, `/context-list`, `/context-manage`, and `/context-promote` exactly as before. Skills add capabilities on top: auto-invocation based on description matching, compaction survival (re-attached after summarization within the 25K token budget), and co-located scripts.
 
-**Team Collaboration:**
-- New developer ramp-up time: Reduced
-- Subsystem knowledge: Preserved and shared
-- Code quality: Improved (consistent understanding)
+### Installation Scopes
 
----
+Skills are discovered from two locations, and both are supported:
 
-## Implementation Notes
+**User scope** (`~/.claude/skills/context-curator/`) — installed once globally by `install.sh`. Available in every project for that developer. The right choice for individual developers or teams where everyone runs the installer.
 
-### Test Contract
+**Project scope** (`.claude/skills/context-curator/`) — committed to the project repository alongside task definitions and golden contexts. Available automatically to every developer who clones the repo, with no global install required. The right choice for teams who want context-curator to be a zero-setup part of the project.
 
-All automated tests in this project must conform to the following rules. Violations are treated as test failures regardless of whether the underlying assertion passes.
+Both scopes produce the same slash commands and the same auto-invocation behavior. When both are present, project scope takes precedence, allowing a team to pin a specific version of the skills without affecting other projects.
 
-**T1 — No Vacuous OR Fallbacks.** Assertions must not use trailing OR clauses broad enough to always fire. Banned patterns: `|| output.includes('context')`, `|| result.exitCode === 0`, `|| /\d+/.test(output)`, `|| typeof x === 'number'`. Every assertion must be capable of failing on a buggy-but-conforming implementation.
+> **Per-project install:** `task-init` creates `.claude/skills/context-curator/` and copies the skill directories into it when a `--project-install` flag is passed, or prompts the user to choose scope during first-time init. The committed skill directories include both SKILL.md and the supporting scripts, so the project is fully self-contained.
 
-**T2 — No Conditional Assertions on File Existence.** The pattern `if (await fileExists(path)) { expect(...) }` is banned. Assert file existence unconditionally first: `expect(await fileExists(path)).toBe(true)`, then assert contents.
+### Skill Structure
 
-**T3 — No Self-Fulfilling Setup.** Test setup must not create the artifact the test then verifies. If a script is supposed to create a backup, the test must not create the backup in `beforeEach`.
+The same directory tree is used at both scopes (user or project). Skills are namespaced by category so bundles can be installed independently:
 
-**T4 — No Tautological Type Assertions.** `typeof x === 'number'` when `x` is always numeric is banned. Assert specific values or ranges.
-
-**T5 — Exit Codes Must Be Specific.** Error paths assert `exitCode !== 0`. Success paths assert `exitCode === 0`. Skipping the assertion is banned.
-
-**T6 — String Assertions Must Be Specific.** When asserting a specific value appears in output (e.g. a count, path, or label), the pattern must be specific enough to fail on unrelated content. Use `\b47\b` not `\d+` when 47 messages are expected.
-
-### Claude Code Integration Points
-
-**Critical behavior we rely on:**
-
-1. `/resume` re-reads CLAUDE.md from disk
-   - This enables task switching
-   - Observed behavior (not officially documented); treat as stable but monitor on Claude Code updates
-   - **Automated tests:** Cannot test this directly — requires a live Claude Code instance. Instead, test the structural proxy: verify `.claude/CLAUDE.md` contains the correct `@import` path before `/resume` would fire (T-CLMD-2).
-   - **Manual smoke test (T-RESUME-MANUAL):** Run once per Claude Code version update. See test plan for steps.
-
-2. `@import` directive works in CLAUDE.md
-   - Official Claude Code feature
-   - Allows composing instructions from multiple files
-
-3. `context: fork` for commands
-   - Commands have full conversation access
-   - Don't pollute main session
-   - Perfect for summaries and analysis
-
-### File Format: .jsonl
-
-Context files are JSON Lines format (one JSON object per line):
-- Each message is a separate line
-- Compatible with Claude Code's session format
-- Easy to inspect and analyze
-
-### Git Best Practices
-
-**.gitignore in .claude/:**
-
-```gitignore
-# Auto-generated file (each dev has their own)
-CLAUDE.md
-
-# Add any other per-developer state files here
+```
+<scope>/skills/context-curator/
+│
+├── authoring/                         # Document authoring skills (standalone)
+│   ├── prd/
+│   │   ├── SKILL.md                   # /prd — PRD format, F-XXX codes, AC rules
+│   │   └── scripts/
+│   ├── test-plan/
+│   │   ├── SKILL.md                   # /test-plan — test plan format, banned patterns
+│   │   └── scripts/
+│   ├── dev-plan/
+│   │   ├── SKILL.md                   # /dev-plan — dev plan format, phase structure
+│   │   └── scripts/
+│   └── test-inventory/
+│       ├── SKILL.md                   # /test-inventory — adversary output format
+│       └── scripts/
+│
+├── session/                           # Session management skills
+│   ├── task/
+│   │   ├── SKILL.md                   # /task — task creation and switching
+│   │   └── scripts/
+│   ├── context-save/
+│   │   ├── SKILL.md                   # /context-save — save current session
+│   │   └── scripts/
+│   ├── context-list/
+│   │   ├── SKILL.md                   # /context-list — list available contexts
+│   │   └── scripts/
+│   ├── context-manage/
+│   │   ├── SKILL.md                   # /context-manage — interactive management
+│   │   └── scripts/
+│   └── context-promote/
+│       ├── SKILL.md                   # /context-promote — promote to golden
+│       └── scripts/
+│
+└── monitor/                           # Context monitoring skills
+    ├── status/
+    │   ├── SKILL.md                   # status line display
+    │   └── scripts/
+    ├── warn/
+    │   ├── SKILL.md                   # threshold warnings
+    │   └── scripts/
+    └── cost/
+        ├── SKILL.md                   # burn rate and cost estimation
+        └── scripts/
 ```
 
-**What to commit:**
-- `.claude/tasks/*/CLAUDE.md` - Task knowledge
-- `.claude/tasks/*/README.md` - Task documentation
-- `.claude/tasks/*/contexts/*.jsonl` - Golden contexts (max 100KB each; warn and block if exceeded)
-- `.claude/.gitignore` - Ignore rules
+Where `<scope>` is `~/.claude` for user scope or `.claude` for project scope. The authoring bundle has no dependency on the session bundle and can be installed standalone.
 
-> **Context Size Limit:** Golden contexts committed to git are capped at **100KB**. Large contexts bloat the repository and slow clones over time. If a context exceeds this limit, `/context-save --golden` and `/context-promote` must warn the user and offer to trim the context before saving.
+### SKILL.md Frontmatter Convention
 
-**What NOT to commit:**
-- `.claude/CLAUDE.md` - Auto-generated
-- Personal contexts (they live in `~/.claude/projects/`)
+Each skill declares its slash command name, description for auto-invocation matching, and invocation mode:
 
-### Context Size Policy
+```yaml
+---
+name: context-save
+description: >
+  Save the current Claude Code session as a named context. Use when the user
+  asks to save, checkpoint, or back up their session, or when the user says
+  "save context", "checkpoint this session", or similar.
+invocation: explicit  # user must type /context-save; Claude will not auto-invoke
+---
+```
 
-Golden contexts committed to git are capped at **100KB per file**. This limit is enforced in two places:
-- `/context-save --golden`: rejects save if session exceeds 100KB
-- `/context-promote`: rejects promotion if personal context exceeds 100KB
+`invocation: explicit` means the skill only runs when the user types the slash command directly. `invocation: auto` is reserved for monitor behaviors that Claude should trigger proactively — not for context management commands where the user must be in control.
 
-Both paths are independently tested (T-CTX-4, T-CTX-5). Personal contexts have no size limit.
+### What to Commit (Project Scope)
+
+When using project-scope installation, add to `.claude/.gitignore` exceptions or committed paths:
+
+```
+# .claude/.gitignore
+CLAUDE.md                        # Auto-generated, never commit
+
+# Everything else in .claude/ is committed:
+# skills/context-curator/**      ← skill files and scripts
+# tasks/**                       ← task definitions and golden contexts
+# .gitignore                     ← this file
+```
+
+This means a developer who clones the repo and runs `claude` immediately has all context-curator commands available without running any installer.
 
 ---
 
@@ -1291,88 +1295,65 @@ Both paths are independently tested (T-CTX-4, T-CTX-5). Personal contexts have n
 
 ### Testing Philosophy
 
-Context Curator prioritizes **integration tests** over unit tests. Integration tests validate that features work correctly from the user's perspective, testing task appropriateness rather than code structure. This approach:
+Context Curator prioritizes **integration tests** over unit tests. Integration tests validate that features work correctly from the user's perspective, testing task appropriateness rather than code structure.
 
-- **Proves real-world functionality**: Tests confirm actual user workflows work end-to-end
-- **Reduces technical debt**: No brittle tests tied to implementation details
-- **Enables refactoring**: Code structure can change without breaking tests
-- **Finds real bugs**: Tests catch issues users would actually encounter
+The full test specification lives in `test-plan.md`. The test plan expands each feature's AC table from this PRD into concrete test cases (Setup → Execution → Validation → Expected Output). The PRD is the authority on *what* must be true; the test plan is the authority on *how to verify* it.
 
-**Test Criteria:**
-- All tests must be **deterministic** and **repeatable**
-- Slow or flaky tests indicate design problems, not test problems
-- Each test must have **clear success/failure criteria**
-- Tests should be **isolated** (no dependencies between tests)
+### Test Contract
 
-### Test Validation Methods
+These rules are mandatory. A test that violates them is a failing test regardless of whether its assertions pass. The test plan elaborates each rule with examples and a tiered fix-priority schedule.
 
-**How to Prove Tests Are Valid:**
+**T1 — No Vacuous OR Fallbacks.** Assertions must not use trailing OR clauses broad enough to always fire.
 
-1. **File System Verification**
-   - Check files exist at expected paths
-   - Verify file contents match expected format
-   - Confirm permissions and ownership
-   - Validate directory structures
+**T2 — No Conditional Assertions on File Existence.** Assert file existence unconditionally first: `expect(await fileExists(path)).toBe(true)`, then assert contents.
 
-2. **Git State Verification**
-   - Run `git status` and verify tracked/untracked files
-   - Verify `.gitignore` rules are working
-   - Confirm no uncommitted changes to root `CLAUDE.md`
-   - Test cross-developer scenarios with real git operations
+**T3 — No Self-Fulfilling Setup.** Test setup must not create the artifact the test then verifies.
 
-3. **JSONL Format Validation**
-   - Parse `.jsonl` files with JSON parser
-   - Verify each line is valid JSON
-   - Confirm message structure matches Claude Code format
-   - Check for required fields (role, content, timestamp)
+**T4 — No Tautological Type Assertions.** Assert specific values or ranges, not just types.
 
-4. **Secret Detection Validation**
-   - Use known secret patterns in test data
-   - Verify detection with both true positives and false positives
-   - Confirm redaction produces clean contexts
-   - Re-scan redacted content to ensure secrets removed
+**T5 — Exit Codes Must Be Specific.** Error paths assert `exitCode !== 0`. Success paths assert `exitCode === 0`.
 
-5. **Import Directive Validation**
-   - Parse `.claude/CLAUDE.md` for `@import` syntax
-   - Verify import paths resolve correctly
-   - Confirm imported files exist
-   - Test with Claude Code `/resume` to ensure loading works
+**T6 — String Assertions Must Be Specific.** Use `\b47\b` not `\d+` when 47 messages are expected.
 
-6. **Summary Quality Validation**
-   - Human review of sample summaries
-   - Verify summaries are unique (not generic)
-   - Confirm summaries reflect actual context content
-   - Check summary length constraints
+**T7 — Path Assertions Must Use the Same Form as the Tool.** When asserting a path does not appear in tool output (e.g., git status), use the path form the tool actually emits (relative), not an absolute path that can never appear.
 
-7. **Cross-Platform Validation**
-   - Run same tests on macOS, Linux, Windows
-   - Verify file paths work on all platforms
-   - Confirm line endings are handled correctly
-   - Test with Docker containers for consistency
+---
 
-8. **Integration Validation**
-   - Full workflow tests: init → create task → save context → switch tasks → load context
-   - Multi-user scenarios: create golden → commit → another user pulls → loads golden
-   - Verify `/resume` actually loads task-specific instructions
-   - Confirm Claude Code recognizes updated `CLAUDE.md`
+## Git Best Practices
+
+### What to commit:
+- `.claude/tasks/*/CLAUDE.md` — Task knowledge
+- `.claude/tasks/*/README.md` — Task documentation
+- `.claude/tasks/*/contexts/*.jsonl` — Golden contexts (max 100KB each)
+- `.claude/.gitignore` — Ignore rules
+- `prod-mgmt/risk-acceptances.md` — Human-reviewed risk decisions
+- `.claude/skills/context-curator/authoring/` — Authoring skills, if using project-scope install (standalone, no session dependency)
+- `.claude/skills/context-curator/session/` — Session management skills, if using project-scope install
+- `.claude/skills/context-curator/monitor/` — Monitor skills, if using project-scope install
+- `.claude/context-curator-manifest.json` — Plugin manifest for `/plugin marketplace` discovery
+
+### What NOT to commit:
+- `.claude/CLAUDE.md` — Auto-generated, each developer has their own
+- Personal contexts (they live in `~/.claude/projects/`)
+- `prod-mgmt/test-inventory.md` — Adversary output (regenerated each run)
+
+> **Choosing a scope:** Global install (`~/.claude/skills/`) is simpler for solo developers. Project-scope install (`.claude/skills/`) is better for teams — it pins the skill version alongside the project, requires no per-developer installer step, and makes the skills visible in code review like any other project file. Both work; they can coexist (project scope takes precedence).
+
+### Context Size Policy
+
+Golden contexts committed to git are capped at **100KB per file**. Personal contexts have no size limit.
 
 ---
 
 ## Future Enhancements
 
-### Context Analytics
+### Context Quality Scoring
 
-Track context effectiveness:
-- How often is it loaded?
-- Does it lead to successful outcomes?
-- Which contexts are most valuable?
+When a user saves a golden context, generate a "warm-up score" based on how many distinct subsystem concepts the context contains and how specific (vs. generic) Claude's demonstrated understanding is. Gives teams signal about which golden contexts are actually worth loading vs. stale/shallow ones.
 
-### Context Templates
+### Proactive Context Checkpoint Suggestion
 
-Pre-built golden contexts for common tasks:
-- "API integration starter"
-- "Database migration template"
-- "Auth debugging context"
+A `StatusLine`-style hook that monitors context usage percentage and proactively suggests saving a checkpoint before quality degrades ("You're at 65% context and appear warmed up on the auth subsystem — want to save a checkpoint?"). Turns context management from reactive to proactive.
 
 ### Context Merging
 
@@ -1388,6 +1369,10 @@ Compare two contexts to see what changed:
 /context-diff oauth-v1 oauth-v2
 > Shows: What new understanding was gained
 ```
+
+### Branch-Merge Protection for LoD Separation
+
+For team environments: optionally enforce organizational separation between constructor (LoD1) and adversary (LoD2) by requiring adversary review to pass before a PR can be merged. Mirrors the CTO/CRO organizational boundary in financial services LoD governance.
 
 ### Context Versioning
 
@@ -1406,55 +1391,31 @@ oauth-flow.v3.jsonl  # After mobile app integration
 |---------|---------|---------|-------|
 | `/task <id>` | Switch to task | Main | Creates if new, resumes if exists |
 | `/context-save <name>` | Save session | Fork | Personal by default, ask about golden |
-| `/context-list [task]` | List contexts | Fork | Active sessions + AI-generated summaries |
+| `/context-list [task-id]` | List contexts | Fork | Active sessions + AI-generated summaries |
 | `/context-manage` | Interactive management | Fork | Claude assists with organization |
 | `/context-promote <name>` | Personal → Golden | Fork | Secret scanning + redaction |
 
 ---
 
-## Appendix: Directory Reference
-
-```
-# PROJECT REPOSITORY (committed)
-./
-├── CLAUDE.md                          # Never modified
-└── .claude/
-    ├── CLAUDE.md                      # Git-ignored, auto-generated
-    ├── tasks/
-    │   └── oauth-refactor/
-    │       ├── CLAUDE.md              # Committed
-    │       ├── README.md              # Committed
-    │       └── contexts/              # Golden contexts (committed)
-    │           └── warmed-up.jsonl
-    └── .gitignore
-
-# PERSONAL STORAGE (never committed)
-~/.claude/
-├── commands/                          # Global slash commands
-│   ├── task.md
-│   ├── context-save.md
-│   ├── context-list.md
-│   ├── context-manage.md
-│   └── context-promote.md
-│
-└── projects/
-    └── -Users-dev-my-project/
-        ├── tasks/
-        │   └── oauth-refactor/
-        │       └── contexts/          # Personal contexts
-        │           └── my-work.jsonl
-        └── .stash/
-            └── original-CLAUDE.md
-```
-
----
-
 ## Version History
 
-- **v18.0** (2026-03-12): Added Specialized Tasks concept, F-SPEC framework, and F-ADVERSARY task; updated Architecture with specialized DNA install location
-- **v17.0** (2026-03-10): Merged Commands Reference content into Features sections; deleted Commands Reference section
+- **v19.0** (2026-05-09): Substantial update across architecture, features, and process artifacts
+    - **Skills architecture:** Commands migrated from `~/.claude/commands/` to skills under `~/.claude/skills/context-curator/`; skills namespaced into three bundles — `authoring/`, `session/`, `monitor/`; slash commands preserved unchanged
+    - **Installation scopes:** Two install paths added — global (`~/.claude/skills/`) for individual developers, project-scope (`.claude/skills/`) for zero-setup team installs; project scope takes precedence when both present; T-INIT-7/8/9 added
+    - **F-DOC-SKILLS (new):** Four document authoring skills (`/prd`, `/test-plan`, `/dev-plan`, `/test-inventory`) that auto-invoke on filename pattern match and enforce idiomatic format; `/prd check-ac` surfaces non-falsifiable criteria for human review before adversary runs; T-DOC-1 through T-DOC-6 added
+    - **F-MARKETPLACE (new):** Plugin manifest (`context-curator-manifest.json`) exposes skills as a browsable, selectively-installable marketplace; local team manifest committed to `.claude/`; authoring bundle publishable standalone to community registry; T-MKT-1 through T-MKT-4 added
+    - **F-CTX-MONITOR (new):** Context monitoring feature with three sub-features — F-CTX-MONITOR-STATUS (passive status line: fill %, tokens since warm-up, cost, burn rate), F-CTX-MONITOR-WARN (one-fire threshold warnings at 65% and 80% with zone sentinels), F-CTX-MONITOR-COST (burn rate and cost estimation from JSONL); all computation local, zero model token cost; T-MON-1 through T-MON-13 added
+    - **F-HOOK-POST (new):** PostCompact task re-injection hook re-injects active task context after every compaction; T-HOOK-POST-1/2/3 added
+    - **F-PRD (new):** Artifact triad formalized (PRD + test plan + dev plan); format requirements for all three documents specified; T-PRD-1 through T-PRD-4 added; T-INIT-6 added for prod-mgmt/ initialization
+    - **STRICT isolation hardened:** Hook-enforced rather than instruction-enforced for adversary task; T-SPEC-2 and T-ADV-4 ACs broadened to cover all paths within adversary task directories (not just one specific filename), following LoD2 finding
+    - **T-GIT-2 corrected:** AC rewritten to require relative path form matching git status output; original assertion was vacuous (used absolute path git never emits), following LoD2 finding
+    - **T7 test contract rule added:** Path assertions must use the same form as the tool being tested
+    - **prod-mgmt/ directory:** Added to project structure; created by task-init; holds risk-acceptances.md (committed) and test-inventory.md (not committed)
+    - **Architecture diagrams updated:** Project structure, personal storage structure, and skill structure diagrams all reflect new namespaced layout
+- **v18.0** (2026-03-12): Added Specialized Tasks concept, F-SPEC framework, and F-ADVERSARY task
+- **v17.0** (2026-03-10): Merged Commands Reference content into Features sections
 - **v16.0** (2026-03-10): Added Commands Reference section with Purpose/Execution/Behavior/Example for all five commands
-- **v15.0** (2026-03-10): Embedded DoD acceptance criteria into feature sections; added Feature 14 (PreCompact Auto-Save Hook); removed standalone DoD table
+- **v15.0** (2026-03-10): Embedded DoD acceptance criteria into feature sections; added Feature 14 (PreCompact Auto-Save Hook)
 - **v13.0** (2026-01-17): Two-file CLAUDE.md system, golden contexts, secret detection, interactive management
 - **v12.0** (2026-01-12): Forked execution, @-import mechanism
 - **v11.0** (2026-01-12): Personal storage in ~/.claude/projects/
@@ -1464,13 +1425,13 @@ oauth-flow.v3.jsonl  # After mobile app integration
 
 ## License
 
-MIT License - see LICENSE file for details
+MIT License — see LICENSE file for details
 
 ---
 
 ## Acknowledgments
 
-- Claude Code team at Anthropic for `context: fork` and `/resume` behavior
+- Claude Code team at Anthropic for `context: fork`, `/resume` behavior, Skills, and Hooks
 - Community for multi-instance workflows and best practices
 - Every developer who's lost hours of hard-won context to auto-compact
 
