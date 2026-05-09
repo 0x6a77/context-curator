@@ -19,7 +19,7 @@ Audit of every PRD feature section for presence and falsifiability of acceptance
 | F-CTX-MANAGE | YES | YES | PASS |
 | F-CTX-PROMOTE | YES | YES | PASS |
 | F-CLMD | YES | YES (T-RESUME-MANUAL accepted via RA-002) | PASS |
-| F-SEC | YES | YES — note: T-SEC-1 does not exist; AC table begins at T-SEC-2, consistent with no test claiming T-SEC-1 | PASS |
+| F-SEC | YES | YES — note: no code gap; AC table begins at T-SEC-2 (the first code in this feature group) | PASS |
 | F-SUMMARY | YES | YES | PASS |
 | F-GIT | YES | YES | PASS |
 | F-XPLAT | YES | YES | PASS |
