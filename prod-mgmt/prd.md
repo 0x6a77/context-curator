@@ -1,6 +1,6 @@
 # Product Requirements Document: Claude Code Context Curator
 
-**Version:** 20.1
+**Version:** 21.0
 **Last Updated:** May 9, 2026
 **Status:** Ready for Implementation
 

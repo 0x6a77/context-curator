@@ -1,15 +1,15 @@
-# Developer Implementation Plan: Context Curator v15.0
+# Developer Implementation Plan: Context Curator v15.1
 
-**Version:** 15.0  
+**Version:** 15.1  
 **Last Updated:** May 9, 2026  
-**Status:** Ready for Implementation  
-**Based on:** PRD v20.1
+**Status:** Implementation Complete (tests pending)  
+**Based on:** PRD v21.0
 
 ---
 
 ## Executive Summary
 
-This plan implements the **task-based context management system** described in PRD v20.1. The core innovation solves the **warm-up problem**: preserving hard-won Claude understanding that gets lost to auto-compact.
+This plan implements the **task-based context management system** described in PRD v21.0. The core innovation solves the **warm-up problem**: preserving hard-won Claude understanding that gets lost to auto-compact.
 
 **Core Architecture:**
 - **Tasks** = Focused work environments with custom CLAUDE.md
@@ -152,44 +152,47 @@ my-project/
 2. STRICT isolation enforcement in `save-context.ts` and `context-list.ts`
 3. `install.sh` copies DNA and write-protects `specialized/`
 
-### Phase 6: Skills Architecture Migration
+### Phase 6: Skills Architecture Migration ✅
 1. Convert all commands from `~/.claude/commands/*.md` to skills
 2. Add `scripts/` subdirectories with extracted TypeScript logic
-3. Write SKILL.md files for all 13 skills with correct frontmatter
+3. Write SKILL.md files for all 15 skills with correct frontmatter
 4. Update `install.sh` to install to `~/.claude/skills/context-curator/`
 
-### Phase 7: Hooks (PreCompact + PostCompact)
-1. `precompact-autosave.sh` — auto-save to timestamped file before compaction
+### Phase 7: Hooks (PreCompact + PostCompact) ✅
+1. `precompact-autosave.sh` / `auto-save-context.ts` — auto-save to timestamped file before compaction
 2. `postcompact-reinject.ts` — re-inject task context summary after compaction
 3. `session-start-hook.ts` — clear zone sentinels on session start/resume
 
-### Phase 8: Context Monitor
+### Phase 8: Context Monitor ✅
 1. `update-monitor-state.ts` — async state file writer (PostToolUse hook)
 2. `status-line.ts` — read state file, render `[🟢 47% | +31k | ~$0.18 | 2.1k tok/msg]`
 3. `warn.ts` — zone boundary warnings with sentinel suppression
-4. `compute-burn-rate.ts` — mean of last 10 messages
-5. `estimate-cost.ts` — cost from rate config
-6. `on-compaction.ts` — clear zone sentinels after compaction
+4. `estimate-cost.ts` — cost from rate config; burn rate computation embedded in `update-monitor-state.ts`
+5. `on-compaction.ts` — clear zone sentinels after compaction
+6. Note: `compute-burn-rate.ts` was not created as a standalone file — burn rate logic is inlined in `update-monitor-state.ts`
 
-### Phase 9: Document Authoring Skills (F-DOC-SKILLS)
+### Phase 9: Document Authoring Skills (F-DOC-SKILLS) ✅
 1. `authoring/prd/SKILL.md` — PRD format, F-XXX codes, AC rules, `/prd check-ac`
 2. `authoring/test-plan/SKILL.md` — test plan format, banned patterns, fix tiers
 3. `authoring/dev-plan/SKILL.md` — dev plan format, phase structure conventions
 4. `authoring/test-inventory/SKILL.md` — adversary-only output format
+5. `authoring/prd-process/SKILL.md` + `prd-process-status.ts` — F-PROCESS phase detection (PRD v21.0)
 
-### Phase 10: User Documentation System (F-DOC)
+### Phase 10: User Documentation System (F-DOC) ✅
 1. `authoring/docs-markdown/SKILL.md` — markdown base update, feature-section mapping
 2. `authoring/docs-html/SKILL.md` — HTML generation, a11y validation, style.md bootstrap
-3. `docs/feature-section-map.md` template
-4. `docs/html/style.md` defaults
+3. `docs/feature-section-map.md` — created and populated
+4. `docs/html/style.md` — created with full color/typography spec
+5. `docs/html/*.html` — all 14 HTML pages generated
 
-### Phase 11: Skill Marketplace (F-MARKETPLACE)
+### Phase 11: Skill Marketplace (F-MARKETPLACE) ✅
 1. `install.sh` writes `~/.claude/context-curator-manifest.json`
 2. Manifest format with `bundles.authoring`, `bundles.session`, `bundles.monitor`
 3. `dist/version.json` written during build
+4. `verify-manifest.ts` — validates manifest version matches dist/version.json
 
-### Phase 12: Project-Scope Install (T-INIT-7/8/9)
-1. `--project-install` flag on `init-project.ts`
+### Phase 12: Project-Scope Install (T-INIT-7/8/9) ✅
+1. `--project-install` flag on `install.sh`
 2. Copies skill directories into `.claude/skills/context-curator/`
 3. Adds manifest at `.claude/context-curator-manifest.json`
 
@@ -529,10 +532,12 @@ async function warn() {
 - [ ] T-MON-7: Second invocation at 66% with sentinel=true → stderr empty
 - [ ] T-MON-8: After `on-compaction.ts`, sentinel cleared; re-crossing 65% fires again
 
-### 8.6 compute-burn-rate.ts
+### 8.6 Burn Rate (embedded in update-monitor-state.ts)
+
+The `compute-burn-rate.ts` standalone script was not created — burn rate calculation is inlined in `update-monitor-state.ts` for simplicity. The algorithm is the same: mean tokens-per-message over the last N messages (default N=10, configurable in `monitor-config.json`).
 
 ```typescript
-// Mean token count over last N messages (default N=10)
+// Inlined in update-monitor-state.ts
 function computeBurnRate(messages: Message[], n: number = 10): number {
   const recent = messages.slice(-n);
   if (recent.length === 0) return 0;
@@ -850,12 +855,12 @@ invocation: explicit
 ```json
 {
   "name": "context-curator",
-  "version": "15.0",
+  "version": "15.1",
   "description": "Task-based context management and PRD-driven development for Claude Code",
   "bundles": {
     "authoring": {
-      "description": "PRD, test plan, dev plan, and test inventory authoring skills",
-      "skills": ["authoring/prd", "authoring/test-plan", "authoring/dev-plan", "authoring/test-inventory", "authoring/docs-markdown", "authoring/docs-html"]
+      "description": "PRD, test plan, dev plan, test inventory, and process sequencing authoring skills",
+      "skills": ["authoring/prd", "authoring/test-plan", "authoring/dev-plan", "authoring/test-inventory", "authoring/prd-process", "authoring/docs-markdown", "authoring/docs-html"]
     },
     "session": {
       "description": "Full context management stack",
@@ -892,8 +897,10 @@ fi
 
 Generated during build (`npm run build`):
 ```json
-{ "version": "15.0", "built": "2026-05-09T00:00:00Z" }
+{ "version": "15.1", "built": "2026-05-09T00:00:00Z" }
 ```
+
+> Note: `dist/version.json` currently contains `"version": "15.0.0"` — update to `"15.1.0"` before releasing v15.1 to keep `verify-manifest.ts` (T-MKT-3) in sync.
 
 **Testing (T-MKT-1/2/3/4):**
 - [ ] T-MKT-1: After `install.sh`, manifest is valid JSON with `bundles.authoring`, `.session`, `.monitor`
@@ -964,6 +971,7 @@ async function installProjectScopeSkills(projectRoot: string) {
 | `scan-secrets.ts` | Secret detection | 4 ✅ |
 | `redact-secrets.ts` | Secret redaction | 4 ✅ |
 | `prd-process-status.ts` | Process phase detection + adversary-staleness check | 9 |
+| `verify-manifest.ts` | Validate manifest version vs dist/version.json | 11 |
 | `auto-save-context.ts` | PreCompact hook auto-save | 7 |
 | `postcompact-reinject.ts` | PostCompact task re-injection | 7 |
 | `session-start-hook.ts` | SessionStart sentinel clear | 7 |
@@ -1110,10 +1118,15 @@ Run `npm run build` to regenerate `dist/version.json`, then re-run `install.sh` 
 
 ## Version History
 
-- **v15.1** (2026-05-09): Process sequencing skill (F-PROCESS) — PRD v21.0
-  - **Phase 9.5**: `prd-process-status.ts` script + `authoring/prd-process/SKILL.md`; phase detection via artifact presence + mtime heuristics; adversary-staleness check; resistance model with `--force` bypass; T-PROC-1 through T-PROC-6 testing checklist
-  - Updated file structure tables to include `prd-process-status.ts` and `authoring/prd-process/`
-  - `install.sh` manifest updated to include `authoring/prd-process` in authoring bundle
+- **v15.1** (2026-05-09): All phases implemented; F-PROCESS added — PRD v21.0
+  - **Phase 6 complete**: All 15 SKILL.md files created; `install.sh` updated for three-bundle install
+  - **Phase 7 complete**: `auto-save-context.ts`, `postcompact-reinject.ts`, `session-start-hook.ts` implemented
+  - **Phase 8 complete**: `update-monitor-state.ts`, `status-line.ts`, `warn.ts`, `estimate-cost.ts`, `on-compaction.ts` implemented; burn rate calculation inlined in `update-monitor-state.ts` (no separate `compute-burn-rate.ts`)
+  - **Phase 9 complete** (with F-PROCESS): `prd-process-status.ts` + `authoring/prd-process/SKILL.md`; all 7 authoring skills implemented; T-PROC-1 through T-PROC-6 added
+  - **Phase 10 complete**: HTML docs generated for all 14 pages; `docs/html/style.md` and `docs/feature-section-map.md` created
+  - **Phase 11 complete**: `install.sh` writes manifest; `verify-manifest.ts` validates version; `dist/version.json` present (update to 15.1.0 before release)
+  - **Phase 12 complete**: `--project-install` flag in `install.sh` copies skills + manifest to `.claude/`
+  - **Doc headers corrected**: PRD header updated to v21.0; dev-plan header updated to v15.1/PRD v21.0
 - **v15.0** (2026-05-09): Major update for PRD v20.1
   - **Phase 6**: Skills architecture migration — all commands converted from `~/.claude/commands/` to skills under `~/.claude/skills/context-curator/`; three-bundle namespace (`authoring/`, `session/`, `monitor/`)
   - **Phase 7**: Hooks — PreCompact auto-save (`auto-save-context.ts`), PostCompact re-injection (`postcompact-reinject.ts`), SessionStart sentinel clear (`session-start-hook.ts`)
