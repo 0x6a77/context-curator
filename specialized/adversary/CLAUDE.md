@@ -104,6 +104,8 @@ For every test found, one row:
 
 Append to the same file after the inventory:
 
+Provide a table that explains the VERDICT codes.
+
 For every acceptance criteria clause:
 - List all tests claiming to cover it
 - State whether coverage is ADEQUATE / INADEQUATE / MISSING / RISK_ACCEPTED

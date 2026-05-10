@@ -28,7 +28,9 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { join } from 'path';
-import { mkdirSync, writeFileSync, readFileSync } from 'fs';
+import { mkdirSync, writeFileSync, readFileSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
+import { Worker } from 'worker_threads';
 import {
   createTestEnvironment,
   TestContext,
@@ -153,7 +155,12 @@ describe('T-HOOK-POST-3: missing task CLAUDE.md does not crash session', () => {
     const result = await runScript('postcompact-reinject', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stderr).toMatch(/warning|not found/i);
+    // Filter tsx Node.js 26 DEP0205 DeprecationWarning before asserting implementation output;
+    // the implementation emits "[postcompact] warning: task CLAUDE.md not found for <id>"
+    const implStderr = result.stderr.split('\n')
+      .filter(line => !/\[DEP\d+\]|DeprecationWarning|node --trace-deprecation/i.test(line))
+      .join('\n');
+    expect(implStderr).toMatch(/warning|not found/i);
   });
 });
 
@@ -328,7 +335,11 @@ describe('T-MON-5: degrading zone warning fires at 65%, silent below', () => {
     const result = await runScript('warn', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stderr.trim()).toBe('');
+    // Filter tsx Node.js 26 DEP0205 DeprecationWarning before asserting silence
+    const implStderr = result.stderr.split('\n')
+      .filter(line => !/\[DEP\d+\]|DeprecationWarning|node --trace-deprecation/i.test(line))
+      .join('\n').trim();
+    expect(implStderr).toBe('');
   });
 });
 
@@ -392,7 +403,11 @@ describe('T-MON-7: sentinel suppresses repeat warning', () => {
     const result = await runScript('warn', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stderr.trim()).toBe('');
+    // Filter tsx Node.js 26 DEP0205 DeprecationWarning before asserting sentinel suppresses output
+    const implStderr = result.stderr.split('\n')
+      .filter(line => !/\[DEP\d+\]|DeprecationWarning|node --trace-deprecation/i.test(line))
+      .join('\n').trim();
+    expect(implStderr).toBe('');
   });
 });
 
@@ -592,9 +607,8 @@ describe('T-MON-13: state file writes are atomic', () => {
     const sessionDir = join(ctx.personalBase, 'projects', projectId);
     mkdirSync(sessionDir, { recursive: true });
     const sessionId = '00000000-0000-0000-0000-000000000013';
-    const content = 'x'.repeat(4000);  // small content
-    writeFileSync(join(sessionDir, `${sessionId}.jsonl`),
-      JSON.stringify({ message: { role: 'user', content } }) + '\n');
+    const sessionContent = JSON.stringify({ type: 'user', message: { role: 'user', content: 'x'.repeat(40000) } });
+    writeFileSync(join(sessionDir, `${sessionId}.jsonl`), sessionContent + '\n');
 
     writeMonitorState(ctx.personalBase, {
       fillPct: 0,
@@ -603,29 +617,45 @@ describe('T-MON-13: state file writes are atomic', () => {
 
     const payload = JSON.stringify({ session_id: sessionId, project_dir: ctx.projectDir, model: 'claude-sonnet-4-6' });
     const statePath = join(ctx.personalBase, 'context-curator', 'monitor-state.json');
-    const parseErrors: string[] = [];
 
-    // Run 20 writes and 20 reads concurrently
+    // Write a CJS worker that does a tight-loop read for the duration of the writes.
+    // Using worker_threads (not setImmediate) ensures the reader runs in a real OS thread,
+    // guaranteeing genuine interleaving with the subprocess write windows.
+    const workerCode = `
+const { workerData, parentPort } = require('worker_threads');
+const { readFileSync } = require('fs');
+const errors = [];
+const { statePath, durationMs } = workerData;
+const start = Date.now();
+while (Date.now() - start < durationMs) {
+  try {
+    const c = readFileSync(statePath, 'utf-8');
+    if (c.trim()) JSON.parse(c);
+  } catch (e) {
+    errors.push(e.message);
+  }
+}
+parentPort.postMessage(errors);
+`;
+    const workerFile = join(tmpdir(), `mon13-reader-${Date.now()}.cjs`);
+    writeFileSync(workerFile, workerCode);
+
+    const worker = new Worker(workerFile, { workerData: { statePath, durationMs: 3000 } });
+
+    // 20 concurrent subprocess writes — large session content increases the chance
+    // of catching a partial-write window
     const writes = Array.from({ length: 20 }, () =>
       runScriptWithStdin('update-monitor-state', payload, [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase })
     );
 
-    const reads = Array.from({ length: 20 }, () =>
-      new Promise<void>((resolve) => {
-        setImmediate(() => {
-          try {
-            const content = readFileSync(statePath, 'utf-8');
-            if (content.trim()) JSON.parse(content);
-          } catch (e: any) {
-            parseErrors.push(e.message);
-          }
-          resolve();
-        });
-      })
-    );
+    const [parseErrors] = await Promise.all([
+      new Promise<string[]>((resolve) => worker.once('message', resolve)),
+      Promise.all(writes),
+    ]);
 
-    await Promise.all([...writes, ...reads]);
+    await new Promise<void>((resolve) => worker.once('exit', () => resolve()));
+    try { rmSync(workerFile); } catch {}
 
     expect(parseErrors).toEqual([]);
-  });
+  }, 30000);
 });

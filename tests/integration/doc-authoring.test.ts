@@ -33,142 +33,187 @@
  * Integration tests for skills require a Claude Code session harness (not yet available).
  */
 
-import { describe, it } from 'vitest';
+import { describe, it, expect } from 'vitest';
+import { existsSync, readFileSync } from 'fs';
+import { join, resolve } from 'path';
+
+const REPO_ROOT = resolve(__dirname, '../..');
 
 // ---------------------------------------------------------------------------
 // F-DOC-SKILLS: Document Authoring Skills
+// Static artifact validation: tests read SKILL.md source files and assert
+// they specify the required behaviors, without requiring a Claude Code session.
 // ---------------------------------------------------------------------------
 
-describe('T-DOC-1: /prd new-feature scaffolds required four-element structure', () => {
-  it.todo(
-    'Invoke /prd new-feature. Output must contain: ' +
-    '(1) heading matching /^### F-[A-Z]/, ' +
-    '(2) "**Expected Behaviors:**", ' +
-    '(3) "**Test Scenarios:**", ' +
-    '(4) "**Acceptance Criteria:**" table with at least one row matching /| T-[A-Z]+-\\d+/'
-  );
+describe('T-DOC-1: prd/SKILL.md specifies all four new-feature section elements', () => {
+  it('SKILL.md contains F-prefix heading template, Expected Behaviors, Test Scenarios, and AC table with T-XXX row', () => {
+    const skillPath = join(REPO_ROOT, 'src/skills/context-curator/authoring/prd/SKILL.md');
+    expect(existsSync(skillPath)).toBe(true);
+    const skill = readFileSync(skillPath, 'utf-8');
+    expect(skill).toMatch(/###\s+F-[A-Z]/);
+    expect(skill).toContain('**Expected Behaviors:**');
+    expect(skill).toContain('**Test Scenarios:**');
+    expect(skill).toContain('**Acceptance Criteria:**');
+    expect(skill).toMatch(/T-XXX/);
+  });
 });
 
-describe('T-DOC-2: PRD skill auto-invokes on *prd*.md filename', () => {
-  it.todo(
-    'Open a file named "my-feature-prd.md" in a Claude Code session. ' +
-    'Without typing /prd, the PRD skill description must appear in session context. ' +
-    'Verified by checking session context for the skill\'s description string containing "F-XXX" or "PRD format".'
-  );
+describe('T-DOC-2: prd/SKILL.md has auto-invocation for *prd*.md files', () => {
+  it('frontmatter contains invocation: auto and trigger-pattern: *prd*.md', () => {
+    const skillPath = join(REPO_ROOT, 'src/skills/context-curator/authoring/prd/SKILL.md');
+    expect(existsSync(skillPath)).toBe(true);
+    const skill = readFileSync(skillPath, 'utf-8');
+    const frontmatterMatch = skill.match(/^---\n([\s\S]*?)\n---/);
+    expect(frontmatterMatch).not.toBeNull();
+    const frontmatter = frontmatterMatch![1];
+    expect(frontmatter).toContain('invocation: auto');
+    expect(frontmatter).toMatch(/trigger-pattern:.*\*prd\*\.md/);
+  });
 });
 
-describe('T-DOC-3: /test-plan new scaffolds all mandatory sections', () => {
-  it.todo(
-    'Invoke /test-plan new. Output must contain: ' +
-    '(1) testing philosophy section, ' +
-    '(2) banned patterns list with >= 6 numbered items matching /^\\d+\\. \\*\\*/, ' +
-    '(3) fix priority tiers table or section, ' +
-    '(4) environment setup / prerequisites section, ' +
-    '(5) summary section'
-  );
+describe('T-DOC-3: test-plan/SKILL.md specifies all mandatory sections with >= 6 banned patterns', () => {
+  it('SKILL.md lists testing philosophy, banned patterns, fix tiers, env setup, feature groups, summary; >= 6 numbered banned items', () => {
+    const skillPath = join(REPO_ROOT, 'src/skills/context-curator/authoring/test-plan/SKILL.md');
+    expect(existsSync(skillPath)).toBe(true);
+    const skill = readFileSync(skillPath, 'utf-8');
+    expect(skill).toMatch(/testing philosophy/i);
+    expect(skill).toMatch(/banned patterns/i);
+    expect(skill).toMatch(/fix priority|tier/i);
+    expect(skill).toMatch(/environment setup|prerequisites/i);
+    expect(skill).toMatch(/feature test groups|feature.*groups/i);
+    expect(skill).toMatch(/summary/i);
+    const bannedItems = [...skill.matchAll(/^\d+\.\s+\*\*/gm)];
+    expect(bannedItems.length).toBeGreaterThanOrEqual(6);
+  });
 });
 
-describe('T-DOC-4: /dev-plan new scaffolds with required sections and PRD reference', () => {
-  it.todo(
-    'Invoke /dev-plan new. Output must contain: ' +
-    '(1) "Based on: PRD v" (placeholder populated), ' +
-    '(2) executive summary section, ' +
-    '(3) at least one phase section matching /## Phase \\d|### Phase \\d/, ' +
-    '(4) file structure section, ' +
-    '(5) key design decisions section, ' +
-    '(6) troubleshooting section'
-  );
+describe('T-DOC-4: dev-plan/SKILL.md specifies all required sections', () => {
+  it('SKILL.md has Based on: PRD v, executive summary, phase sections, file structure, design decisions, troubleshooting', () => {
+    const skillPath = join(REPO_ROOT, 'src/skills/context-curator/authoring/dev-plan/SKILL.md');
+    expect(existsSync(skillPath)).toBe(true);
+    const skill = readFileSync(skillPath, 'utf-8');
+    expect(skill).toMatch(/Based on: PRD v/);
+    expect(skill).toMatch(/executive summary/i);
+    expect(skill).toMatch(/### Phase [N\d]|## Phase [N\d]/);
+    expect(skill).toMatch(/file structure/i);
+    expect(skill).toMatch(/key design decisions|design decisions/i);
+    expect(skill).toMatch(/troubleshooting/i);
+  });
 });
 
-describe('T-DOC-5: /prd check-ac flags vague criteria; clean PRD produces no flags', () => {
-  it.todo(
-    'Case A — vague criterion: PRD with criterion "the system handles errors gracefully". ' +
-    'Invoke /prd check-ac. Output must flag that criterion with non-empty rationale; ' +
-    'flagging line length > 20 chars. ' +
-    'Case B — clean PRD: criterion "save-context exits non-zero when context exceeds 100KB". ' +
-    'Invoke /prd check-ac. Output must NOT contain "flag" or "vague".'
-  );
+describe('T-DOC-5: prd/SKILL.md specifies check-ac behavior with vague criteria examples', () => {
+  it('SKILL.md has check-ac section that flags vague criteria with rationale output', () => {
+    const skillPath = join(REPO_ROOT, 'src/skills/context-curator/authoring/prd/SKILL.md');
+    expect(existsSync(skillPath)).toBe(true);
+    const skill = readFileSync(skillPath, 'utf-8');
+    expect(skill).toContain('check-ac');
+    expect(skill).toMatch(/handles gracefully|works correctly/i);
+    expect(skill).toMatch(/flag|rationale/i);
+  });
 });
 
-describe('T-DOC-6: /test-inventory skill only available in adversary task', () => {
-  it.todo(
-    'Case A — outside adversary task: run /test-inventory. ' +
-    'Must exit non-zero with message matching /adversary/i. ' +
-    'Case B — inside adversary task (update-import adversary): run /test-inventory. ' +
-    'Must NOT produce an adversary-only error; skill loads successfully.'
-  );
+describe('T-DOC-6: test-inventory/SKILL.md has adversary-task guard and error message', () => {
+  it('frontmatter has guard: adversary-task-active; body specifies adversary-only error output', () => {
+    const skillPath = join(REPO_ROOT, 'src/skills/context-curator/authoring/test-inventory/SKILL.md');
+    expect(existsSync(skillPath)).toBe(true);
+    const skill = readFileSync(skillPath, 'utf-8');
+    const frontmatterMatch = skill.match(/^---\n([\s\S]*?)\n---/);
+    expect(frontmatterMatch).not.toBeNull();
+    expect(frontmatterMatch![1]).toContain('guard: adversary-task-active');
+    expect(skill).toMatch(/adversary task is (NOT|not) active/);
+  });
 });
 
 // ---------------------------------------------------------------------------
 // F-DOC: User Documentation System
+// Static artifact validation: tests read docs-markdown/SKILL.md and
+// docs-html/SKILL.md and assert they specify the required behaviors.
 // ---------------------------------------------------------------------------
 
-describe('T-UDOC-1: /docs-markdown prompts for section assignment on new F-XXX feature', () => {
-  it.todo(
-    'PRD has F-NEWFEATURE not yet in docs/feature-section-map.md. ' +
-    'Invoke /docs-markdown. Skill must prompt for product section assignment. ' +
-    'After assigning "Installation", docs/feature-section-map.md must contain a row for F-NEWFEATURE.'
-  );
+describe('T-UDOC-1: docs-markdown/SKILL.md specifies F-XXX section assignment and feature-section-map.md update', () => {
+  it('SKILL.md workflow prompts for section assignment on new F-XXX and specifies updating feature-section-map.md', () => {
+    const skillPath = join(REPO_ROOT, 'src/skills/context-curator/authoring/docs-markdown/SKILL.md');
+    expect(existsSync(skillPath)).toBe(true);
+    const skill = readFileSync(skillPath, 'utf-8');
+    expect(skill).toContain('feature-section-map.md');
+    expect(skill).toMatch(/F-XXX/);
+    expect(skill).toMatch(/[Pp]rompt/);
+    expect(skill).toMatch(/section/i);
+    expect(skill).toMatch(/\| F-XXX \|/);
+  });
 });
 
-describe('T-UDOC-2: toc.md links to every section in feature-section-map.md', () => {
-  it.todo(
-    'After /docs-markdown, parse docs/feature-section-map.md for all unique section names. ' +
-    'Each section name must appear as a link in docs/markdown/toc.md. ' +
-    'Any section missing from the TOC is a FAIL.'
-  );
+describe('T-UDOC-2: docs-markdown/SKILL.md specifies toc.md links to all mapped sections', () => {
+  it('SKILL.md workflow step regenerates toc.md with links to all sections', () => {
+    const skillPath = join(REPO_ROOT, 'src/skills/context-curator/authoring/docs-markdown/SKILL.md');
+    expect(existsSync(skillPath)).toBe(true);
+    const skill = readFileSync(skillPath, 'utf-8');
+    expect(skill).toContain('toc.md');
+    expect(skill).toMatch(/link.*section|section.*link/i);
+  });
 });
 
-describe('T-UDOC-3: glossary.md contains every Core Concepts term from the PRD', () => {
-  it.todo(
-    'After /docs-markdown on a PRD with defined Core Concepts section, ' +
-    'docs/markdown/glossary.md must be non-empty AND ' +
-    'every ### heading from the PRD Core Concepts section must appear in the glossary (case-insensitive).'
-  );
+describe('T-UDOC-3: docs-markdown/SKILL.md specifies glossary.md contains all Core Concepts terms', () => {
+  it('SKILL.md workflow step updates glossary.md with all Core Concepts terms from PRD', () => {
+    const skillPath = join(REPO_ROOT, 'src/skills/context-curator/authoring/docs-markdown/SKILL.md');
+    expect(existsSync(skillPath)).toBe(true);
+    const skill = readFileSync(skillPath, 'utf-8');
+    expect(skill).toContain('glossary.md');
+    expect(skill).toMatch(/[Cc]ore [Cc]oncepts/);
+  });
 });
 
-describe('T-UDOC-4: docs/index.html exists and contains intro + TOC content', () => {
-  it.todo(
-    'Run /docs-markdown then /docs-html. ' +
-    'docs/index.html must exist, be non-empty, and ' +
-    'contain text from the first line of docs/markdown/introduction.md AND ' +
-    'text from the first line of docs/markdown/toc.md.'
-  );
+describe('T-UDOC-4: docs-html/SKILL.md specifies docs/index.html rendered from introduction.md and toc.md', () => {
+  it('SKILL.md output files section specifies docs/index.html built from introduction.md and toc.md', () => {
+    const skillPath = join(REPO_ROOT, 'src/skills/context-curator/authoring/docs-html/SKILL.md');
+    expect(existsSync(skillPath)).toBe(true);
+    const skill = readFileSync(skillPath, 'utf-8');
+    expect(skill).toContain('docs/index.html');
+    expect(skill).toContain('introduction.md');
+    expect(skill).toContain('toc.md');
+  });
 });
 
-describe('T-UDOC-5: all generated HTML pages have <nav> with home and glossary links', () => {
-  it.todo(
-    'After /docs-html, for every .html file in docs/html/ and docs/index.html: ' +
-    '(1) file contains "<nav", ' +
-    '(2) the <nav>...</nav> block contains "index.html" or "home" (case-insensitive), ' +
-    '(3) the <nav>...</nav> block contains "glossary" (case-insensitive).'
-  );
+describe('T-UDOC-5: docs-html/SKILL.md specifies every page has <nav> with home and glossary links', () => {
+  it('SKILL.md generation constraints require <nav> linking to home (index.html) and glossary on every page', () => {
+    const skillPath = join(REPO_ROOT, 'src/skills/context-curator/authoring/docs-html/SKILL.md');
+    expect(existsSync(skillPath)).toBe(true);
+    const skill = readFileSync(skillPath, 'utf-8');
+    expect(skill).toMatch(/<nav/);
+    expect(skill).toMatch(/home.*index\.html|index\.html.*home/i);
+    expect(skill).toMatch(/glossary/i);
+  });
 });
 
-describe('T-UDOC-6: generated HTML heading hierarchy never skips levels', () => {
-  it.todo(
-    'After /docs-html, for every .html file in docs/: ' +
-    'extract all <hN> tags in document order. ' +
-    'No <h2> may appear without a preceding <h1> on the same page. ' +
-    'No <h3> may appear without a preceding <h2> on the same page. ' +
-    'Violation = FAIL with the filename and offending tag.'
-  );
+describe('T-UDOC-6: docs-html/SKILL.md specifies heading hierarchy must not skip levels', () => {
+  it('SKILL.md generation constraints forbid skipping heading levels (h3 without h2, h2 without h1)', () => {
+    const skillPath = join(REPO_ROOT, 'src/skills/context-curator/authoring/docs-html/SKILL.md');
+    expect(existsSync(skillPath)).toBe(true);
+    const skill = readFileSync(skillPath, 'utf-8');
+    expect(skill).toMatch(/[Hh]eading hierarchy|skip.*level/i);
+    expect(skill).toMatch(/h3.*h2|h2.*h1/);
+  });
 });
 
-describe('T-UDOC-7: /docs-html bootstraps style.md when absent', () => {
-  it.todo(
-    'Delete docs/html/style.md if it exists. ' +
-    'Run /docs-html. ' +
-    'docs/html/style.md must exist with non-empty content. ' +
-    'Content must contain "color" AND ("typeface" OR "font").'
-  );
+describe('T-UDOC-7: docs-html/SKILL.md specifies style.md bootstrapped when absent with color and typeface/font', () => {
+  it('SKILL.md requires creating style.md defaults when absent; defaults must include color and typeface or font', () => {
+    const skillPath = join(REPO_ROOT, 'src/skills/context-curator/authoring/docs-html/SKILL.md');
+    expect(existsSync(skillPath)).toBe(true);
+    const skill = readFileSync(skillPath, 'utf-8');
+    expect(skill).toContain('style.md');
+    expect(skill).toMatch(/absent|missing/i);
+    expect(skill).toMatch(/color/i);
+    expect(skill).toMatch(/typeface|font/i);
+  });
 });
 
-describe('T-UDOC-8: all <img> elements in generated HTML have non-empty alt attribute', () => {
-  it.todo(
-    'After /docs-html, for every .html file in docs/ (including index.html): ' +
-    'find all <img ...> tags. ' +
-    'Each must have alt="..." with at least one non-whitespace character. ' +
-    'Missing or empty alt is a FAIL with filename and tag.'
-  );
+describe('T-UDOC-8: docs-html/SKILL.md specifies non-empty alt attribute on all img elements', () => {
+  it('SKILL.md generation constraints require non-empty alt attribute on all <img> elements', () => {
+    const skillPath = join(REPO_ROOT, 'src/skills/context-curator/authoring/docs-html/SKILL.md');
+    expect(existsSync(skillPath)).toBe(true);
+    const skill = readFileSync(skillPath, 'utf-8');
+    expect(skill).toMatch(/<img/);
+    expect(skill).toMatch(/\balt\b/);
+    expect(skill).toMatch(/non-empty/i);
+  });
 });

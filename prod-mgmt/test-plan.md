@@ -378,30 +378,29 @@ def test_init_creates_prod_mgmt():
 
 ### Test 1.6: Project-Scope Skill Install Creates Skill Directories (T-INIT-7)
 
+**Note:** The project-scope install is performed by `install.sh --project-install`, not by
+`init-project.ts`. The project must be initialized with `init-project` first (prerequisite:
+`.claude/tasks/default/CLAUDE.md` must exist). The test mirrors install.sh step 9 by copying
+`src/skills/context-curator/session/` into the project's `.claude/skills/` using the same
+`cp -r` operation that install.sh performs.
+
 **Setup:**
 ```bash
 mkdir test-project && cd test-project
-```
-
-**Execution:**
-```bash
-npx tsx scripts/init-project.ts --project-install
+npx tsx scripts/init-project.ts          # prerequisite: init project first
+bash install.sh --project-install        # then install project-scope skills
 ```
 
 **Validation:**
-```python
-def test_project_install_creates_skills():
-    run_script("init-project", ["--project-install"])
-
-    skills_root = Path(".claude/skills/context-curator")
-    assert skills_root.exists()
-
-    required_skills = ["task", "context-save", "context-list", "context-manage", "context-promote"]
-    for skill in required_skills:
-        skill_dir = skills_root / skill
-        assert skill_dir.exists(), f"Missing skill directory: {skill}"
-        assert (skill_dir / "SKILL.md").exists(), f"Missing SKILL.md for: {skill}"
-        assert (skill_dir / "scripts").is_dir(), f"Missing scripts/ for: {skill}"
+```typescript
+// Mirrors install.sh step 9 (cpSync from src/skills/context-curator/session/)
+const skillsRoot = join(projectDir, '.claude/skills/context-curator/session');
+const required = ['task', 'context-save', 'context-list', 'context-manage', 'context-promote'];
+for (const skill of required) {
+  expect(existsSync(join(skillsRoot, skill))).toBe(true);
+  expect(existsSync(join(skillsRoot, skill, 'SKILL.md'))).toBe(true);
+  expect(statSync(join(skillsRoot, skill, 'scripts')).isDirectory()).toBe(true);
+}
 ```
 
 ---
@@ -3535,6 +3534,8 @@ def test_prd_new_feature_scaffold():
         "AC table has no T-XXX row"
 ```
 
+**Static artifact validation (automatable without Claude session):** Read `src/skills/context-curator/authoring/prd/SKILL.md`. Assert the file exists and that both the Feature Section Template section and the "On /prd new-feature" section together contain: a `### F-` heading reference, `**Expected Behaviors:**`, `**Test Scenarios:**`, `**Acceptance Criteria:**`, and a T-XXX row reference. This validates the instruction the skill loads into Claude — if the instruction does not specify these elements, Claude cannot produce them.
+
 ---
 
 ### Test 18.2: PRD Skill Auto-Invokes on prd*.md Filename (T-DOC-2)
@@ -3550,6 +3551,8 @@ def test_prd_skill_auto_invoked():
            "F-XXX" in result["system_context"], \
         "PRD skill was not auto-invoked for prd*.md file"
 ```
+
+**Static artifact validation (automatable without Claude session):** Read `src/skills/context-curator/authoring/prd/SKILL.md` frontmatter. Assert `invocation: auto` and `trigger-pattern:` matching `*prd*.md` both appear in the YAML frontmatter block (between the `---` delimiters). This is the configuration Claude Code reads to enable auto-invocation — if these fields are absent or wrong, auto-invocation cannot fire.
 
 ---
 
@@ -3571,6 +3574,8 @@ def test_test_plan_scaffold():
     assert "summary" in output.lower()
 ```
 
+**Static artifact validation (automatable without Claude session):** Read `src/skills/context-curator/authoring/test-plan/SKILL.md`. Assert the file exists, that all 6 mandatory section names appear (Testing Philosophy, Banned Patterns, Fix Priority, Environment Setup / Prerequisites, Feature Test Groups, Summary), and that the Banned Patterns list contains `>= 6` numbered items matching `/^\d+\.\s+\*\*/m`. This validates both that the instruction names all required sections and that the banned patterns enumeration is complete.
+
 ---
 
 ### Test 18.4: /dev-plan new Scaffolds Required Sections (T-DOC-4)
@@ -3591,6 +3596,8 @@ def test_dev_plan_scaffold():
     assert "design decision" in output.lower()
     assert "troubleshooting" in output.lower()
 ```
+
+**Static artifact validation (automatable without Claude session):** Read `src/skills/context-curator/authoring/dev-plan/SKILL.md`. Assert the file exists and contains: `Based on: PRD v`, `Executive Summary` (case-insensitive), a phase heading pattern (`Phase N` or `Phase \d`), `File Structure` (case-insensitive), `Key Design Decisions` or `Design Decisions` (case-insensitive), and `Troubleshooting` (case-insensitive). Validates the instruction covers all required doc sections.
 
 ---
 
@@ -3623,6 +3630,8 @@ def test_prd_check_ac_no_flags_for_good_criteria():
     assert "flag" not in result["stdout"].lower() and "vague" not in result["stdout"].lower()
 ```
 
+**Static artifact validation (automatable without Claude session):** Read `src/skills/context-curator/authoring/prd/SKILL.md`. Assert the file exists, contains a `check-ac` section heading, mentions at least one vague criterion pattern (e.g., "handles gracefully" or "works correctly"), and instructs outputting flagged criteria with rationale (contains "flag" and "rationale"). Validates that the skill instruction covers the two-case check-ac AC.
+
 ---
 
 ### Test 18.6: test-inventory Skill Only Available in Adversary Task (T-DOC-6)
@@ -3647,6 +3656,8 @@ def test_inventory_skill_available_in_adversary():
     # Should load without an adversary-only error
     assert "adversary-only" not in result["stdout"].lower()
 ```
+
+**Static artifact validation (automatable without Claude session):** Read `src/skills/context-curator/authoring/test-inventory/SKILL.md`. Assert the file exists. Assert the YAML frontmatter block contains `guard: adversary-task-active`. Assert the skill body contains the adversary-only error message (matches `/adversary task is (NOT|not) active/`) and the word "adversary" appears in an error context. Validates both the guard configuration and the error message text.
 
 ---
 
@@ -3694,9 +3705,15 @@ def test_authoring_bundle_only():
         assert "/context-save" not in available
 ```
 
+**Static artifact validation (automatable without Claude session):**
+1. Use `cpSync` to copy `src/skills/context-curator/authoring/` to a temp directory (simulating an authoring-only install). Assert the 4 required skill directories each have a `SKILL.md`: `prd`, `test-plan`, `dev-plan`, `test-inventory`. Assert `context-save/` does NOT exist in the authoring directory (it belongs to `session/`). Assert `task/` does NOT exist in the authoring directory.
+2. Parse install.sh's `authoring` bundle `skills` array. Assert no entry has a `session/` prefix or is named `context-save`.
+
 ---
 
 ### Test 19.3: Manifest Version Matches Installed Version (T-MKT-3)
+
+**Note:** `scripts/verify-manifest.ts` is implemented. The version-match path is covered by static analysis of `install.sh` (T-MKT-1 + T-MKT-3 Part A). The mismatch-exits-nonzero path is verified by the new executable test in `marketplace.test.ts`.
 
 **Validation:**
 ```python
@@ -3709,13 +3726,13 @@ def test_manifest_version_matches():
 
 
 def test_manifest_version_mismatch_exits_nonzero():
-    # Write a manifest with wrong version
-    manifest_path = Path.home() / ".claude/context-curator-manifest.json"
-    manifest = json.loads(manifest_path.read_text())
-    manifest["version"] = "0.0.0-mismatch"
-    manifest_path.write_text(json.dumps(manifest))
+    # Write a manifest with wrong version into a temp CLAUDE_HOME directory
+    # (CLAUDE_HOME overrides ~/.claude for testability — see scripts/verify-manifest.ts)
+    tempHome = mkdtemp()
+    manifest = {"version": "0.0.0-mismatch", "bundles": {}}
+    Path(tempHome, "context-curator-manifest.json").write_text(json.dumps(manifest))
 
-    result = run_script("verify-manifest", [])
+    result = run_script("verify-manifest", [], env={"CLAUDE_HOME": tempHome})
     assert result.exit_code != 0
     assert "version" in result.output.lower()
 ```
@@ -3743,6 +3760,8 @@ def test_custom_team_manifest():
     assert "Team-specific custom skills" in result["stdout"] or \
            "custom" in result["stdout"]
 ```
+
+**Static artifact validation (automatable without Claude session):** Construct a manifest JSON with `bundles.custom.description = "Team-specific custom skills"`. Parse it as JSON. Assert `bundles.custom` exists and `bundles.custom.description === "Team-specific custom skills"`. This validates the manifest FORMAT accepts a custom bundle key. The `/plugin marketplace list` discovery assertion requires a Claude Code session harness and remains `.todo`.
 
 ---
 
@@ -3820,8 +3839,14 @@ def test_reinject_graceful_on_missing_file():
         capture_output=True, text=True
     )
     assert result.returncode == 0  # Must not crash the session
-    assert re.search(r'warning|not found', result.stderr, re.I), \
-        "stderr must contain 'warning' or 'not found'"
+    # Filter tsx Node.js 26 DEP0205 DeprecationWarning before asserting implementation output;
+    # the implementation emits "[postcompact] warning: task CLAUDE.md not found for <id>"
+    impl_stderr = "\n".join(
+        line for line in result.stderr.splitlines()
+        if not re.search(r'\[DEP\d+\]|DeprecationWarning|node --trace-deprecation', line, re.I)
+    )
+    assert re.search(r'warning|not found', impl_stderr, re.I), \
+        "implementation stderr must contain 'warning' or 'not found' (tsx noise excluded)"
 ```
 
 ---
@@ -3960,7 +3985,12 @@ def test_warn_silent_below_65():
     write_monitor_state(fill_pct=64.9, zone_sentinels={"degrading": False, "critical": False})
     result = subprocess.run(["npx", "tsx", "scripts/warn.ts"], capture_output=True, text=True)
     assert result.returncode == 0
-    assert result.stderr.strip() == ""
+    # Filter tsx Node.js 26 DEP0205 DeprecationWarning before asserting silence
+    impl_stderr = "\n".join(
+        line for line in result.stderr.splitlines()
+        if not re.search(r'\[DEP\d+\]|DeprecationWarning|node --trace-deprecation', line, re.I)
+    ).strip()
+    assert impl_stderr == ""
 ```
 
 ---
@@ -3998,7 +4028,12 @@ def test_warn_sentinel_suppresses_repeat():
     write_monitor_state(fill_pct=66.0, zone_sentinels={"degrading": True, "critical": False})
     result = subprocess.run(["npx", "tsx", "scripts/warn.ts"], capture_output=True, text=True)
     assert result.returncode == 0
-    assert result.stderr.strip() == ""
+    # Filter tsx Node.js 26 DEP0205 DeprecationWarning before asserting sentinel suppresses output
+    impl_stderr = "\n".join(
+        line for line in result.stderr.splitlines()
+        if not re.search(r'\[DEP\d+\]|DeprecationWarning|node --trace-deprecation', line, re.I)
+    ).strip()
+    assert impl_stderr == ""
 ```
 
 ---
@@ -4156,6 +4191,8 @@ def test_state_file_write_atomic():
     assert len(errors) == 0, f"Partial reads observed: {errors}"
 ```
 
+**TypeScript note:** Python's `threading.Thread` maps to Node.js `worker_threads.Worker`. The reader must run in a true Worker thread using a tight `while (Date.now() - start < durationMs)` loop over `readFileSync`. Do NOT use `setImmediate` — it defers to the event loop and will not interleave with subprocess writes. Write the worker code to a temp `.cjs` file and pass `{ statePath, durationMs }` via `workerData`. Use 20 concurrent writes with a 3 s reader window to ensure genuine overlap.
+
 ---
 
 ## 22. User Documentation System Tests · F-DOC
@@ -4191,6 +4228,8 @@ def test_docs_markdown_new_feature_prompts():
     assert "F-NEWFEATURE" in map_content
 ```
 
+**Static artifact validation (automatable without Claude session):** Read `src/skills/context-curator/authoring/docs-markdown/SKILL.md`. Assert: (1) `feature-section-map.md` appears in the file; (2) an `F-XXX` code reference exists; (3) the word "Prompt" or "prompt" appears (skill instructs Claude to ask the user); (4) the table format `| F-XXX |` appears in the feature-section-map.md format specification. This validates that the skill instruction specifies the section-assignment prompt and map-update behavior.
+
 ---
 
 ### Test 22.2: TOC Links to Every Mapped Product Section (T-UDOC-2)
@@ -4212,6 +4251,8 @@ def test_toc_links_all_sections():
                f"{section}.md" in toc, \
             f"TOC missing link to section: {section}"
 ```
+
+**Static artifact validation (automatable without Claude session):** Read `src/skills/context-curator/authoring/docs-markdown/SKILL.md`. Assert: (1) `toc.md` appears in the file; (2) a phrase matching `/link.*section|section.*link/i` exists, verifying the skill instruction specifies generating section links in toc.md.
 
 ---
 
@@ -4236,6 +4277,8 @@ def test_glossary_contains_core_concepts():
             f"Core Concept '{term}' missing from glossary"
 ```
 
+**Static artifact validation (automatable without Claude session):** Read `src/skills/context-curator/authoring/docs-markdown/SKILL.md`. Assert: (1) `glossary.md` appears in the file; (2) "Core Concepts" appears in the file, verifying the skill instruction explicitly references sourcing terms from the PRD's Core Concepts section.
+
 ---
 
 ### Test 22.4: docs/index.html Contains intro and TOC Content (T-UDOC-4)
@@ -4258,6 +4301,8 @@ def test_docs_index_html_exists_and_complete():
     assert intro[:30] in content or intro[:30].lower() in content.lower()
     assert toc_heading[:20] in content or toc_heading[:20].lower() in content.lower()
 ```
+
+**Static artifact validation (automatable without Claude session):** Read `src/skills/context-curator/authoring/docs-html/SKILL.md`. Assert: (1) `docs/index.html` appears in the file; (2) `introduction.md` appears in the file; (3) `toc.md` appears in the file, verifying the skill instruction specifies combining these two source files into docs/index.html.
 
 ---
 
@@ -4287,6 +4332,8 @@ def test_html_pages_have_nav():
             f"{html_file.name}: nav missing glossary link"
 ```
 
+**Static artifact validation (automatable without Claude session):** Read `src/skills/context-curator/authoring/docs-html/SKILL.md`. Assert: (1) `<nav` appears in the file; (2) a pattern matching `/home.*index\.html|index\.html.*home/i` exists; (3) "glossary" appears in the file, verifying the skill instruction requires a nav element with both required link destinations.
+
 ---
 
 ### Test 22.6: HTML Heading Hierarchy Does Not Skip Levels (T-UDOC-6)
@@ -4314,6 +4361,8 @@ def test_html_heading_hierarchy():
                     f"{html_file.name}: h3 appears without preceding h2"
 ```
 
+**Static artifact validation (automatable without Claude session):** Read `src/skills/context-curator/authoring/docs-html/SKILL.md`. Assert: (1) a phrase matching `/[Hh]eading hierarchy|skip.*level/i` exists; (2) a pattern matching `/h3.*h2|h2.*h1/` exists, verifying the skill instruction explicitly names the no-skip-levels constraint with the specific heading pairs.
+
 ---
 
 ### Test 22.7: style.md Bootstrapped When Absent (T-UDOC-7)
@@ -4335,6 +4384,8 @@ def test_docs_html_bootstraps_style_md():
     assert "typeface" in content.lower() or "font" in content.lower()
 ```
 
+**Static artifact validation (automatable without Claude session):** Read `src/skills/context-curator/authoring/docs-html/SKILL.md`. Assert: (1) `style.md` appears in the file; (2) a phrase matching `/absent|missing/i` appears, verifying the bootstrap trigger; (3) "color" appears; (4) "typeface" or "font" appears, verifying the skill instruction specifies both required default content strings.
+
 ---
 
 ### Test 22.8: All img Elements Have Non-Empty alt Attribute (T-UDOC-8)
@@ -4355,6 +4406,8 @@ def test_html_images_have_alt():
             assert len(alt_match.group(1).strip()) > 0, \
                 f"{html_file.name}: img has empty alt attribute: {tag}"
 ```
+
+**Static artifact validation (automatable without Claude session):** Read `src/skills/context-curator/authoring/docs-html/SKILL.md`. Assert: (1) `<img` appears in the file; (2) `\balt\b` matches in the file; (3) "non-empty" appears in the file, verifying the skill instruction names the non-empty alt attribute requirement for image elements.
 
 ---
 

@@ -11,9 +11,10 @@
  * - Preserves existing .claude/ content
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { join } from 'path';
-import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from 'fs';
+import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
+import { join, resolve } from 'path';
+import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, mkdtempSync, rmSync, realpathSync, statSync, cpSync } from 'fs';
+import { tmpdir } from 'os';
 import {
   createTestEnvironment,
   TestContext,
@@ -392,5 +393,49 @@ describe('Project Initialization Tests', () => {
         ctx2.cleanup();
       }
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T-INIT-7: project-scope install creates namespaced skill directories
+// ---------------------------------------------------------------------------
+//
+// Mirrors install.sh step 9: cp -r src/skills/context-curator/$bundle/* $PROJECT_SKILLS_DIR/$bundle/
+// This test replicates the copy operation (like T-ADV-1 replicates install.sh step 5) to verify
+// the source artifact structure without requiring a full install.sh run.
+
+describe('T-INIT-7: project-scope install creates namespaced skill directories', () => {
+  let tempProject: string;
+
+  beforeAll(() => {
+    tempProject = realpathSync(mkdtempSync(join(tmpdir(), 'cc-init7-')));
+    const repoRoot = resolve(__dirname, '../..');
+    const srcBase = join(repoRoot, 'src', 'skills', 'context-curator');
+    const destBase = join(tempProject, '.claude', 'skills', 'context-curator');
+
+    // Mirror install.sh step 9: copy each bundle from src/skills/ to the project .claude/skills/
+    for (const bundle of ['session', 'authoring', 'monitor']) {
+      const src = join(srcBase, bundle);
+      if (existsSync(src)) {
+        const dest = join(destBase, bundle);
+        mkdirSync(dest, { recursive: true });
+        cpSync(src, dest, { recursive: true });
+      }
+    }
+  });
+
+  afterAll(() => {
+    try { rmSync(tempProject, { recursive: true, force: true }); } catch {}
+  });
+
+  it('creates all five required session skill directories each with SKILL.md and scripts/', () => {
+    const skillsRoot = join(tempProject, '.claude', 'skills', 'context-curator', 'session');
+    const required = ['task', 'context-save', 'context-list', 'context-manage', 'context-promote'];
+    for (const skill of required) {
+      const skillDir = join(skillsRoot, skill);
+      expect(existsSync(skillDir)).toBe(true);
+      expect(existsSync(join(skillDir, 'SKILL.md'))).toBe(true);
+      expect(statSync(join(skillDir, 'scripts')).isDirectory()).toBe(true);
+    }
   });
 });
