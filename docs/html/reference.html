@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reference — Context Curator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">☰</button>
+<div class="nav-overlay"></div>
+<div class="layout">
+  <nav class="sidebar" aria-label="Site navigation">
+    <a class="site-title" href="index.html">Context Curator</a>
+    <a class="nav-item" href="index.html">Introduction</a>
+    <a class="nav-item" href="getting-started.html">Getting Started</a>
+    <a class="nav-item" href="managing-contexts.html">Managing Contexts</a>
+    <a class="nav-item" href="context-monitoring.html">Context Monitoring</a>
+    <a class="nav-item" href="workflows.html">Workflows</a>
+    <a class="nav-item" href="hooks-automation.html">Hooks &amp; Automation</a>
+    <a class="nav-item" href="security.html">Security</a>
+    <a class="nav-item" href="skill-marketplace.html">Skill Marketplace</a>
+    <a class="nav-item" href="boss-fight-workflow.html">Boss-Fight Workflow</a>
+    <a class="nav-item active" href="reference.html">Reference</a>
+    <div class="nav-divider"></div>
+    <a class="nav-item" href="glossary.html">Glossary</a>
+    <a class="nav-item" href="permuted-index.html">Index</a>
+  </nav>
+  <main class="content">
+
+    <h1>Reference</h1>
+    <p class="page-lead">The CLAUDE.md two-file system, <code>/resume</code> re-read behavior, cross-platform compatibility, and error handling.</p>
+
+    <h2>The Two-File CLAUDE.md System</h2>
+    <p>Claude Code reads <code>CLAUDE.md</code> when loading a session. Context Curator needs to swap which task's instructions are active without modifying your project's committed <code>CLAUDE.md</code> — which would create git conflicts every time you switch tasks.</p>
+    <p>The solution is two files:</p>
+
+    <p><strong><code>./CLAUDE.md</code> (root, committed)</strong><br>
+    Your project's canonical instructions. This file is never modified by Context Curator. It contains universal project knowledge — architecture, conventions, commands — that every developer shares. Commit it, version it, review it in PRs.</p>
+
+    <p><strong><code>./.claude/CLAUDE.md</code> (auto-generated, git-ignored)</strong><br>
+    The file Claude Code actually reads on every <code>/resume</code>. Context Curator writes and overwrites this file. It contains <code>@import</code> directives that point to whichever task is currently active:</p>
+    <pre><code>@import ./tasks/auth-refactor/CLAUDE.md</code></pre>
+    <p>When you run <code>/task payment-v2</code>, Context Curator replaces the <code>@import</code> line. When Claude Code resumes, it re-reads <code>.claude/CLAUDE.md</code> from disk, picks up the new import, and loads the payment-v2 task instructions.</p>
+
+    <p><strong>Why this works:</strong> Claude Code's <code>/resume</code> re-reads <code>CLAUDE.md</code> from disk at resume time — fresh from disk, not from a cached copy in the session. The import change takes effect immediately on the next <code>/resume</code>, without any other action.</p>
+    <p><strong>The gitignore entry:</strong> <code>/task-init</code> creates <code>.claude/.gitignore</code> with a <code>CLAUDE.md</code> entry. Each developer has their own <code>.claude/CLAUDE.md</code> reflecting their current task. These files never conflict because they're never tracked.</p>
+
+    <h3>Task CLAUDE.md Files</h3>
+    <p>Each task has its own <code>CLAUDE.md</code> at <code>.claude/tasks/&lt;task-id&gt;/CLAUDE.md</code>. These files are committed. They travel with the repo and carry the task-specific instructions that any developer can load via <code>/task &lt;id&gt;</code>.</p>
+
+    <h2>How /resume Re-Reads CLAUDE.md</h2>
+    <p>When you run <code>/resume &lt;uuid&gt;</code>, Claude Code:</p>
+    <ol>
+      <li>Loads the session from disk (conversation history, state)</li>
+      <li>Re-reads <code>.claude/CLAUDE.md</code> fresh from disk</li>
+      <li>Reconstructs the system prompt with the new CLAUDE.md content</li>
+      <li>Restores runtime state</li>
+      <li>Resumes conversation</li>
+    </ol>
+    <p>This is the key mechanism behind task switching. The import points to the right task, and the re-read picks it up.</p>
+
+    <div class="callout callout-warning">
+      <div class="callout-label">Warning</div>
+      <p>This re-read-on-resume behavior is not officially documented by Anthropic. It's an observed behavior central to Context Curator's task switching. If a future Claude Code update changes it, task switching will break. Mitigation: after any major Claude Code update, verify that a known string from your task CLAUDE.md appears in Claude's context after a <code>/resume</code>.</p>
+    </div>
+
+    <h2>Cross-Platform Compatibility</h2>
+    <p>Context Curator supports macOS and Linux. Windows native is out of scope; Windows users should use WSL2.</p>
+    <p><strong>Path handling:</strong> All path operations use POSIX conventions. Project directories with spaces in their names are supported — all scripts quote paths correctly.</p>
+    <p><strong>Shell requirement:</strong> Bash or zsh. The installer and all hook scripts use POSIX-compatible shell constructs.</p>
+
+    <h2>Error Handling</h2>
+    <p>Context Curator scripts produce clear, actionable error messages without exposing stack traces.</p>
+    <p><strong>Before initialization:</strong> Any script run in a project that hasn't been initialized with <code>/task-init</code> exits non-zero with a message containing "initialized" or "init".</p>
+    <p><strong>Malformed context files:</strong> If a <code>.jsonl</code> context file is corrupted or malformed, <code>scan-secrets</code> and other read operations exit non-zero with a message that names the corruption.</p>
+    <p><strong>The general pattern:</strong> If something goes wrong, Context Curator tells you what happened and what to do next, in plain language.</p>
+
+    <h2>Directory Reference</h2>
+    <table>
+      <thead>
+        <tr><th>Path</th><th>Purpose</th><th>Committed</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>./CLAUDE.md</code></td><td>Root project instructions</td><td>Yes</td></tr>
+        <tr><td><code>./.claude/CLAUDE.md</code></td><td>Active task import (auto-generated)</td><td>No</td></tr>
+        <tr><td><code>./.claude/tasks/&lt;task&gt;/CLAUDE.md</code></td><td>Task-specific instructions</td><td>Yes</td></tr>
+        <tr><td><code>./.claude/tasks/&lt;task&gt;/contexts/</code></td><td>Golden context storage</td><td>Yes</td></tr>
+        <tr><td><code>./.claude/.gitignore</code></td><td>Ignores active CLAUDE.md</td><td>Yes</td></tr>
+        <tr><td><code>./prod-mgmt/prd.md</code></td><td>Product requirements</td><td>Yes</td></tr>
+        <tr><td><code>./prod-mgmt/test-plan.md</code></td><td>Integration test specification</td><td>Yes</td></tr>
+        <tr><td><code>./prod-mgmt/dev-plan.md</code></td><td>Developer implementation plan</td><td>Yes</td></tr>
+        <tr><td><code>./prod-mgmt/test-inventory.md</code></td><td>Adversary output (regenerated each run)</td><td>No</td></tr>
+        <tr><td><code>./prod-mgmt/risk-acceptances.md</code></td><td>Governance risk register</td><td>Yes</td></tr>
+        <tr><td><code>~/.claude/projects/&lt;project&gt;/tasks/&lt;task&gt;/contexts/</code></td><td>Personal context storage</td><td>No</td></tr>
+        <tr><td><code>~/.claude/projects/&lt;project&gt;/auto-saves/</code></td><td>Pre-compaction auto-saves</td><td>No</td></tr>
+        <tr><td><code>~/.claude/context-curator/monitor-state.json</code></td><td>Monitor state (runtime)</td><td>No</td></tr>
+        <tr><td><code>~/.claude/context-curator/monitor-config.json</code></td><td>Monitor configuration</td><td>No</td></tr>
+        <tr><td><code>~/.claude/context-curator/specialized/adversary/CLAUDE.md</code></td><td>Adversary task DNA</td><td>No</td></tr>
+        <tr><td><code>~/.claude/skills/context-curator/</code></td><td>User-scope skills</td><td>No</td></tr>
+        <tr><td><code>./.claude/skills/context-curator/</code></td><td>Project-scope skills</td><td>Yes (if --project-install)</td></tr>
+      </tbody>
+    </table>
+
+  </main>
+</div>
+<script src="assets/main.js"></script>
+</body>
+</html>

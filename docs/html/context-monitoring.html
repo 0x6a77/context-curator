@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Context Monitoring — Context Curator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">☰</button>
+<div class="nav-overlay"></div>
+<div class="layout">
+  <nav class="sidebar" aria-label="Site navigation">
+    <a class="site-title" href="index.html">Context Curator</a>
+    <a class="nav-item" href="index.html">Introduction</a>
+    <a class="nav-item" href="getting-started.html">Getting Started</a>
+    <a class="nav-item" href="managing-contexts.html">Managing Contexts</a>
+    <a class="nav-item active" href="context-monitoring.html">Context Monitoring</a>
+    <a class="nav-item" href="workflows.html">Workflows</a>
+    <a class="nav-item" href="hooks-automation.html">Hooks &amp; Automation</a>
+    <a class="nav-item" href="security.html">Security</a>
+    <a class="nav-item" href="skill-marketplace.html">Skill Marketplace</a>
+    <a class="nav-item" href="boss-fight-workflow.html">Boss-Fight Workflow</a>
+    <a class="nav-item" href="reference.html">Reference</a>
+    <div class="nav-divider"></div>
+    <a class="nav-item" href="glossary.html">Glossary</a>
+    <a class="nav-item" href="permuted-index.html">Index</a>
+  </nav>
+  <main class="content">
+
+    <h1>Context Monitoring</h1>
+    <p class="page-lead">The monitor tracks your session health in real time and tells you when quality is degrading — before compaction forces your hand.</p>
+
+    <h2>The Three Context Zones</h2>
+    <p>The monitor classifies every session into one of three zones based on token consumption and recall quality metrics:</p>
+
+    <svg viewBox="0 0 540 90" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:540px;display:block;margin:1.25rem 0;font-family:Inter,sans-serif">
+      <!-- Healthy -->
+      <rect x="0" y="20" width="168" height="50" rx="5" fill="#0d1a12" stroke="#34d399" stroke-width="1.5"/>
+      <text x="84" y="41" text-anchor="middle" fill="#34d399" font-size="11" font-weight="600" font-family="Inter,sans-serif">● Healthy</text>
+      <text x="84" y="58" text-anchor="middle" fill="#888" font-size="10" font-family="Inter,sans-serif">Performance near baseline</text>
+      <!-- Degrading -->
+      <rect x="186" y="20" width="168" height="50" rx="5" fill="#1c1800" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="270" y="41" text-anchor="middle" fill="#f59e0b" font-size="11" font-weight="600" font-family="Inter,sans-serif">◐ Degrading</text>
+      <text x="270" y="58" text-anchor="middle" fill="#888" font-size="10" font-family="Inter,sans-serif">Save recommended</text>
+      <!-- Critical -->
+      <rect x="372" y="20" width="168" height="50" rx="5" fill="#1a0a0a" stroke="#f87171" stroke-width="1.5"/>
+      <text x="456" y="41" text-anchor="middle" fill="#f87171" font-size="11" font-weight="600" font-family="Inter,sans-serif">● Critical</text>
+      <text x="456" y="58" text-anchor="middle" fill="#888" font-size="10" font-family="Inter,sans-serif">Save now</text>
+      <!-- arrows -->
+      <text x="175" y="48" text-anchor="middle" fill="#444" font-size="14" font-family="Inter,sans-serif">→</text>
+      <text x="361" y="48" text-anchor="middle" fill="#444" font-size="14" font-family="Inter,sans-serif">→</text>
+    </svg>
+
+    <p><strong>Healthy</strong> — Token consumption is within normal range. Performance is near the warm-up baseline. No action needed.</p>
+    <p><strong>Degrading</strong> — Multi-needle recall is dropping. Claude's responses are becoming less context-specific. This is the right time to save — you still have good context to preserve.</p>
+    <p><strong>Critical</strong> — Compaction is imminent. Save immediately. Waiting risks losing context without a named checkpoint.</p>
+
+    <div class="callout callout-note">
+      <div class="callout-label">Note</div>
+      <p>The Degrading zone is where saving has the highest value. At Critical, the context is already partially compromised. Don't wait for Critical to act.</p>
+    </div>
+
+    <h2>The Status Line</h2>
+    <p>The monitor writes a status line to Claude Code's UI on every message. Format:</p>
+    <pre><code>◐ Degrading | 87k / 200k tokens (43%) | ~18 min | $0.34</code></pre>
+
+    <table>
+      <thead>
+        <tr><th>Field</th><th>Meaning</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Zone indicator</td><td><code>●</code> Healthy, <code>◐</code> Degrading, <code>●</code> Critical (color-coded)</td></tr>
+        <tr><td>Token count</td><td>Current tokens used / context window size</td></tr>
+        <tr><td>Percentage</td><td>Fill level as a percentage of the window</td></tr>
+        <tr><td>Time estimate</td><td>Estimated time until compaction at current burn rate</td></tr>
+        <tr><td>Session cost</td><td>Accumulated API cost for this session</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Warm-Up Baseline</h2>
+    <p>The monitor calibrates against a warm-up baseline — a measurement of context quality at the start of a session, before deep work has accumulated. This baseline is used to detect when quality is declining relative to the session's peak.</p>
+    <p>The baseline is set automatically when you start a session or resume a context. You can reset it manually if the session scope changes significantly:</p>
+    <pre><code>/monitor reset-baseline</code></pre>
+
+    <h2>Zone Warnings</h2>
+    <p>When the session transitions from Healthy to Degrading, or from Degrading to Critical, the monitor emits a zone warning inline:</p>
+    <pre><code>⚠ Context zone: DEGRADING
+   87k tokens used (43%). Recall quality declining.
+   Recommend: /context-save before continuing.</code></pre>
+    <pre><code>⛔ Context zone: CRITICAL
+   162k tokens used (81%). Compaction imminent.
+   Save now: /context-save &lt;name&gt;</code></pre>
+    <p>Warnings fire once per zone transition. If you save and resume, the zone resets.</p>
+
+    <h2>Burn Rate and Cost Estimation</h2>
+    <p>The monitor tracks how quickly tokens are consumed per message (burn rate). Using the burn rate and remaining token budget, it estimates time to compaction. This estimate is shown in the status line as <code>~18 min</code>.</p>
+    <p>Cost is accumulated from session start using Anthropic's published pricing for the active model. The monitor does not make API calls to track cost — it calculates locally from token counts and model rates stored in <code>monitor-config.json</code>.</p>
+
+    <h2>Monitor Configuration</h2>
+    <p>The monitor reads configuration from <code>~/.claude/context-curator/monitor-config.json</code>:</p>
+    <pre><code>{
+  "degradingThreshold": 0.40,
+  "criticalThreshold": 0.75,
+  "burnRateWindow": 10,
+  "modelRates": {
+    "claude-opus-4-7": { "input": 15.00, "output": 75.00 },
+    "claude-sonnet-4-6": { "input": 3.00, "output": 15.00 }
+  }
+}</code></pre>
+    <p><code>degradingThreshold</code> and <code>criticalThreshold</code> are fractions of the context window (0.40 = 40%). <code>burnRateWindow</code> is the number of recent messages used to calculate the rolling burn rate average.</p>
+
+    <h2>How the Monitor Works</h2>
+    <p>The monitor runs as a PostMessage hook — it fires after every Claude response, reads the current token count from the session state, calculates zone and metrics, and updates the status line. No model API calls are made. All computation is local arithmetic over token counts and timestamps.</p>
+    <p>This means monitoring has no cost and no latency impact on your session.</p>
+
+    <hr>
+    <p><strong>Next:</strong> <a href="hooks-automation.html">Hooks &amp; Automation</a> — the PreCompact hook that auto-saves before any compaction — or <a href="managing-contexts.html">Managing Contexts</a> to learn how to save when the monitor tells you to.</p>
+
+  </main>
+</div>
+<script src="assets/main.js"></script>
+</body>
+</html>

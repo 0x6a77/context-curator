@@ -1,44 +1,84 @@
 ---
 name: docs-html
 description: >
-  Generate accessible HTML documentation from the markdown base.
-  Reads docs/html/style.md for visual conventions. Bootstraps style.md if absent.
+  Generate HTML documentation from the markdown base.
+  Reads docs/html/style.md for the design system. Bootstraps style.md if absent.
   Validates WCAG 2.1 AA compliance. Always run after /docs-markdown.
 invocation: explicit
 ---
 
 # /docs-html
 
+Generates the HTML documentation set from `docs/markdown/`. Produces a shared CSS/JS asset file and one HTML page per markdown section. No build pipeline required — output is plain HTML that any browser opens directly or GitHub Pages serves as-is.
+
 ## Generation Constraints
 
-- Read `docs/html/style.md` first; if absent, generate sensible accessible defaults
-  and write them to `style.md` before generating HTML
-- `style.md` defaults must contain entries for "color" and "typeface" or "font"
+- Read `docs/html/style.md` first; if absent, bootstrap sensible accessible defaults,
+  write them to `style.md`, and tell the user to review before the next run
+- `style.md` defaults must include entries for color palette and typeface/font
 - All output HTML: WCAG 2.1 AA compliant
-- Every page: consistent `<nav>` with links to home (`index.html`) and glossary
+- Every page: sidebar `<nav aria-label="Site navigation">` with all section links;
+  active page highlighted
 - Heading hierarchy must not skip levels (no h3 without h2, no h2 without h1)
 - All `<img>` elements: non-empty `alt` attribute
+- Never inline styles or scripts in individual pages — all pages link to shared assets
 
 ## Output Files
 
-- `docs/index.html`: rendered from `introduction.md` + `toc.md` inline
-- `docs/html/[section].html`: one file per product section in `feature-section-map.md`
+```
+docs/html/
+  assets/
+    style.css        ← all styles derived from style.md
+    main.js          ← copy buttons, heading anchors, mobile nav toggle
+  index.html         ← introduction.md + toc.md combined
+  getting-started.html
+  managing-contexts.html
+  context-monitoring.html
+  hooks-automation.html
+  security.html
+  skill-marketplace.html
+  boss-fight-workflow.html
+  reference.html
+  glossary.html
+  permuted-index.html
+```
 
 ## Workflow
 
-1. Read `docs/html/style.md` (bootstrap with defaults if missing)
-2. For each markdown file in `docs/markdown/`:
-   - Convert to HTML applying style.md conventions
-   - Add `<nav>` with home and glossary links
-   - Validate heading hierarchy
-3. Write `docs/index.html` combining `introduction.md` and `toc.md`
-4. Write per-section HTML files
+1. Read `docs/html/style.md` (bootstrap with accessible defaults if missing)
+2. Generate `docs/html/assets/style.css` from the style spec
+3. Generate `docs/html/assets/main.js` (copy buttons, heading anchors, mobile nav)
+4. For each markdown file in `docs/markdown/`:
+   - Convert to HTML applying the style.md design system
+   - Add sidebar nav with correct active-page state
+   - Render ASCII flow diagrams as inline SVG where possible
+   - Validate heading hierarchy before writing
+5. Write `docs/html/index.html` combining `introduction.md` and `toc.md`
+6. Write all section pages
+
+## SVG Diagrams
+
+Where markdown contains ASCII diagrams or labelled flow descriptions, render inline SVG
+instead. Candidates: the boss-fight process flow in `boss-fight-workflow.md`, the context
+zone diagram in `context-monitoring.md`. Use colors from `style.md`.
 
 ## Invariant
 
-Never hand-edit files in `docs/html/`. Run `/docs-markdown` first, then `/docs-html`.
-If `docs/html/style.md` is missing and must be bootstrapped, tell the user:
+Never hand-edit files in `docs/html/`. They are always regenerated from `docs/markdown/`.
+Run `/docs-markdown` first, then `/docs-html`.
+
+## Deployment
+
+`docs/html/` is plain HTML — no build step needed to serve it.
+
+- **Local review:** open `docs/html/index.html` in a browser
+- **GitHub Pages:** configure Pages to serve from the `docs/html/` folder on `main`,
+  or copy `docs/html/` contents to the `gh-pages` branch root
+
+## Bootstrap Message
+
+If `style.md` was absent and had to be created:
 ```
 style.md was not found. Created defaults at docs/html/style.md.
-Review and edit before next /docs-html run if you want a custom look.
+Review and edit before the next /docs-html run if you want a custom look.
 ```

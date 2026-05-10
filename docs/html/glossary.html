@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Glossary — Context Curator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">☰</button>
+<div class="nav-overlay"></div>
+<div class="layout">
+  <nav class="sidebar" aria-label="Site navigation">
+    <a class="site-title" href="index.html">Context Curator</a>
+    <a class="nav-item" href="index.html">Introduction</a>
+    <a class="nav-item" href="getting-started.html">Getting Started</a>
+    <a class="nav-item" href="managing-contexts.html">Managing Contexts</a>
+    <a class="nav-item" href="context-monitoring.html">Context Monitoring</a>
+    <a class="nav-item" href="workflows.html">Workflows</a>
+    <a class="nav-item" href="hooks-automation.html">Hooks &amp; Automation</a>
+    <a class="nav-item" href="security.html">Security</a>
+    <a class="nav-item" href="skill-marketplace.html">Skill Marketplace</a>
+    <a class="nav-item" href="boss-fight-workflow.html">Boss-Fight Workflow</a>
+    <a class="nav-item" href="reference.html">Reference</a>
+    <div class="nav-divider"></div>
+    <a class="nav-item active" href="glossary.html">Glossary</a>
+    <a class="nav-item" href="permuted-index.html">Index</a>
+  </nav>
+  <main class="content">
+
+    <h1>Glossary</h1>
+    <p class="page-lead">Definitions for every significant term used in Context Curator documentation.</p>
+
+    <div class="gloss-entry" id="adversary-task">
+      <div class="gloss-term">adversary task</div>
+      <p>A specialized Claude Code task that reviews your tests against your PRD from a position of enforced ignorance — no prior session context, no knowledge of your intent. Used in the <a href="boss-fight-workflow.html">Boss-Fight Workflow</a> to catch tests that pass vacuously rather than verifying the requirement they claim to cover.</p>
+    </div>
+
+    <div class="gloss-entry" id="auto-save">
+      <div class="gloss-term">auto-save</div>
+      <p>A timestamped snapshot of the current session, written automatically before every compaction event by the <a href="hooks-automation.html#precompact-auto-save-hook">PreCompact hook</a>. Auto-saves are emergency fallbacks, not named contexts. They live in <code>~/.claude/projects/&lt;project&gt;/auto-saves/</code> and are never committed to git.</p>
+    </div>
+
+    <div class="gloss-entry" id="boss-fight">
+      <div class="gloss-term">boss fight</div>
+      <p>The adversarial review phase of the <a href="boss-fight-workflow.html">Boss-Fight Workflow</a>. You must pass the adversary's test inventory review to advance to implementation. The adversary cannot be appeased by tweaking tests — only genuinely adequate tests pass.</p>
+    </div>
+
+    <div class="gloss-entry" id="bundle">
+      <div class="gloss-term">bundle</div>
+      <p>A named collection of skills that can be installed together. Context Curator ships three bundles: <code>authoring</code> (PRD document skills), <code>session</code> (context management), and <code>monitor</code> (status line). See <a href="skill-marketplace.html">Skill Marketplace</a>.</p>
+    </div>
+
+    <div class="gloss-entry" id="compaction">
+      <div class="gloss-term">compaction</div>
+      <p>Claude Code's process of summarizing old conversation history to free up context space when the token count approaches the limit. After compaction, Claude's understanding of session-specific details — subsystem quirks, open threads, warm context — is partially or fully lost.</p>
+    </div>
+
+    <div class="gloss-entry" id="context">
+      <div class="gloss-term">context</div>
+      <p>A named snapshot of a Claude Code session. Contexts capture the conversation state at peak understanding and can be restored later, letting Claude resume without the warm-up cost. Contexts are either <a href="#personal-context">personal</a> or <a href="#golden-context">golden</a>.</p>
+    </div>
+
+    <div class="gloss-entry" id="context-rot">
+      <div class="gloss-term">context rot</div>
+      <p>Degradation of Claude's session quality before the token ceiling is reached. As context fills, Claude's ability to recall multiple relevant details simultaneously (multi-needle recall) declines and suggestions become generic. The session is "rotting" even though it hasn't compacted yet.</p>
+    </div>
+
+    <div class="gloss-entry" id="context-zone">
+      <div class="gloss-term">context zone</div>
+      <p>A label for the current state of context utilization, derived from real-time metrics. The three zones are: <strong>Healthy</strong> (performance near baseline), <strong>Degrading</strong> (recall dropping, save recommended), and <strong>Critical</strong> (imminent compaction, save now). Displayed in the <a href="context-monitoring.html">status line</a>.</p>
+    </div>
+
+    <div class="gloss-entry" id="default-task">
+      <div class="gloss-term">default task</div>
+      <p>The base task active when no specific task has been switched to via <code>/task</code>. In the default task, <code>.claude/CLAUDE.md</code> contains universal project instructions and no task-specific import. The post-compaction hook does not inject context when the default task is active.</p>
+    </div>
+
+    <div class="gloss-entry" id="dev-plan">
+      <div class="gloss-term">dev plan</div>
+      <p>A structured implementation roadmap tied to a specific PRD version. Organized into phases, with each phase stating files to change, design decisions, and expected test outcomes. Authored with the <code>/dev-plan</code> skill. See <a href="boss-fight-workflow.html">Boss-Fight Workflow</a>.</p>
+    </div>
+
+    <div class="gloss-entry" id="feature-section-map">
+      <div class="gloss-term">feature-section map</div>
+      <p>A file (<code>docs/feature-section-map.md</code>) that maps each PRD F-XXX feature code to the product documentation section where it belongs. Maintained by the <code>/docs-markdown</code> skill and used to route new features to the correct documentation page.</p>
+    </div>
+
+    <div class="gloss-entry" id="golden-context">
+      <div class="gloss-term">golden context</div>
+      <p>A context that has been <a href="managing-contexts.html#promoting-a-context-to-golden">promoted</a> from personal to shared. Golden contexts are stored in the project repository (<code>.claude/tasks/&lt;task&gt;/contexts/</code>) and available to any teammate. All golden contexts are scanned for secrets before promotion.</p>
+    </div>
+
+    <div class="gloss-entry" id="hook">
+      <div class="gloss-term">hook</div>
+      <p>A shell command that Claude Code runs automatically in response to lifecycle events. Context Curator registers a <a href="hooks-automation.html#precompact-auto-save-hook">PreCompact hook</a> (saves session before compaction) and a <a href="hooks-automation.html#postcompact-task-re-injection-hook">PostCompact hook</a> (re-injects task context after compaction). Hooks are registered in <code>~/.claude/settings.json</code>.</p>
+    </div>
+
+    <div class="gloss-entry" id="manifest">
+      <div class="gloss-term">manifest</div>
+      <p>A JSON file (<code>context-curator-manifest.json</code>) that describes the available skill bundles and their contents. Used by <code>/plugin marketplace list</code> to enumerate installable skills. Version-matched against <code>dist/version.json</code>; a mismatch is flagged by <code>verify-manifest.ts</code>.</p>
+    </div>
+
+    <div class="gloss-entry" id="monitor">
+      <div class="gloss-term">monitor</div>
+      <p>The real-time context health tracking subsystem. Tracks token consumption, burn rate, estimated time to compaction, and accumulated cost. Displays status in the Claude Code <a href="context-monitoring.html">status line</a> and emits zone warnings at degradation thresholds.</p>
+    </div>
+
+    <div class="gloss-entry" id="personal-context">
+      <div class="gloss-term">personal context</div>
+      <p>A context saved to your home directory (<code>~/.claude/projects/&lt;project&gt;/tasks/&lt;task&gt;/contexts/</code>). Personal contexts are never committed to git and never visible to teammates. They may contain secrets and sensitive session content that should not be shared.</p>
+    </div>
+
+    <div class="gloss-entry" id="permuted-index">
+      <div class="gloss-term">permuted index</div>
+      <p>A documentation index in which every significant term is rotated to the front of its entry, so the index can be scanned from any angle. If "context rot" appears under both "context rot" and "rot, context", a reader who knows either word finds it.</p>
+    </div>
+
+    <div class="gloss-entry" id="prd">
+      <div class="gloss-term">PRD</div>
+      <p>Product Requirements Document. In the Boss-Fight Workflow, the PRD is the authoritative source of acceptance criteria. All features are assigned F-XXX codes; all acceptance criteria are assigned T-XXX codes. The PRD is authored first, before tests or code.</p>
+    </div>
+
+    <div class="gloss-entry" id="re-injection">
+      <div class="gloss-term">re-injection</div>
+      <p>The PostCompact hook's action of inserting a concise task context summary into the session immediately after compaction. Re-injection prevents the session from going cold after compaction events. It reads the active task's CLAUDE.md and generates a one-paragraph reminder.</p>
+    </div>
+
+    <div class="gloss-entry" id="risk-acceptance">
+      <div class="gloss-term">risk acceptance</div>
+      <p>A documented decision to accept a specific adversary finding rather than fix it. Stored in <code>prod-mgmt/risk-acceptances.md</code>. Re-running the adversary after adding an acceptance marks the finding ACCEPTED rather than FAIL. Each acceptance includes a rationale, approver, and expiry.</p>
+    </div>
+
+    <div class="gloss-entry" id="session">
+      <div class="gloss-term">session</div>
+      <p>A Claude Code conversation, stored as a <code>.jsonl</code> file in <code>~/.claude/projects/&lt;project&gt;/</code>. Sessions are UUID-named. Context Curator operates on sessions for the current project directory only.</p>
+    </div>
+
+    <div class="gloss-entry" id="skill">
+      <div class="gloss-term">skill</div>
+      <p>A SKILL.md file that Claude Code reads to gain specialized knowledge for a specific task. Skills are installed into <code>~/.claude/skills/</code> (user-scope) or <code>.claude/skills/</code> (project-scope). Context Curator's skills are organized into <a href="#bundle">bundles</a>. Project scope takes precedence over user scope.</p>
+    </div>
+
+    <div class="gloss-entry" id="status-line">
+      <div class="gloss-term">status line</div>
+      <p>The metadata line shown in Claude Code's UI that displays real-time session health metrics: current zone, token count, burn rate, estimated time to compaction, and session cost. Populated by the monitor subsystem.</p>
+    </div>
+
+    <div class="gloss-entry" id="task">
+      <div class="gloss-term">task</div>
+      <p>A focused work environment in Context Curator. Each task has a unique ID, its own CLAUDE.md with instructions for Claude, and its own context store. Switching tasks (via <code>/task &lt;id&gt;</code>) updates which instructions Claude loads on the next <code>/resume</code>. See <a href="getting-started.html">Getting Started</a>.</p>
+    </div>
+
+    <div class="gloss-entry" id="task-dna">
+      <div class="gloss-term">task DNA</div>
+      <p>The SKILL.md file that defines how a specialized task (like the adversary) behaves. Stored in <code>~/.claude/context-curator/specialized/&lt;task-name&gt;/CLAUDE.md</code>. DNA is read-only for the task; it cannot be modified by the task itself.</p>
+    </div>
+
+    <div class="gloss-entry" id="test-inventory">
+      <div class="gloss-term">test inventory</div>
+      <p>The adversary's output document (<code>prod-mgmt/test-inventory.md</code>). A table with one row per test, stating what the test actually does, which AC clause it covers, and a verdict (PASS, FAIL, ESCALATE, or ACCEPTED). Regenerated fresh on every adversary run.</p>
+    </div>
+
+    <div class="gloss-entry" id="test-plan">
+      <div class="gloss-term">test plan</div>
+      <p>A document that maps PRD acceptance criteria to concrete test cases (Setup / Execution / Validation). Authored with the <code>/test-plan</code> skill. Includes a banned patterns list that the adversary checks for vacuous test constructs.</p>
+    </div>
+
+    <div class="gloss-entry" id="warm-up">
+      <div class="gloss-term">warm-up</div>
+      <p>The ramp-up period at the start of a Claude session before Claude has absorbed enough context to give useful, project-specific answers. Warm-up time is the cost Context Curator is designed to reduce. A restored context skips warm-up entirely.</p>
+    </div>
+
+    <div class="gloss-entry" id="warm-up-baseline">
+      <div class="gloss-term">warm-up baseline</div>
+      <p>A calibration value set during initial monitor configuration. Used to estimate how much context has been consumed relative to the starting state and to estimate remaining time before the <a href="#context-zone">Degrading zone</a> is reached.</p>
+    </div>
+
+  </main>
+</div>
+<script src="assets/main.js"></script>
+</body>
+</html>

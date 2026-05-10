@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Managing Contexts — Context Curator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">☰</button>
+<div class="nav-overlay"></div>
+<div class="layout">
+  <nav class="sidebar" aria-label="Site navigation">
+    <a class="site-title" href="index.html">Context Curator</a>
+    <a class="nav-item" href="index.html">Introduction</a>
+    <a class="nav-item" href="getting-started.html">Getting Started</a>
+    <a class="nav-item active" href="managing-contexts.html">Managing Contexts</a>
+    <a class="nav-item" href="context-monitoring.html">Context Monitoring</a>
+    <a class="nav-item" href="workflows.html">Workflows</a>
+    <a class="nav-item" href="hooks-automation.html">Hooks &amp; Automation</a>
+    <a class="nav-item" href="security.html">Security</a>
+    <a class="nav-item" href="skill-marketplace.html">Skill Marketplace</a>
+    <a class="nav-item" href="boss-fight-workflow.html">Boss-Fight Workflow</a>
+    <a class="nav-item" href="reference.html">Reference</a>
+    <div class="nav-divider"></div>
+    <a class="nav-item" href="glossary.html">Glossary</a>
+    <a class="nav-item" href="permuted-index.html">Index</a>
+  </nav>
+  <main class="content">
+
+    <h1>Managing Contexts</h1>
+    <p class="page-lead">A <a href="glossary.html#context">context</a> is a named snapshot of a Claude Code session. This page covers saving, listing, promoting, and cleaning up contexts.</p>
+
+    <h2>Saving a Context</h2>
+    <pre><code>/context-save deep-understanding</code></pre>
+    <p>This saves your current session as a <a href="glossary.html#personal-context">personal context</a> — stored in your home directory, never committed to git, visible only to you.</p>
+    <p>Context names must be alphanumeric with hyphens or underscores: <code>morning-progress</code>, <code>found_the_bug</code>, <code>auth-v2</code>.</p>
+    <p><strong>What gets saved:</strong></p>
+    <ul>
+      <li>The full conversation history (all messages)</li>
+      <li>An AI-generated summary of key topics, decisions, and accomplishments</li>
+      <li>Metadata: message count, timestamp, task association</li>
+    </ul>
+    <p><strong>Overwrite protection:</strong> If a context with that name already exists, Context Curator creates a <code>.backup-</code> copy before overwriting. You won't lose prior work.</p>
+
+    <h3>Saving a Golden (Team-Shared) Context</h3>
+    <pre><code>/context-save team-baseline --golden</code></pre>
+    <p><a href="glossary.html#golden-context">Golden contexts</a> are saved inside the project directory at <code>.claude/tasks/&lt;task&gt;/contexts/</code> and committed to git. Any teammate who pulls gets access.</p>
+    <p>Before saving a golden context, Context Curator scans for secrets. If it finds anything — API keys, tokens, passwords, private keys — it reports them. Secrets block golden promotion; redact or remove them first.</p>
+    <p><strong>Size limit:</strong> Sessions over 100KB cannot be promoted to golden. For large sessions, trim or summarize before promoting.</p>
+
+    <h2>Listing Contexts</h2>
+    <pre><code>/context-list</code></pre>
+    <p>Lists all contexts for the current task, personal first then golden:</p>
+    <pre><code>auth-refactor — contexts
+
+Personal:
+  1. deep-understanding (47 msgs, 2026-05-09) — Mapped token refresh flow
+  2. morning-progress (23 msgs, 2026-05-08) — Initial OAuth middleware exploration
+
+Golden (shared):
+  ⭐ 3. team-baseline (61 msgs, jsmith, 2026-05-07) — Full auth subsystem, all edge cases</code></pre>
+    <p>To list contexts for a different task:</p>
+    <pre><code>/context-list payment-v2</code></pre>
+    <p>Each context shows name, message count, save date, author (for golden), and an AI-generated summary.</p>
+
+    <h2>AI-Generated Summaries</h2>
+    <p>Every saved context gets an automatic 2–3 sentence description of what was accomplished, what was decided, and what the session covered. The summary is generated in a separate forked session so it doesn't pollute your current conversation.</p>
+    <p>Summaries make <code>/context-list</code> useful: you see what's in each context before resuming it, without loading it. The summary is stored in a <code>.meta.json</code> file alongside the <code>.jsonl</code> session file.</p>
+
+    <h2>Promoting a Context to Golden</h2>
+    <p>If you have a personal context that would be valuable to share:</p>
+    <pre><code>/context-promote deep-understanding</code></pre>
+    <p>This:</p>
+    <ol>
+      <li>Scans the context for secrets (blocks if found)</li>
+      <li>Checks the size (blocks if over 100KB)</li>
+      <li>Asks for confirmation</li>
+      <li>Copies from your personal storage to <code>.claude/tasks/&lt;task&gt;/contexts/</code></li>
+    </ol>
+    <p>Your personal original is preserved. The golden copy is committed to git when you next push.</p>
+
+    <h2>Managing Your Context Library</h2>
+    <p>Over time, contexts accumulate. <code>/context-manage</code> gives you tools to keep things tidy.</p>
+
+    <h3>List All Contexts Across Tasks</h3>
+    <pre><code>/context-manage</code></pre>
+    <p>Shows all contexts across all tasks in the current project. Highlights stale contexts (not accessed in 30+ days) and duplicate contexts (byte-for-byte identical files).</p>
+
+    <h3>Dry Run Before Deleting</h3>
+    <pre><code>/context-manage delete auth-refactor morning-progress --dry-run</code></pre>
+    <p>Shows exactly what would be deleted without doing it. Always run with <code>--dry-run</code> first.</p>
+
+    <h3>Renaming a Context</h3>
+    <pre><code>/context-manage rename auth-refactor old-name new-name</code></pre>
+    <p>Renames in place. The file moves; the content is unchanged.</p>
+
+    <h3>Archiving a Context</h3>
+    <pre><code>/context-manage archive auth-refactor old-exploration</code></pre>
+    <p>Moves the context to <code>contexts/archives/</code> within the task directory. Keeps the file but removes it from the active context list.</p>
+
+    <h3>Deleting a Context</h3>
+    <pre><code>/context-manage delete auth-refactor old-exploration --force</code></pre>
+    <p>Deletes the context file. Irreversible. The <code>--force</code> flag is required for golden contexts to prevent accidental team knowledge loss.</p>
+
+    <h2>Storage Locations</h2>
+    <table>
+      <thead>
+        <tr><th>Context Type</th><th>Location</th><th>Committed to Git</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Personal</td><td><code>~/.claude/projects/&lt;project&gt;/tasks/&lt;task&gt;/contexts/</code></td><td>No</td></tr>
+        <tr><td>Golden</td><td><code>./.claude/tasks/&lt;task&gt;/contexts/</code></td><td>Yes</td></tr>
+        <tr><td>Auto-save (pre-compaction)</td><td><code>~/.claude/projects/&lt;project&gt;/auto-saves/</code></td><td>No</td></tr>
+      </tbody>
+    </table>
+    <p>Personal contexts live in your home directory and are completely private. Golden contexts travel with the repo.</p>
+
+    <hr>
+    <p><strong>Next:</strong> <a href="security.html">Security</a> — how secret scanning works before saves and promotions — or <a href="context-monitoring.html">Context Monitoring</a> to know when to save.</p>
+
+  </main>
+</div>
+<script src="assets/main.js"></script>
+</body>
+</html>

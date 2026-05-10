@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Workflows — Context Curator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">☰</button>
+<div class="nav-overlay"></div>
+<div class="layout">
+  <nav class="sidebar" aria-label="Site navigation">
+    <a class="site-title" href="index.html">Context Curator</a>
+    <a class="nav-item" href="index.html">Introduction</a>
+    <a class="nav-item" href="getting-started.html">Getting Started</a>
+    <a class="nav-item" href="managing-contexts.html">Managing Contexts</a>
+    <a class="nav-item" href="context-monitoring.html">Context Monitoring</a>
+    <a class="nav-item active" href="workflows.html">Workflows</a>
+    <a class="nav-item" href="hooks-automation.html">Hooks &amp; Automation</a>
+    <a class="nav-item" href="security.html">Security</a>
+    <a class="nav-item" href="skill-marketplace.html">Skill Marketplace</a>
+    <a class="nav-item" href="boss-fight-workflow.html">Boss-Fight Workflow</a>
+    <a class="nav-item" href="reference.html">Reference</a>
+    <div class="nav-divider"></div>
+    <a class="nav-item" href="glossary.html">Glossary</a>
+    <a class="nav-item" href="permuted-index.html">Index</a>
+  </nav>
+  <main class="content">
+
+    <h1>Workflows</h1>
+    <p class="page-lead">Common patterns for using Context Curator day-to-day.</p>
+
+    <h2>Solo Developer</h2>
+    <p>The core loop: create a task, work until Claude is warmed up, save before auto-compact strikes.</p>
+    <pre><code># Day 1 morning
+/task auth-refactor
+# ... 3 hours of exploration, Claude gets warmed up ...
+/context-save morning-progress
+
+# Day 1 afternoon
+/task auth-refactor
+&gt; Personal:
+&gt;   1. morning-progress (23 msgs) — Mapped the token refresh flow
+/resume &lt;uuid&gt;
+# Continue exactly where you left off
+/context-save found-the-bug
+
+# Day 2
+/task auth-refactor
+&gt; Personal:
+&gt;   1. found-the-bug (31 msgs) — Reproduced logout race condition
+/resume &lt;uuid&gt;
+# Implement the fix with full context intact</code></pre>
+    <p><strong>Tips:</strong></p>
+    <ul>
+      <li>Save early, save often — don't wait for auto-compact</li>
+      <li>Use descriptive names: <code>oauth-token-edge-cases</code> beats <code>tuesday</code></li>
+      <li>Keep tasks focused on one subsystem or problem area</li>
+    </ul>
+
+    <h2>Team Collaboration</h2>
+    <p><a href="glossary.html#golden-context">Golden contexts</a> are committed to git. Teammates pull them and instantly load your hard-won understanding.</p>
+    <p><strong>Alice builds deep understanding and shares it:</strong></p>
+    <pre><code>/task payment-integration
+# ... extensive work understanding the Stripe webhook flow ...
+/context-save stripe-complete --golden
+
+git add .claude/tasks/payment-integration/contexts/stripe-complete.jsonl
+git commit -m "Share Stripe integration context"
+git push</code></pre>
+    <p><strong>Bob uses Alice's context the next morning:</strong></p>
+    <pre><code>git pull
+/task payment-integration
+&gt; Golden (shared):
+&gt;   ⭐ 1. stripe-complete (47 msgs, alice) — Full Stripe webhook flow, retry logic
+&gt; 1
+/resume &lt;uuid&gt;
+# Bob is productive on payments from minute one</code></pre>
+    <p>The warm-up cost Alice paid — hours of exploration and dead ends — is paid once. Every teammate who pulls gets the benefit.</p>
+
+    <h2>Handling Interruptions</h2>
+    <p>Saving your context before switching tasks means you can return to deep focus without re-warming.</p>
+    <pre><code># Deep in auth refactor work, Claude has full context
+/task auth-refactor
+/resume &lt;uuid&gt;
+# ... 2 hours of focused work ...
+
+# Urgent bug comes in
+/context-save pre-interruption
+/task urgent-bug
+# ... fix the bug, task complete ...
+
+# Back to auth work, exactly where you left off
+/task auth-refactor
+&gt; Personal:
+&gt;   1. pre-interruption (52 msgs) — About to refactor token validation path
+/resume &lt;uuid&gt;
+# Full context restored, no re-warm needed</code></pre>
+    <p>This pattern also works for end-of-day: save before you close the laptop, resume the next morning.</p>
+
+    <h2>Returning to Default</h2>
+    <p>Step outside all task-specific instructions and back to vanilla Claude Code:</p>
+    <pre><code>/task default</code></pre>
+    <p>Useful when you need to do general project work that doesn't fit any task, or when you want Claude without any special focus loaded. The default task uses your root <code>CLAUDE.md</code> only.</p>
+
+    <h2>Native Claude Code Commands</h2>
+    <p>These built-in Claude Code commands complement Context Curator and work in any task.</p>
+    <table>
+      <thead>
+        <tr><th>Command</th><th>What it does</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>/fork [name]</code></td><td>Branch the current conversation to explore an alternative approach without losing the main thread</td></tr>
+        <tr><td><code>/rewind</code></td><td>Roll back the conversation to a previous checkpoint</td></tr>
+        <tr><td><code>/rename [name]</code></td><td>Give the current session a memorable name for easier identification</td></tr>
+        <tr><td><code>/compact [instructions]</code></td><td>Manually compact the conversation with optional instructions about what to preserve</td></tr>
+        <tr><td><code>/context</code></td><td>Show current token usage and context window fill level</td></tr>
+      </tbody>
+    </table>
+    <div class="callout callout-note">
+      <div class="callout-label">Note</div>
+      <p>Context Curator's PreCompact hook fires automatically before <code>/compact</code>, so your session is saved before any compaction runs — including manual compaction. You won't lose unsaved work.</p>
+    </div>
+
+    <hr>
+    <p><strong>Next:</strong> <a href="hooks-automation.html">Hooks &amp; Automation</a> — the automatic protection behind the PreCompact save.</p>
+
+  </main>
+</div>
+<script src="assets/main.js"></script>
+</body>
+</html>
