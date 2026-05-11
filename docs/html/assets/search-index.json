@@ -1,0 +1,68 @@
+[
+  {
+    "url": "index.html",
+    "title": "Introduction",
+    "headings": ["The Four Commands", "Why This Matters"],
+    "content": "Context Curator saves names and restores Claude Code session understanding. The four commands task-init task context-save resume. Accumulated understanding quality without a reviewer knowledge transfer. Hooks and monitoring Boss-Fight Coding tasks and contexts."
+  },
+  {
+    "url": "getting-started.html",
+    "title": "Getting Started",
+    "headings": ["Installation", "Initialize a Project", "Creating a Task", "Switching Between Tasks", "Deleting a Task", "The Default Task", "Native Claude Code Commands"],
+    "content": "install.sh Node.js Claude Code task-init project setup creating a task task-id lowercase hyphens switching tasks context list fresh start deleting a task yes no confirmation default task vanilla /fork /rewind /rename /compact /context project-scope install --project-install"
+  },
+  {
+    "url": "managing-contexts.html",
+    "title": "Managing Contexts",
+    "headings": ["Saving a Context", "Listing Contexts", "AI-Generated Summaries", "Managing Your Context Library", "Handling Interruptions", "Storage Locations"],
+    "content": "context-save personal golden context-list manage delete rename archive overwrite protection AI summary metadata message count timestamp interruptions switching tasks storage locations personal contexts golden contexts auto-save"
+  },
+  {
+    "url": "context-monitoring.html",
+    "title": "Context Monitoring",
+    "headings": ["The Three Degradation Zones", "Status Line", "Zone Warnings", "Burn Rate and Cost Estimation", "How the Monitor Works", "When to Save a Checkpoint"],
+    "content": "degradation zones productive 65% degrading 80% critical status line fill percent tokens since warm-up cost burn rate zone warnings save checkpoint monitor-state.json monitor-config.json thresholds burn rate window model rates input output cost"
+  },
+  {
+    "url": "hooks-automation.html",
+    "title": "Hooks & Automation",
+    "headings": ["PreCompact Auto-Save Hook", "PostCompact Task Re-Injection Hook", "Hook Registration", "When Hooks Are and Aren't Enough"],
+    "content": "precompact auto-save hook timestamped auto-saves PostCompact re-injection task context after compaction settings.json hook registration npx tsx local scripts no network calls interruptions named contexts versus auto-saves safety net"
+  },
+  {
+    "url": "for-teams.html",
+    "title": "For Teams",
+    "headings": ["Golden Contexts", "Project-Scope Install", "Skill Bundles", "Team Manifests", "Version Verification", "Sandbox Configuration"],
+    "content": "golden context promote context-promote team sharing project-scope install --project-install commit skills session monitor authoring full bundles marketplace plugin add team manifests manifest version verify sandbox settings.json excludedCommands"
+  },
+  {
+    "url": "security.html",
+    "title": "Security",
+    "headings": ["Secret Detection", "What Gets Detected", "When Scanning Happens", "Redaction", "Git Footprint", "No Git Conflicts"],
+    "content": "secret detection AWS access keys Stripe GitHub tokens RSA private keys passwords scan before save golden personal blocks warns redaction mask git footprint committed git-ignored personal contexts auto-saves monitor state no conflicts .gitignore task-init"
+  },
+  {
+    "url": "reference.html",
+    "title": "Reference",
+    "headings": ["The Two-File CLAUDE.md System", "How /resume Re-Reads CLAUDE.md", "Cross-Platform Compatibility", "Error Handling"],
+    "content": "two-file CLAUDE.md root committed .claude auto-generated git-ignored @import task switching resume re-reads from disk macOS Linux Windows WSL2 POSIX paths error handling exit codes non-zero"
+  },
+  {
+    "url": "boss-fight-workflow.html",
+    "title": "Boss-Fight Workflow",
+    "headings": ["The Core Idea", "Document Authoring Skills", "The Full Process Flow", "User Documentation", "The Adversary Task", "Risk Acceptances", "Process Sequencing", "The Specialized Task Framework"],
+    "content": "boss-fight coding PRD-driven development adversary task adversarial review LoD2 prd test-plan dev-plan test-inventory prd check-ac docs-markdown docs-html process sequencing prd-process stale adversary risk acceptances context isolation strict isolation phase detection"
+  },
+  {
+    "url": "glossary.html",
+    "title": "Glossary",
+    "headings": ["Context", "Task", "Golden Context", "Personal Context", "Auto-Save", "Warm-Up", "Compaction", "Boss-Fight", "Adversary"],
+    "content": "context named snapshot session task focused work environment CLAUDE.md golden context shared promoted committed team personal context private home directory auto-save pre-compaction timestamped warm-up accumulated understanding compaction auto-compact boss-fight PRD adversary review"
+  },
+  {
+    "url": "permuted-index.html",
+    "title": "Index",
+    "headings": [],
+    "content": "permuted index all terms concepts commands features alphabetical listing cross-references"
+  }
+]

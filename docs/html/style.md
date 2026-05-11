@@ -6,7 +6,7 @@ This file governs the visual design and layout of all HTML documentation generat
 
 ## Color Palette
 
-Dark theme throughout. No light-mode variant.
+Dark theme by default with a light-mode toggle. The `<html>` element carries `data-theme="dark"` initially; JS reads `localStorage` and may flip it to `data-theme="light"` before first paint.
 
 | Role | Value | Usage |
 |------|-------|-------|
@@ -192,11 +192,71 @@ Technical but approachable. Second person ("you"). Present tense. No marketing l
 
 ---
 
+## Light Mode
+
+When `data-theme="light"` is set on `<html>`:
+
+| Role | Light Value |
+|------|-------------|
+| Background | `#ffffff` |
+| Surface | `#f5f5f5` |
+| Border | `#e0e0e0` |
+| Text primary | `#1a1a1a` |
+| Text secondary | `#6b6b6b` |
+| Accent | `#4f46e5` |
+| Code text | `#5b21b6` |
+| Code background | `#f0edff` |
+| Success | `#047857` |
+| Danger | `#b91c1c` |
+
+---
+
+## Sidebar Extensions
+
+The sidebar has three additions beyond the nav links:
+
+**Sidebar header** — a flex row containing the site title (left) and theme toggle button (right). The toggle shows ☀ in dark mode and 🌙 in light mode; clicking stores the preference in `localStorage`.
+
+**Search** — below the header: a text input (`class="search-input"`) and a results panel (`class="search-results"`, hidden by default). Results load `assets/search-index.json` on first query and render matching pages with highlighted excerpts.
+
+**Repo link** — at the bottom of the sidebar, after a divider: a link to the GitHub repo with the GitHub mark SVG icon.
+
+---
+
+## Right Page TOC
+
+At viewports ≥1200px, a sticky `<aside class="page-toc">` appears to the right of the content area. It is populated by JS from the page's `h2` and `h3` headings after anchor IDs are set. A scroll listener highlights the currently visible heading. Hidden via `display: none` at narrower widths.
+
+The layout max-width expands to 1300px at ≥1200px to accommodate the three-column arrangement.
+
+---
+
+## Page Footer
+
+Every `<main>` ends with `<div class="page-footer"></div>`. JS populates this with:
+- **Prev/Next navigation** (`class="prev-next-nav"`) — links derived from a hard-coded page order array in `main.js`
+- **Edit link** (`class="edit-link"`) — links to the source `.md` file on GitHub for the current page; omitted for pages with no direct source file (`index.html`, `permuted-index.html`)
+
+---
+
+## Sitemap
+
+`docs/html/sitemap.xml` lists all active pages for search engine indexing. Base URL: `https://0x6a77.github.io/context-curator/`. Regenerate alongside HTML when pages are added or removed.
+
+---
+
 ## Assets
 
-`/docs-html` generates two shared files before generating any HTML pages:
+`/docs-html` generates three shared files before generating any HTML pages:
 
 - `docs/html/assets/style.css` — all styles from this spec
-- `docs/html/assets/main.js` — copy button logic, heading anchors, mobile nav toggle
+- `docs/html/assets/main.js` — copy buttons, heading anchors, mobile nav, theme toggle, search, page TOC, prev/next nav, edit link
+- `docs/html/assets/search-index.json` — search data: `{url, title, headings[], content}` per page
 
-Every HTML page links to both files with relative paths (`assets/style.css`, `assets/main.js`). Never inline styles or scripts in individual pages.
+Every HTML page links to both `.css` and `.js` with relative paths. Never inline styles or scripts in individual pages.
+
+---
+
+## Page HTML Structure
+
+Every page starts with `<html lang="en" data-theme="dark">`. The sidebar uses `class="sidebar-header"` as a flex wrapper for the site title and theme toggle. The layout div contains sidebar, main, and the right TOC aside (in that order). Page content ends with the empty `<div class="page-footer">` placeholder.

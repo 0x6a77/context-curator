@@ -28,9 +28,11 @@ Generates the HTML documentation set from `docs/markdown/`. Produces a shared CS
 ```
 docs/html/
   assets/
-    style.css        ← all styles derived from style.md
-    main.js          ← copy buttons, heading anchors, mobile nav toggle
-  index.html         ← introduction.md + toc.md combined
+    style.css            ← all styles derived from style.md
+    main.js              ← copy buttons, anchors, mobile nav, theme toggle,
+                           search, page TOC, prev/next nav, edit link
+    search-index.json    ← {url, title, headings[], content} per page
+  index.html             ← introduction.md + toc.md combined
   getting-started.html
   managing-contexts.html
   context-monitoring.html
@@ -41,6 +43,7 @@ docs/html/
   reference.html
   glossary.html
   permuted-index.html
+  sitemap.xml            ← all active page URLs for search indexing
 ```
 
 The file at `docs/html/index.html` is the entry point (`docs/index.html` in the site root).
@@ -48,15 +51,20 @@ The file at `docs/html/index.html` is the entry point (`docs/index.html` in the 
 ## Workflow
 
 1. Read `docs/html/style.md` (bootstrap with accessible defaults if missing)
-2. Generate `docs/html/assets/style.css` from the style spec
-3. Generate `docs/html/assets/main.js` (copy buttons, heading anchors, mobile nav)
-4. For each markdown file in `docs/markdown/`:
+2. Generate `docs/html/assets/style.css` from the style spec — including light mode vars, search, page TOC, prev/next, repo link, and edit link styles
+3. Generate `docs/html/assets/main.js` — theme toggle, copy buttons, heading anchors, mobile nav, page TOC, prev/next nav, edit link, search
+4. Generate `docs/html/assets/search-index.json` — one entry per page with `{url, title, headings[], content}`
+5. For each markdown file in `docs/markdown/`:
    - Convert to HTML applying the style.md design system
-   - Add sidebar nav with correct active-page state
+   - Set `<html lang="en" data-theme="dark">`
+   - Add sidebar with: sidebar-header (site title + theme toggle), search wrapper, nav links, repo link at bottom
+   - Add `<aside class="page-toc" aria-label="On this page">` after `</main>` in the layout div
+   - Add `<div class="page-footer"></div>` as the last child of `<main>`
    - Render ASCII flow diagrams as inline SVG where possible
    - Validate heading hierarchy before writing
-5. Write `docs/html/index.html` combining `introduction.md` and `toc.md`
-6. Write all section pages
+6. Write `docs/html/index.html` combining `introduction.md` and `toc.md`
+7. Write all section pages
+8. Write `docs/html/sitemap.xml`
 
 ## SVG Diagrams
 
