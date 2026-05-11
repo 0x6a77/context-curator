@@ -13,7 +13,7 @@ const PAGE_ORDER = [
   { file: 'for-teams.html',          title: 'For Teams',           source: 'for-teams.md' },
   { file: 'security.html',           title: 'Security',            source: 'security.md' },
   { file: 'reference.html',          title: 'Reference',           source: 'reference.md' },
-  { file: 'boss-fight-workflow.html',title: 'Boss-Fight Workflow', source: 'boss-fight-workflow.md' },
+  { file: 'boss-fight-workflow.html',title: 'PRD-Driven Development', source: 'boss-fight-workflow.md' },
   { file: 'glossary.html',           title: 'Glossary',            source: 'glossary.md' },
   { file: 'permuted-index.html',     title: 'Index',               source: null },
 ];

@@ -49,7 +49,7 @@
   },
   {
     "url": "boss-fight-workflow.html",
-    "title": "Boss-Fight Workflow",
+    "title": "PRD-Driven Development",
     "headings": ["The Core Idea", "Document Authoring Skills", "The Full Process Flow", "User Documentation", "The Adversary Task", "Risk Acceptances", "Process Sequencing", "The Specialized Task Framework"],
     "content": "boss-fight coding PRD-driven development adversary task adversarial review LoD2 prd test-plan dev-plan test-inventory prd check-ac docs-markdown docs-html process sequencing prd-process stale adversary risk acceptances context isolation strict isolation phase detection"
   },

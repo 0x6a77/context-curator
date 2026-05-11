@@ -4,7 +4,7 @@
 
 ### adversary task
 
-A specialized Claude Code task that reviews your tests against your PRD from a position of enforced ignorance — no prior session context, no knowledge of your intent. Used in the [Boss-Fight Workflow](boss-fight-workflow.md) to catch tests that pass vacuously rather than verifying the requirement they claim to cover.
+A specialized Claude Code task that reviews your tests against your PRD from a position of enforced ignorance — no prior session context, no knowledge of your intent. Used in the [PRD-Driven Development](boss-fight-workflow.md) to catch tests that pass vacuously rather than verifying the requirement they claim to cover.
 
 ---
 
@@ -16,7 +16,7 @@ A timestamped snapshot of the current session, written automatically before ever
 
 ### boss fight
 
-The adversarial review phase of the [Boss-Fight Workflow](boss-fight-workflow.md). You must pass the adversary's test inventory review to advance to implementation. The adversary cannot be appeased by tweaking tests — only genuinely adequate tests pass.
+The adversarial review phase of the [PRD-Driven Development](boss-fight-workflow.md). You must pass the adversary's test inventory review to advance to implementation. The adversary cannot be appeased by tweaking tests — only genuinely adequate tests pass.
 
 ---
 
@@ -58,7 +58,7 @@ The base task active when no specific task has been switched to via `/task`. In 
 
 ### dev plan
 
-A structured implementation roadmap tied to a specific PRD version. Organized into phases, with each phase stating files to change, design decisions, and expected test outcomes. Authored with the `/dev-plan` skill. See [Boss-Fight Workflow](boss-fight-workflow.md).
+A structured implementation roadmap tied to a specific PRD version. Organized into phases, with each phase stating files to change, design decisions, and expected test outcomes. Authored with the `/dev-plan` skill. See [PRD-Driven Development](boss-fight-workflow.md).
 
 ---
 
@@ -112,7 +112,7 @@ A documentation index in which every significant term is rotated to the front of
 
 ### PRD
 
-Product Requirements Document. In the Boss-Fight Workflow, the PRD is the authoritative source of acceptance criteria. All features are assigned F-XXX codes; all acceptance criteria are assigned T-XXX codes. The PRD is authored first, before tests or code.
+Product Requirements Document. In the PRD-Driven Development workflow, the PRD is the authoritative source of acceptance criteria. All features are assigned F-XXX codes; all acceptance criteria are assigned T-XXX codes. The PRD is authored first, before tests or code.
 
 ---
 

@@ -1,4 +1,4 @@
-# Boss-Fight Workflow
+# PRD-Driven Development
 
 Boss-Fight Coding is a PRD-driven development process built around a structurally adversarial review phase — the "boss fight" you must pass to advance. This page covers the full process: document authoring skills, the adversary task, process sequencing, and user documentation.
 

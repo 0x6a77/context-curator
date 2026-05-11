@@ -97,9 +97,9 @@ The CLAUDE.md two-file system, cross-platform notes, and error handling.
 
 ---
 
-## Boss-Fight Workflow
+## PRD-Driven Development
 
-### [Boss-Fight Workflow](boss-fight-workflow.md)
+### [PRD-Driven Development](boss-fight-workflow.md)
 
 PRD-driven development with adversarial review — a governance framework for
 AI-generated software. Code generation is the last step, not the first.

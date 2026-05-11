@@ -87,7 +87,7 @@ For Teams                ← for-teams.html
 Security
 Reference
 ─────────────────
-Boss-Fight Workflow      ← separate Gate 4 section
+PRD-Driven Development   ← separate Gate 4 section
 ─────────────────
 Glossary                 ← glossary.html
 Index                    ← permuted-index.html

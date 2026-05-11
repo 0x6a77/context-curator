@@ -8,13 +8,13 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **acceptance, risk** → [Risk acceptances](boss-fight-workflow.md#risk-acceptances) | [Glossary: risk acceptance](glossary.md#risk-acceptance)
 
-**acceptance criteria** → [Boss-Fight Workflow: PRD authoring](boss-fight-workflow.md#prd--prd-authoring)
+**acceptance criteria** → [PRD-Driven Development: PRD authoring](boss-fight-workflow.md#prd--prd-authoring)
 
-**adversary, re-running after risk acceptance** → [Boss-Fight Workflow: risk acceptances](boss-fight-workflow.md#risk-acceptances)
+**adversary, re-running after risk acceptance** → [PRD-Driven Development: risk acceptances](boss-fight-workflow.md#risk-acceptances)
 
-**adversary task** → [Boss-Fight Workflow: the adversary task](boss-fight-workflow.md#the-adversary-task) | [Glossary: adversary task](glossary.md#adversary-task)
+**adversary task** → [PRD-Driven Development: the adversary task](boss-fight-workflow.md#the-adversary-task) | [Glossary: adversary task](glossary.md#adversary-task)
 
-**alt attribute, non-empty on img** → [Boss-Fight Workflow: /docs-html](boss-fight-workflow.md#docs-html)
+**alt attribute, non-empty on img** → [PRD-Driven Development: /docs-html](boss-fight-workflow.md#docs-html)
 
 **authoring bundle** → [For Teams: selective bundle install](for-teams.md#selective-bundle-install)
 
@@ -24,13 +24,13 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 ## B
 
-**banned patterns (test plan)** → [Boss-Fight Workflow: /test-plan](boss-fight-workflow.md#test-plan--test-plan-authoring)
+**banned patterns (test plan)** → [PRD-Driven Development: /test-plan](boss-fight-workflow.md#test-plan--test-plan-authoring)
 
 **baseline, warm-up** → [Context Monitoring: warm-up baseline](context-monitoring.md#the-warm-up-baseline) | [Glossary: warm-up baseline](glossary.md#warm-up-baseline)
 
-**boss fight** → [Boss-Fight Workflow: the core idea](boss-fight-workflow.md#the-core-idea) | [Glossary: boss fight](glossary.md#boss-fight)
+**boss fight** → [PRD-Driven Development: the core idea](boss-fight-workflow.md#the-core-idea) | [Glossary: boss fight](glossary.md#boss-fight)
 
-**brief, docs** → [Boss-Fight Workflow: /docs-markdown](boss-fight-workflow.md#docs-markdown) | [Glossary: docs brief](glossary.md#docs-brief)
+**brief, docs** → [PRD-Driven Development: /docs-markdown](boss-fight-workflow.md#docs-markdown) | [Glossary: docs brief](glossary.md#docs-brief)
 
 **bundle, authoring** → [For Teams: selective bundle install](for-teams.md#selective-bundle-install) | [Glossary: bundle](glossary.md#bundle)
 
@@ -48,7 +48,7 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 ## C
 
-**check-ac, /prd command** → [Boss-Fight Workflow: /prd](boss-fight-workflow.md#prd--prd-authoring)
+**check-ac, /prd command** → [PRD-Driven Development: /prd](boss-fight-workflow.md#prd--prd-authoring)
 
 **CLAUDE.md, active working file** → [Reference: the two-file system](reference.md#the-two-file-claudemd-system)
 
@@ -120,23 +120,23 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **detection, secret** → [Security: secret detection](security.md#secret-detection)
 
-**dev plan** → [Boss-Fight Workflow: /dev-plan](boss-fight-workflow.md#dev-plan--dev-plan-authoring) | [Glossary: dev plan](glossary.md#dev-plan)
+**dev plan** → [PRD-Driven Development: /dev-plan](boss-fight-workflow.md#dev-plan--dev-plan-authoring) | [Glossary: dev plan](glossary.md#dev-plan)
 
-**dev-plan, /dev-plan** → [Boss-Fight Workflow: /dev-plan](boss-fight-workflow.md#dev-plan--dev-plan-authoring)
+**dev-plan, /dev-plan** → [PRD-Driven Development: /dev-plan](boss-fight-workflow.md#dev-plan--dev-plan-authoring)
 
 **directory reference table** → [Reference: directory reference](reference.md#directory-reference)
 
-**docs brief** → [Boss-Fight Workflow: /docs-markdown](boss-fight-workflow.md#docs-markdown) | [Glossary: docs brief](glossary.md#docs-brief)
+**docs brief** → [PRD-Driven Development: /docs-markdown](boss-fight-workflow.md#docs-markdown) | [Glossary: docs brief](glossary.md#docs-brief)
 
-**docs-html, /docs-html** → [Boss-Fight Workflow: /docs-html](boss-fight-workflow.md#docs-html)
+**docs-html, /docs-html** → [PRD-Driven Development: /docs-html](boss-fight-workflow.md#docs-html)
 
-**docs-markdown, /docs-markdown** → [Boss-Fight Workflow: /docs-markdown](boss-fight-workflow.md#docs-markdown)
+**docs-markdown, /docs-markdown** → [PRD-Driven Development: /docs-markdown](boss-fight-workflow.md#docs-markdown)
 
-**documentation, HTML** → [Boss-Fight Workflow: /docs-html](boss-fight-workflow.md#docs-html)
+**documentation, HTML** → [PRD-Driven Development: /docs-html](boss-fight-workflow.md#docs-html)
 
-**documentation, markdown** → [Boss-Fight Workflow: /docs-markdown](boss-fight-workflow.md#docs-markdown)
+**documentation, markdown** → [PRD-Driven Development: /docs-markdown](boss-fight-workflow.md#docs-markdown)
 
-**documentation, user (Phase 1a)** → [Boss-Fight Workflow: user documentation](boss-fight-workflow.md#user-documentation-docs-markdown-and-docs-html)
+**documentation, user (Phase 1a)** → [PRD-Driven Development: user documentation](boss-fight-workflow.md#user-documentation-docs-markdown-and-docs-html)
 
 ---
 
@@ -144,19 +144,19 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **error handling** → [Reference: error handling](reference.md#error-handling)
 
-**ESCALATE verdict** → [Boss-Fight Workflow: the adversary task](boss-fight-workflow.md#the-adversary-task)
+**ESCALATE verdict** → [PRD-Driven Development: the adversary task](boss-fight-workflow.md#the-adversary-task)
 
 ---
 
 ## F
 
-**F-XXX feature code** → [Boss-Fight Workflow: PRD authoring](boss-fight-workflow.md#prd--prd-authoring) | [Glossary: PRD](glossary.md#prd)
+**F-XXX feature code** → [PRD-Driven Development: PRD authoring](boss-fight-workflow.md#prd--prd-authoring) | [Glossary: PRD](glossary.md#prd)
 
-**FAIL verdict** → [Boss-Fight Workflow: the adversary task](boss-fight-workflow.md#the-adversary-task)
+**FAIL verdict** → [PRD-Driven Development: the adversary task](boss-fight-workflow.md#the-adversary-task)
 
 **footprint, git** → [Security: git footprint](security.md#git-footprint)
 
-**force, --force flag (prd-process)** → [Boss-Fight Workflow: /prd-process](boss-fight-workflow.md#process-sequencing-prd-process)
+**force, --force flag (prd-process)** → [PRD-Driven Development: /prd-process](boss-fight-workflow.md#process-sequencing-prd-process)
 
 **fork, /fork** → [Getting Started: native Claude Code commands](getting-started.md#native-claude-code-commands)
 
@@ -164,7 +164,7 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 ## G
 
-**gate (reader journey)** → [Boss-Fight Workflow: /docs-markdown](boss-fight-workflow.md#docs-markdown) | [Glossary: gate](glossary.md#gate)
+**gate (reader journey)** → [PRD-Driven Development: /docs-markdown](boss-fight-workflow.md#docs-markdown) | [Glossary: gate](glossary.md#gate)
 
 **git conflicts, none** → [Security: no git conflicts](security.md#no-git-conflicts)
 
@@ -184,7 +184,7 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **Healthy zone** → [Context Monitoring: the three zones](context-monitoring.md#the-three-degradation-zones)
 
-**heading hierarchy** → [Boss-Fight Workflow: /docs-html](boss-fight-workflow.md#docs-html)
+**heading hierarchy** → [PRD-Driven Development: /docs-html](boss-fight-workflow.md#docs-html)
 
 **hook, PostCompact** → [Hooks and Automation: PostCompact task re-injection hook](hooks-automation.md#postcompact-task-re-injection-hook) | [Glossary: hook](glossary.md#hook)
 
@@ -196,9 +196,9 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 ## I
 
-**img alt attribute** → [Boss-Fight Workflow: /docs-html](boss-fight-workflow.md#docs-html)
+**img alt attribute** → [PRD-Driven Development: /docs-html](boss-fight-workflow.md#docs-html)
 
-**index.html** → [Boss-Fight Workflow: /docs-html](boss-fight-workflow.md#docs-html)
+**index.html** → [PRD-Driven Development: /docs-html](boss-fight-workflow.md#docs-html)
 
 **init, /task-init** → [Getting Started: initializing a project](getting-started.md) | [Reference: the two-file system](reference.md#the-two-file-claudemd-system)
 
@@ -206,13 +206,13 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **interruption, handling** → [Managing Contexts: handling interruptions](managing-contexts.md#handling-interruptions)
 
-**isolation, context (adversary)** → [Boss-Fight Workflow: the specialized task framework](boss-fight-workflow.md#the-specialized-task-framework)
+**isolation, context (adversary)** → [PRD-Driven Development: the specialized task framework](boss-fight-workflow.md#the-specialized-task-framework)
 
 ---
 
 ## J
 
-**journey, reader** → [Boss-Fight Workflow: /docs-markdown](boss-fight-workflow.md#docs-markdown) | [Glossary: gate](glossary.md#gate)
+**journey, reader** → [PRD-Driven Development: /docs-markdown](boss-fight-workflow.md#docs-markdown) | [Glossary: gate](glossary.md#gate)
 
 ---
 
@@ -258,19 +258,19 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 ## N
 
-**nav element** → [Boss-Fight Workflow: /docs-html](boss-fight-workflow.md#docs-html)
+**nav element** → [PRD-Driven Development: /docs-html](boss-fight-workflow.md#docs-html)
 
-**new, /dev-plan new** → [Boss-Fight Workflow: /dev-plan](boss-fight-workflow.md#dev-plan--dev-plan-authoring)
+**new, /dev-plan new** → [PRD-Driven Development: /dev-plan](boss-fight-workflow.md#dev-plan--dev-plan-authoring)
 
-**new, /test-plan new** → [Boss-Fight Workflow: /test-plan](boss-fight-workflow.md#test-plan--test-plan-authoring)
+**new, /test-plan new** → [PRD-Driven Development: /test-plan](boss-fight-workflow.md#test-plan--test-plan-authoring)
 
-**new-feature, /prd new-feature** → [Boss-Fight Workflow: /prd](boss-fight-workflow.md#prd--prd-authoring)
+**new-feature, /prd new-feature** → [PRD-Driven Development: /prd](boss-fight-workflow.md#prd--prd-authoring)
 
 ---
 
 ## P
 
-**PASS verdict** → [Boss-Fight Workflow: the adversary task](boss-fight-workflow.md#the-adversary-task)
+**PASS verdict** → [PRD-Driven Development: the adversary task](boss-fight-workflow.md#the-adversary-task)
 
 **passwords, generic** → [Security: what gets detected](security.md#what-gets-detected)
 
@@ -280,21 +280,21 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **personal context** → [Managing Contexts](managing-contexts.md) | [Glossary: personal context](glossary.md#personal-context)
 
-**phase detection (prd-process)** → [Boss-Fight Workflow: /prd-process](boss-fight-workflow.md#process-sequencing-prd-process)
+**phase detection (prd-process)** → [PRD-Driven Development: /prd-process](boss-fight-workflow.md#process-sequencing-prd-process)
 
 **plugin marketplace** → [For Teams: selective bundle install](for-teams.md#selective-bundle-install)
 
 **PostCompact hook** → [Hooks and Automation: PostCompact task re-injection hook](hooks-automation.md#postcompact-task-re-injection-hook)
 
-**PRD** → [Boss-Fight Workflow: PRD authoring](boss-fight-workflow.md#prd--prd-authoring) | [Glossary: PRD](glossary.md#prd)
+**PRD** → [PRD-Driven Development: PRD authoring](boss-fight-workflow.md#prd--prd-authoring) | [Glossary: PRD](glossary.md#prd)
 
-**prd, /prd** → [Boss-Fight Workflow: /prd](boss-fight-workflow.md#prd--prd-authoring)
+**prd, /prd** → [PRD-Driven Development: /prd](boss-fight-workflow.md#prd--prd-authoring)
 
-**prd-process, /prd-process** → [Boss-Fight Workflow: process sequencing](boss-fight-workflow.md#process-sequencing-prd-process)
+**prd-process, /prd-process** → [PRD-Driven Development: process sequencing](boss-fight-workflow.md#process-sequencing-prd-process)
 
 **PreCompact hook** → [Hooks and Automation: PreCompact auto-save hook](hooks-automation.md#precompact-auto-save-hook)
 
-**process flow (boss-fight phases)** → [Boss-Fight Workflow: the full process flow](boss-fight-workflow.md#the-full-process-flow)
+**process flow (boss-fight phases)** → [PRD-Driven Development: the full process flow](boss-fight-workflow.md#the-full-process-flow)
 
 **project-scope install** → [For Teams: project-scope install](for-teams.md#project-scope-install) | [Getting Started: project-scope install](getting-started.md#project-scope-install-optional)
 
@@ -308,13 +308,13 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **re-injection, post-compaction** → [Hooks and Automation: PostCompact task re-injection hook](hooks-automation.md#postcompact-task-re-injection-hook) | [Glossary: re-injection](glossary.md#re-injection)
 
-**reader journey** → [Boss-Fight Workflow: /docs-markdown](boss-fight-workflow.md#docs-markdown) | [Glossary: gate](glossary.md#gate)
+**reader journey** → [PRD-Driven Development: /docs-markdown](boss-fight-workflow.md#docs-markdown) | [Glossary: gate](glossary.md#gate)
 
 **redaction** → [Security: redaction](security.md#redaction)
 
 **reference directory table** → [Reference: directory reference](reference.md#directory-reference)
 
-**remediation phase** → [Boss-Fight Workflow: the full process flow](boss-fight-workflow.md#the-full-process-flow)
+**remediation phase** → [PRD-Driven Development: the full process flow](boss-fight-workflow.md#the-full-process-flow)
 
 **rename, /rename** → [Getting Started: native Claude Code commands](getting-started.md#native-claude-code-commands)
 
@@ -322,7 +322,7 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **rewind, /rewind** → [Getting Started: native Claude Code commands](getting-started.md#native-claude-code-commands)
 
-**risk acceptance** → [Boss-Fight Workflow: risk acceptances](boss-fight-workflow.md#risk-acceptances) | [Glossary: risk acceptance](glossary.md#risk-acceptance)
+**risk acceptance** → [PRD-Driven Development: risk acceptances](boss-fight-workflow.md#risk-acceptances) | [Glossary: risk acceptance](glossary.md#risk-acceptance)
 
 **rot, context** → [Introduction](introduction.md) | [Glossary: context rot](glossary.md#context-rot)
 
@@ -352,13 +352,13 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **solo developer loop** → [Managing Contexts: handling interruptions](managing-contexts.md#handling-interruptions) | [Getting Started: quick example](getting-started.md#quick-example)
 
-**specialized task framework** → [Boss-Fight Workflow: the specialized task framework](boss-fight-workflow.md#the-specialized-task-framework)
+**specialized task framework** → [PRD-Driven Development: the specialized task framework](boss-fight-workflow.md#the-specialized-task-framework)
 
-**stale adversary warning** → [Boss-Fight Workflow: /prd-process](boss-fight-workflow.md#process-sequencing-prd-process)
+**stale adversary warning** → [PRD-Driven Development: /prd-process](boss-fight-workflow.md#process-sequencing-prd-process)
 
 **status line** → [Context Monitoring: status line](context-monitoring.md#status-line) | [Glossary: status line](glossary.md#status-line)
 
-**style.md (HTML documentation)** → [Boss-Fight Workflow: /docs-html](boss-fight-workflow.md#docs-html)
+**style.md (HTML documentation)** → [PRD-Driven Development: /docs-html](boss-fight-workflow.md#docs-html)
 
 **summary, AI-generated** → [Managing Contexts: AI-generated summaries](managing-contexts.md)
 
@@ -368,7 +368,7 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 ## T
 
-**T-XXX acceptance criteria code** → [Boss-Fight Workflow: PRD authoring](boss-fight-workflow.md#prd--prd-authoring)
+**T-XXX acceptance criteria code** → [PRD-Driven Development: PRD authoring](boss-fight-workflow.md#prd--prd-authoring)
 
 **task** → [Getting Started](getting-started.md) | [Glossary: task](glossary.md#task)
 
@@ -378,7 +378,7 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **task, default** → [Getting Started: the default task](getting-started.md) | [Glossary: default task](glossary.md#default-task)
 
-**task DNA** → [Boss-Fight Workflow: the specialized task framework](boss-fight-workflow.md#the-specialized-task-framework) | [Glossary: task DNA](glossary.md#task-dna)
+**task DNA** → [PRD-Driven Development: the specialized task framework](boss-fight-workflow.md#the-specialized-task-framework) | [Glossary: task DNA](glossary.md#task-dna)
 
 **task ID rules** → [Getting Started: creating a task](getting-started.md)
 
@@ -386,13 +386,13 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **team collaboration** → [For Teams](for-teams.md)
 
-**test inventory** → [Boss-Fight Workflow: what the adversary produces](boss-fight-workflow.md#the-adversary-task) | [Glossary: test inventory](glossary.md#test-inventory)
+**test inventory** → [PRD-Driven Development: what the adversary produces](boss-fight-workflow.md#the-adversary-task) | [Glossary: test inventory](glossary.md#test-inventory)
 
-**test-inventory, /test-inventory** → [Boss-Fight Workflow: /test-inventory](boss-fight-workflow.md#test-inventory--adversary-output-format)
+**test-inventory, /test-inventory** → [PRD-Driven Development: /test-inventory](boss-fight-workflow.md#test-inventory--adversary-output-format)
 
-**test plan** → [Boss-Fight Workflow: /test-plan](boss-fight-workflow.md#test-plan--test-plan-authoring) | [Glossary: test plan](glossary.md#test-plan)
+**test plan** → [PRD-Driven Development: /test-plan](boss-fight-workflow.md#test-plan--test-plan-authoring) | [Glossary: test plan](glossary.md#test-plan)
 
-**test-plan, /test-plan** → [Boss-Fight Workflow: /test-plan](boss-fight-workflow.md#test-plan--test-plan-authoring)
+**test-plan, /test-plan** → [PRD-Driven Development: /test-plan](boss-fight-workflow.md#test-plan--test-plan-authoring)
 
 **toc.md** → [Table of Contents](toc.md)
 
@@ -406,7 +406,7 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 ## V
 
-**vacuous tests** → [Boss-Fight Workflow: banned patterns](boss-fight-workflow.md#test-plan--test-plan-authoring)
+**vacuous tests** → [PRD-Driven Development: banned patterns](boss-fight-workflow.md#test-plan--test-plan-authoring)
 
 **verify-manifest.ts** → [For Teams: version verification](for-teams.md#version-verification)
 
