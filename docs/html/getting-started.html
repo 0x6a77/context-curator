@@ -131,6 +131,18 @@ Start fresh (no context)</code></pre>
 
     <hr>
 
+    <h2>Deleting a Task</h2>
+    <p>To remove a task and all its contexts:</p>
+    <pre><code>/task-delete auth-refactor</code></pre>
+    <p>Claude shows what will be deleted, then asks:</p>
+    <pre><code>Are you sure? (yes/no):</code></pre>
+    <p>Answer "yes" to proceed, anything else to cancel. The <code>default</code> task cannot be deleted.</p>
+    <p>If the task had golden (committed) contexts, Claude reminds you to remove them from git:</p>
+    <pre><code>git rm -r .claude/tasks/auth-refactor/
+git commit -m "Remove auth-refactor task"</code></pre>
+
+    <hr>
+
     <h2>The Default Task</h2>
     <p>Every project has a <code>default</code> task. It uses your root <code>CLAUDE.md</code> with no task-specific additions — plain Claude with no special focus. Switch to it any time:</p>
     <pre><code>/task default</code></pre>
