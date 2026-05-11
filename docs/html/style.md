@@ -173,9 +173,17 @@ The `index.html` (home page) combines `introduction.md` and `toc.md` into a sing
 
 ## SVG Diagrams
 
-Where the markdown source contains ASCII diagrams or flow descriptions, prefer rendering them as inline SVG. Use the color palette above. Boxes: fill `#1a1a1a`, stroke `#2a2a2a`, text `#e8e8e8`. Arrows: stroke `#6366f1`. Labels: Inter 13px.
+Where the markdown source contains ASCII diagrams or labelled flow descriptions, prefer rendering them as inline SVG. Use the color palette above. Boxes: fill `#1a1a1a`, stroke `#2a2a2a`, text `#e8e8e8`. Arrows: stroke `#6366f1`. Labels: Inter 13px.
 
-The boss-fight process flow diagram in `boss-fight-workflow.md` and the context zone transition diagram in `context-monitoring.md` are candidates for SVG rendering.
+**Required SVGs** — always generate as inline SVG regardless of what the markdown source contains:
+
+- **`boss-fight-workflow.html` — "The Full Process Flow" section**: Eight-phase vertical flow diagram. Main column: Phase 1 → 1a → 2 → 3 → 4 → 5, connected by accent arrows. Phase 5 gets an accent-colored box border and a "Boss Fight" subtitle. Branch from Phase 5 right to Phase 8 with a success-green arrow labeled "All PASS / ACCEPTED". Branch from Phase 5 down to Phase 6 with a danger-red arrow labeled "FAIL / ESCALATE". From Phase 6 down to Phase 7 with a warning-yellow arrow labeled "Oscillating?". Dashed muted loop from Phase 7 left edge up the left margin back into Phase 5, labeled "re-run adversary" (rotated vertically). Use CSS custom properties (`var(--surface)`, `var(--border)`, `var(--text)`, `var(--accent)`, `var(--success)`, `var(--danger)`, `var(--warning)`, `var(--muted)`) so the diagram adapts to both dark and light mode.
+
+- **`hooks-automation.html` — "The Compaction Lifecycle" section**: Three-column horizontal timeline — "Before Compaction" (left), "Compaction" (center, accent border on header), "After Compaction" (right). Three items per column with downward arrows between them. Before: Session running → PostToolUse fires → State file updated (all muted, routine activity). Compaction: PreCompact hook fires (accent) → Auto-save written (text) → Compaction executes (muted). After: PostCompact hook fires (accent) → Task context re-injected (text) → Session continues (text). Arrows in accent color for Compaction/After columns, muted for Before. Use CSS custom properties for light/dark adaptation.
+
+**Candidates** — render as SVG where the visual form is meaningfully clearer than prose or a table:
+
+- **`context-monitoring.html` — "The Three Degradation Zones"**: Horizontal fill-bar spanning 0–100%, divided into three colored segments — green (0–65%), yellow (65–80%), red (80–100%) — with labeled threshold markers and zone name callouts above each segment.
 
 ---
 

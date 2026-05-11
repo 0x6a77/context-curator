@@ -71,8 +71,29 @@ The file at `docs/html/index.html` is the entry point (`docs/index.html` in the 
 ## SVG Diagrams
 
 Where markdown contains ASCII diagrams or labelled flow descriptions, render inline SVG
-instead. Candidates: the boss-fight process flow in `boss-fight-workflow.md`, the context
-zone diagram in `context-monitoring.md`. Use colors from `style.md`.
+instead. Use colors from `style.md`. Two tiers:
+
+**Required** — always render as SVG; if the markdown source uses a code block for these,
+discard it and generate the SVG instead:
+
+- `boss-fight-workflow.html` § "The Full Process Flow" — eight-phase vertical flow with
+  accent arrows on the main path, success-green PASS branch (→ Phase 8), danger-red
+  FAIL/ESCALATE branch (→ Phase 6), warning-yellow Oscillating? branch (→ Phase 7),
+  and a dashed muted loop from Phase 7 back to Phase 5. Phase 5 box uses accent border.
+  All colors via CSS custom properties so the diagram adapts to light/dark mode.
+
+- `hooks-automation.html` § "The Compaction Lifecycle" — three-column horizontal timeline:
+  "Before Compaction" / "Compaction" (accent-bordered header) / "After Compaction". Three
+  items per column with downward arrows. Before column (muted): Session running → PostToolUse
+  fires → State file updated. Compaction column: PreCompact hook fires (accent) → Auto-save
+  written (text) → Compaction executes (muted). After column: PostCompact hook fires (accent)
+  → Task context re-injected (text) → Session continues (text). Arrows accent for
+  Compaction/After, muted for Before. All colors via CSS custom properties.
+
+**Candidates** — render as SVG when the visual is meaningfully clearer than text:
+
+- `context-monitoring.html` § "The Three Degradation Zones" — horizontal fill-bar 0–100%
+  with colored zone segments (green/yellow/red) and threshold markers at 65% and 80%.
 
 ## Invariant
 

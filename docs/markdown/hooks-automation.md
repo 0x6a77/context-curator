@@ -2,6 +2,20 @@
 
 Context Curator registers two hooks that fire automatically on compaction events, protecting your context without requiring manual action.
 
+## The Compaction Lifecycle
+
+Both hooks are part of the same compaction event sequence. Together they ensure you never lose a session to unexpected compaction, and always pick up with task context intact after one.
+
+```
+Before Compaction          During Compaction          After Compaction
+─────────────────          ─────────────────          ────────────────
+Session running            PreCompact hook fires      PostCompact hook fires
+PostToolUse fires                  ↓                          ↓
+State file updated         Auto-save written          Task context re-injected
+(monitoring)                       ↓                   (non-default task)
+                           Compaction executes         Session continues
+```
+
 ## PreCompact Auto-Save Hook
 
 Before every compaction — automatic or manual — a hook saves the current session to a timestamped file:

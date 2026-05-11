@@ -238,6 +238,15 @@ want it will find it; readers who don't won't be slowed by it.
 
 ---
 
+## Diagrams and Visual Elements
+
+The following pages include a structured code block that `/docs-html` converts to an inline SVG. The markdown source preserves a plain-text representation; the HTML generator replaces the code block with the SVG.
+
+- **Hooks & Automation** — "The Compaction Lifecycle" section: three-column Before / Compaction / After timeline showing what each hook does and when. Render as a horizontal three-panel SVG with labeled events and downward arrows in each column.
+- **PRD-Driven Development** — "The Full Process Flow" section: eight-phase vertical flow diagram with branching at Phase 5. Code block already present in `boss-fight-workflow.md`.
+
+---
+
 ## Feature Routing
 
 *Derived from gate assignments above. This table replaces

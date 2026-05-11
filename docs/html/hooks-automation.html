@@ -46,6 +46,57 @@
     <h1>Hooks and Automation</h1>
     <p>Context Curator registers two hooks that fire automatically on compaction events, protecting your context without requiring manual action.</p>
 
+    <h2>The Compaction Lifecycle</h2>
+    <p>Both hooks are part of the same compaction event sequence. Together they ensure you never lose a session to unexpected compaction, and always pick up with task context intact after one.</p>
+
+    <svg viewBox="0 0 640 175" xmlns="http://www.w3.org/2000/svg"
+         style="width:100%;max-width:640px;display:block;margin:1.5rem 0"
+         role="img"
+         aria-label="Compaction lifecycle: Before compaction the session runs normally and monitoring state is updated. During compaction the PreCompact hook fires and writes an auto-save, then compaction executes. After compaction the PostCompact hook fires, task context is re-injected, and the session continues.">
+      <defs>
+        <marker id="ha-arr" markerWidth="6" markerHeight="4" refX="6" refY="2" orient="auto">
+          <polygon points="0 0,6 2,0 4" fill="#6366f1"/>
+        </marker>
+        <marker id="ha-arr-m" markerWidth="6" markerHeight="4" refX="6" refY="2" orient="auto">
+          <polygon points="0 0,6 2,0 4" fill="#888888"/>
+        </marker>
+      </defs>
+
+      <!-- Vertical separators between columns -->
+      <line x1="213" y1="10" x2="213" y2="168" style="stroke:var(--border);stroke-width:1"/>
+      <line x1="426" y1="10" x2="426" y2="168" style="stroke:var(--border);stroke-width:1"/>
+
+      <!-- Column 1: Before Compaction -->
+      <rect x="7" y="10" width="198" height="34" rx="4" style="fill:var(--surface);stroke:var(--border);stroke-width:1"/>
+      <text x="106" y="30" text-anchor="middle" font-size="10" font-weight="600" font-family="'Inter',sans-serif" style="fill:var(--muted)">BEFORE COMPACTION</text>
+
+      <text x="106" y="66" text-anchor="middle" font-size="12" font-family="'Inter',sans-serif" style="fill:var(--muted)">Session running</text>
+      <line x1="106" y1="74" x2="106" y2="90" style="stroke:var(--muted);stroke-width:1" marker-end="url(#ha-arr-m)"/>
+      <text x="106" y="104" text-anchor="middle" font-size="12" font-family="'Inter',sans-serif" style="fill:var(--muted)">PostToolUse fires</text>
+      <line x1="106" y1="112" x2="106" y2="128" style="stroke:var(--muted);stroke-width:1" marker-end="url(#ha-arr-m)"/>
+      <text x="106" y="142" text-anchor="middle" font-size="12" font-family="'Inter',sans-serif" style="fill:var(--muted)">State file updated</text>
+
+      <!-- Column 2: Compaction (accent header border) -->
+      <rect x="220" y="10" width="198" height="34" rx="4" style="fill:var(--surface);stroke:var(--accent);stroke-width:1.5"/>
+      <text x="319" y="30" text-anchor="middle" font-size="10" font-weight="600" font-family="'Inter',sans-serif" style="fill:var(--accent)">COMPACTION</text>
+
+      <text x="319" y="66" text-anchor="middle" font-size="12" font-family="'Inter',sans-serif" style="fill:var(--accent)">PreCompact hook fires</text>
+      <line x1="319" y1="74" x2="319" y2="90" style="stroke:var(--accent);stroke-width:1" marker-end="url(#ha-arr)"/>
+      <text x="319" y="104" text-anchor="middle" font-size="12" font-family="'Inter',sans-serif" style="fill:var(--text)">Auto-save written</text>
+      <line x1="319" y1="112" x2="319" y2="128" style="stroke:var(--accent);stroke-width:1" marker-end="url(#ha-arr)"/>
+      <text x="319" y="142" text-anchor="middle" font-size="12" font-family="'Inter',sans-serif" style="fill:var(--muted)">Compaction executes</text>
+
+      <!-- Column 3: After Compaction -->
+      <rect x="433" y="10" width="198" height="34" rx="4" style="fill:var(--surface);stroke:var(--border);stroke-width:1"/>
+      <text x="532" y="30" text-anchor="middle" font-size="10" font-weight="600" font-family="'Inter',sans-serif" style="fill:var(--muted)">AFTER COMPACTION</text>
+
+      <text x="532" y="66" text-anchor="middle" font-size="12" font-family="'Inter',sans-serif" style="fill:var(--accent)">PostCompact hook fires</text>
+      <line x1="532" y1="74" x2="532" y2="90" style="stroke:var(--accent);stroke-width:1" marker-end="url(#ha-arr)"/>
+      <text x="532" y="104" text-anchor="middle" font-size="12" font-family="'Inter',sans-serif" style="fill:var(--text)">Task context re-injected</text>
+      <line x1="532" y1="112" x2="532" y2="128" style="stroke:var(--accent);stroke-width:1" marker-end="url(#ha-arr)"/>
+      <text x="532" y="142" text-anchor="middle" font-size="12" font-family="'Inter',sans-serif" style="fill:var(--text)">Session continues</text>
+    </svg>
+
     <h2>PreCompact Auto-Save Hook</h2>
     <p>Before every compaction — automatic or manual — a hook saves the current session to a timestamped file:</p>
     <pre><code>~/.claude/projects/&lt;project&gt;/auto-saves/2026-05-09T14-32-00.jsonl</code></pre>
