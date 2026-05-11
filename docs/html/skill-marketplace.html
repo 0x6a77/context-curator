@@ -18,12 +18,13 @@
     <a class="nav-item" href="getting-started.html">Getting Started</a>
     <a class="nav-item" href="managing-contexts.html">Managing Contexts</a>
     <a class="nav-item" href="context-monitoring.html">Context Monitoring</a>
-    <a class="nav-item" href="workflows.html">Workflows</a>
     <a class="nav-item" href="hooks-automation.html">Hooks &amp; Automation</a>
+    <div class="nav-divider"></div>
+    <a class="nav-item" href="for-teams.html">For Teams</a>
     <a class="nav-item" href="security.html">Security</a>
-    <a class="nav-item active" href="skill-marketplace.html">Skill Marketplace</a>
-    <a class="nav-item" href="boss-fight-workflow.html">Boss-Fight Workflow</a>
     <a class="nav-item" href="reference.html">Reference</a>
+    <div class="nav-divider"></div>
+    <a class="nav-item" href="boss-fight-workflow.html">Boss-Fight Workflow</a>
     <div class="nav-divider"></div>
     <a class="nav-item" href="glossary.html">Glossary</a>
     <a class="nav-item" href="permuted-index.html">Index</a>
@@ -31,102 +32,14 @@
   <main class="content">
 
     <h1>Skill Marketplace</h1>
-    <p class="page-lead">Context Curator ships as installable skill bundles. Teams can install only the parts they need — document authoring skills without session management, or vice versa. Teams can also publish their own bundles.</p>
-
-    <h2>Bundles</h2>
-    <table>
-      <thead>
-        <tr><th>Bundle</th><th>What's Included</th><th>Who Should Install It</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><code>authoring</code></td>
-          <td><code>/prd</code>, <code>/test-plan</code>, <code>/dev-plan</code>, <code>/test-inventory</code></td>
-          <td>Any team using PRD-driven development</td>
-        </tr>
-        <tr>
-          <td><code>session</code></td>
-          <td><code>/task</code>, <code>/context-save</code>, <code>/context-list</code>, <code>/context-manage</code>, <code>/context-promote</code></td>
-          <td>Teams using context management</td>
-        </tr>
-        <tr>
-          <td><code>monitor</code></td>
-          <td>Status line, zone warnings, cost tracking</td>
-          <td>Teams using session management (requires <code>session</code>)</td>
-        </tr>
-        <tr>
-          <td><code>full</code></td>
-          <td>Everything</td>
-          <td>Install everything at once</td>
-        </tr>
-      </tbody>
-    </table>
-    <p>The <code>authoring</code> bundle is fully standalone — it works without the session or monitor bundles. The <code>monitor</code> bundle requires <code>session</code> (it needs the task skill to know which task is active).</p>
-
-    <h2>Installing a Specific Bundle</h2>
-    <pre><code># Install only the authoring bundle
-/plugin marketplace add context-curator/authoring
-
-# Install only session management
-/plugin marketplace add context-curator/session
-
-# Install everything
-/plugin marketplace add context-curator/full</code></pre>
-    <p>Bundle scope depends on where you run the command. In a project directory with <code>--project-install</code>, skills go into <code>.claude/skills/</code>; otherwise they go into <code>~/.claude/skills/</code>.</p>
-
-    <h2>Browsing Available Bundles</h2>
-    <pre><code>/plugin marketplace list context-curator</code></pre>
-    <p>Lists all available bundles and individual skills with their descriptions. Output shows what each bundle contains and whether it's installed.</p>
-
-    <h2>Manifest Format</h2>
-    <p>The marketplace discovery mechanism reads a manifest file. Context Curator's manifest is installed to <code>~/.claude/context-curator-manifest.json</code> (global) and optionally <code>.claude/context-curator-manifest.json</code> (project).</p>
-    <pre><code>{
-  "name": "context-curator",
-  "version": "21.0",
-  "bundles": {
-    "authoring": {
-      "description": "PRD, test plan, dev plan, and test inventory authoring skills",
-      "skills": ["authoring/prd", "authoring/test-plan", "authoring/dev-plan", "authoring/test-inventory"]
-    },
-    "session": {
-      "description": "Full context management stack",
-      "skills": ["session/task", "session/context-save", "session/context-list", "session/context-manage", "session/context-promote"]
-    }
-  }
-}</code></pre>
-
-    <h3>Version Verification</h3>
-    <p>The manifest version must match the installed <code>dist/version.json</code>. If there's a mismatch:</p>
-    <pre><code>npx tsx scripts/verify-manifest.ts</code></pre>
-    <p>Exits non-zero with a message naming the version conflict. Re-run <code>install.sh</code> to repair.</p>
-
-    <h2>Team Manifests</h2>
-    <p>Teams can publish custom skill bundles by committing a manifest to their project. The format is the same as Context Curator's manifest.</p>
-    <pre><code>{
-  "bundles": {
-    "custom": {
-      "description": "Team-specific custom skills",
-      "skills": ["authoring/code-review"]
-    }
-  }
-}</code></pre>
-    <p>Commit <code>.claude/context-curator-manifest.json</code> and any developer who runs <code>/plugin marketplace list</code> will see the custom bundle.</p>
-
-    <h2>Skill Locations</h2>
-    <table>
-      <thead>
-        <tr><th>Scope</th><th>Location</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>User (global)</td><td><code>~/.claude/skills/context-curator/&lt;bundle&gt;/&lt;skill&gt;/</code></td></tr>
-        <tr><td>Project</td><td><code>.claude/skills/context-curator/&lt;bundle&gt;/&lt;skill&gt;/</code></td></tr>
-      </tbody>
-    </table>
-    <p>Each skill directory contains a <code>SKILL.md</code> (the instruction file Claude reads) and a <code>scripts/</code> directory (supporting TypeScript scripts).</p>
-    <p>When both user-scope and project-scope versions of a skill exist, project scope takes precedence. This lets teams pin a specific version without affecting other projects.</p>
-
-    <hr>
-    <p><strong>Next:</strong> <a href="boss-fight-workflow.html">Boss-Fight Workflow</a> — the authoring bundle's document skills in context — or <a href="getting-started.html">Getting Started</a> for project-scope install setup.</p>
+    <p>This page has been retired. Its content has moved to <a href="for-teams.html">For Teams</a>:</p>
+    <ul>
+      <li>Skill bundles and what each contains</li>
+      <li>Installing bundles with <code>/plugin marketplace add</code></li>
+      <li>Project-scope install for zero-setup team sharing</li>
+      <li>Team manifests for custom skill bundles</li>
+      <li>Version verification</li>
+    </ul>
 
   </main>
 </div>

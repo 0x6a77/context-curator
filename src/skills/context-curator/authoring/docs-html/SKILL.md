@@ -35,8 +35,8 @@ docs/html/
   managing-contexts.html
   context-monitoring.html
   hooks-automation.html
+  for-teams.html
   security.html
-  skill-marketplace.html
   boss-fight-workflow.html
   reference.html
   glossary.html

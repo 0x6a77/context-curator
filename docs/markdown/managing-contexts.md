@@ -89,6 +89,27 @@ Shows exactly what would be deleted. Always use `--dry-run` first.
 
 ---
 
+## Handling Interruptions
+
+Save your context before switching tasks. When you return, Claude picks up exactly where you left off.
+
+```bash
+# Deep in auth refactor work, urgent bug comes in
+/context-save pre-interruption
+/task urgent-bug
+# ... fix the bug ...
+
+# Back to auth work, exactly where you left off
+/task auth-refactor
+# → select "pre-interruption"
+/resume <uuid>
+# Full context restored, no re-warm needed
+```
+
+This pattern works for end-of-day breaks too: save before closing the laptop, resume the next morning.
+
+---
+
 ## Storage Locations
 
 | Context Type | Location | Committed to Git |

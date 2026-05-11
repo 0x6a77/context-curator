@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>For Teams — Context Curator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">☰</button>
+<div class="nav-overlay"></div>
+<div class="layout">
+  <nav class="sidebar" aria-label="Site navigation">
+    <a class="site-title" href="index.html">Context Curator</a>
+    <a class="nav-item" href="index.html">Introduction</a>
+    <a class="nav-item" href="getting-started.html">Getting Started</a>
+    <a class="nav-item" href="managing-contexts.html">Managing Contexts</a>
+    <a class="nav-item" href="context-monitoring.html">Context Monitoring</a>
+    <a class="nav-item" href="hooks-automation.html">Hooks &amp; Automation</a>
+    <div class="nav-divider"></div>
+    <a class="nav-item active" href="for-teams.html">For Teams</a>
+    <a class="nav-item" href="security.html">Security</a>
+    <a class="nav-item" href="reference.html">Reference</a>
+    <div class="nav-divider"></div>
+    <a class="nav-item" href="boss-fight-workflow.html">Boss-Fight Workflow</a>
+    <div class="nav-divider"></div>
+    <a class="nav-item" href="glossary.html">Glossary</a>
+    <a class="nav-item" href="permuted-index.html">Index</a>
+  </nav>
+  <main class="content">
+
+    <h1>For Teams</h1>
+    <p>This page covers sharing warmed-up contexts with teammates, project-scope installation, and team skill bundles.</p>
+
+    <h2>Golden Contexts</h2>
+    <p>A <a href="glossary.html#golden-context">golden context</a> is a personal context that's been promoted to the project repo. Once promoted, any teammate can restore it — they get the same warmed-up understanding without the warm-up cost.</p>
+
+    <h3>Promoting a Context</h3>
+    <pre><code>/context-promote deep-understanding</code></pre>
+    <p>This:</p>
+    <ol>
+      <li>Scans the context for secrets — blocks if any are found</li>
+      <li>Checks the size — blocks if over 100KB</li>
+      <li>Asks for confirmation</li>
+      <li>Copies from your personal storage to <code>.claude/tasks/&lt;task&gt;/contexts/</code></li>
+    </ol>
+    <p>Your personal original is preserved. The golden copy is committed to git when you next push.</p>
+    <p>Teammates then see it in their context list:</p>
+    <pre><code>auth-refactor — contexts
+
+Golden (shared):
+  ⭐ 1. deep-understanding (47 msgs, jsmith, 2026-05-09) — Mapped token
+       refresh flow, found the session race condition</code></pre>
+
+    <h3>Saving Directly as Golden</h3>
+    <pre><code>/context-save team-baseline --golden</code></pre>
+    <p>Saves directly to the project. Useful when you're confident the session is worth sharing and don't want a personal copy first.</p>
+
+    <hr>
+
+    <h2>Project-Scope Install</h2>
+    <p>By default, Context Curator installs globally — it's available on your machine but not automatically to teammates.</p>
+    <p>To make it available to every developer who clones your repo — with no global install required:</p>
+    <pre><code>cd ~/my-project
+./install.sh --project-install</code></pre>
+    <p>This copies the skills into <code>.claude/skills/context-curator/</code> in your project. Commit that directory and teammates get the full command set automatically when they pull.</p>
+    <p><strong>What this looks like in your repo:</strong></p>
+    <pre><code>.claude/
+  skills/
+    context-curator/
+      session/
+        task/
+        context-save/
+        context-list/
+        context-manage/
+        context-promote/
+      monitor/
+        ...
+      authoring/
+        ...</code></pre>
+    <p>Commit this directory. Teammates don't need to run <code>install.sh</code>.</p>
+
+    <hr>
+
+    <h2>Selective Bundle Install</h2>
+    <p>Teams don't have to install everything. Context Curator ships in bundles:</p>
+    <table>
+      <thead>
+        <tr><th>Bundle</th><th>What's Included</th><th>Good for</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>session</code></td><td><code>/task</code>, <code>/context-save</code>, <code>/context-list</code>, <code>/context-manage</code>, <code>/context-promote</code></td><td>Core context management</td></tr>
+        <tr><td><code>monitor</code></td><td>Status line, zone warnings, cost tracking</td><td>Session health monitoring</td></tr>
+        <tr><td><code>authoring</code></td><td><code>/prd</code>, <code>/test-plan</code>, <code>/dev-plan</code>, <code>/test-inventory</code></td><td>PRD-driven development</td></tr>
+        <tr><td><code>full</code></td><td>Everything</td><td>Install once, use everything</td></tr>
+      </tbody>
+    </table>
+    <pre><code># Install only what you need
+/plugin marketplace add context-curator/session
+/plugin marketplace add context-curator/monitor
+
+# Or everything
+/plugin marketplace add context-curator/full</code></pre>
+    <p>When skills exist at both user scope (<code>~/.claude/skills/</code>) and project scope (<code>.claude/skills/</code>), project scope takes precedence. Teams can pin a specific bundle version without affecting other projects.</p>
+
+    <hr>
+
+    <h2>Team Manifests</h2>
+    <p>Teams can publish their own skill bundles alongside Context Curator's — custom skills, internal tools, or curated subsets. Commit a manifest to the project:</p>
+    <pre><code>{
+  "bundles": {
+    "custom": {
+      "description": "Team-specific skills",
+      "skills": ["authoring/code-review", "session/task"]
+    }
+  }
+}</code></pre>
+    <p>Save as <code>.claude/context-curator-manifest.json</code> and any developer who runs <code>/plugin marketplace list</code> will see the custom bundle.</p>
+
+    <hr>
+
+    <h2>Version Verification</h2>
+    <p>The installed manifest version must match <code>dist/version.json</code>. To check:</p>
+    <pre><code>npx tsx scripts/verify-manifest.ts</code></pre>
+    <p>Exits non-zero and names the conflict if there's a mismatch. Re-run <code>install.sh</code> to repair.</p>
+
+    <hr>
+
+    <h2>Sandbox Configuration</h2>
+    <p>If your project runs Claude Code with sandbox mode enabled, add to <code>.claude/settings.json</code>:</p>
+    <pre><code>{
+  "sandbox": {
+    "enabled": true,
+    "excludedCommands": [
+      "node ~/.claude/context-curator/dist/scripts/"
+    ]
+  }
+}</code></pre>
+    <p>This lets Context Curator write to <code>~/.claude/projects/</code> (outside the project directory) while keeping all other sandbox restrictions. Commit <code>settings.json</code> — all teammates need it.</p>
+
+    <hr>
+
+    <ul>
+      <li><a href="security.html">Security</a> — what the secret scan catches before every golden save</li>
+      <li><a href="reference.html">Reference</a> — skill directory layout, CLAUDE.md internals</li>
+    </ul>
+
+  </main>
+</div>
+<script src="assets/main.js"></script>
+</body>
+</html>

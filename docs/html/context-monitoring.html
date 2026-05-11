@@ -18,12 +18,13 @@
     <a class="nav-item" href="getting-started.html">Getting Started</a>
     <a class="nav-item" href="managing-contexts.html">Managing Contexts</a>
     <a class="nav-item active" href="context-monitoring.html">Context Monitoring</a>
-    <a class="nav-item" href="workflows.html">Workflows</a>
     <a class="nav-item" href="hooks-automation.html">Hooks &amp; Automation</a>
+    <div class="nav-divider"></div>
+    <a class="nav-item" href="for-teams.html">For Teams</a>
     <a class="nav-item" href="security.html">Security</a>
-    <a class="nav-item" href="skill-marketplace.html">Skill Marketplace</a>
-    <a class="nav-item" href="boss-fight-workflow.html">Boss-Fight Workflow</a>
     <a class="nav-item" href="reference.html">Reference</a>
+    <div class="nav-divider"></div>
+    <a class="nav-item" href="boss-fight-workflow.html">Boss-Fight Workflow</a>
     <div class="nav-divider"></div>
     <a class="nav-item" href="glossary.html">Glossary</a>
     <a class="nav-item" href="permuted-index.html">Index</a>
@@ -31,93 +32,111 @@
   <main class="content">
 
     <h1>Context Monitoring</h1>
-    <p class="page-lead">The monitor tracks your session health in real time and tells you when quality is degrading — before compaction forces your hand.</p>
+    <p>Context Curator includes a lightweight monitoring system that gives you continuous visibility into session quality — without consuming the context it's measuring.</p>
 
-    <h2>The Three Context Zones</h2>
-    <p>The monitor classifies every session into one of three zones based on token consumption and recall quality metrics:</p>
-
-    <svg viewBox="0 0 540 90" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:540px;display:block;margin:1.25rem 0;font-family:Inter,sans-serif">
-      <!-- Healthy -->
-      <rect x="0" y="20" width="168" height="50" rx="5" fill="#0d1a12" stroke="#34d399" stroke-width="1.5"/>
-      <text x="84" y="41" text-anchor="middle" fill="#34d399" font-size="11" font-weight="600" font-family="Inter,sans-serif">● Healthy</text>
-      <text x="84" y="58" text-anchor="middle" fill="#888" font-size="10" font-family="Inter,sans-serif">Performance near baseline</text>
-      <!-- Degrading -->
-      <rect x="186" y="20" width="168" height="50" rx="5" fill="#1c1800" stroke="#f59e0b" stroke-width="1.5"/>
-      <text x="270" y="41" text-anchor="middle" fill="#f59e0b" font-size="11" font-weight="600" font-family="Inter,sans-serif">◐ Degrading</text>
-      <text x="270" y="58" text-anchor="middle" fill="#888" font-size="10" font-family="Inter,sans-serif">Save recommended</text>
-      <!-- Critical -->
-      <rect x="372" y="20" width="168" height="50" rx="5" fill="#1a0a0a" stroke="#f87171" stroke-width="1.5"/>
-      <text x="456" y="41" text-anchor="middle" fill="#f87171" font-size="11" font-weight="600" font-family="Inter,sans-serif">● Critical</text>
-      <text x="456" y="58" text-anchor="middle" fill="#888" font-size="10" font-family="Inter,sans-serif">Save now</text>
-      <!-- arrows -->
-      <text x="175" y="48" text-anchor="middle" fill="#444" font-size="14" font-family="Inter,sans-serif">→</text>
-      <text x="361" y="48" text-anchor="middle" fill="#444" font-size="14" font-family="Inter,sans-serif">→</text>
-    </svg>
-
-    <p><strong>Healthy</strong> — Token consumption is within normal range. Performance is near the warm-up baseline. No action needed.</p>
-    <p><strong>Degrading</strong> — Multi-needle recall is dropping. Claude's responses are becoming less context-specific. This is the right time to save — you still have good context to preserve.</p>
-    <p><strong>Critical</strong> — Compaction is imminent. Save immediately. Waiting risks losing context without a named checkpoint.</p>
-
-    <div class="callout callout-note">
-      <div class="callout-label">Note</div>
-      <p>The Degrading zone is where saving has the highest value. At Critical, the context is already partially compromised. Don't wait for Critical to act.</p>
-    </div>
-
-    <h2>The Status Line</h2>
-    <p>The monitor writes a status line to Claude Code's UI on every message. Format:</p>
-    <pre><code>◐ Degrading | 87k / 200k tokens (43%) | ~18 min | $0.34</code></pre>
+    <h2>The Three Degradation Zones</h2>
+    <p>Based on observed Claude Code behavior, the monitor uses three zones:</p>
 
     <table>
       <thead>
-        <tr><th>Field</th><th>Meaning</th></tr>
+        <tr><th>Zone</th><th>Fill Level</th><th>What It Means</th></tr>
       </thead>
       <tbody>
-        <tr><td>Zone indicator</td><td><code>●</code> Healthy, <code>◐</code> Degrading, <code>●</code> Critical (color-coded)</td></tr>
-        <tr><td>Token count</td><td>Current tokens used / context window size</td></tr>
-        <tr><td>Percentage</td><td>Fill level as a percentage of the window</td></tr>
-        <tr><td>Time estimate</td><td>Estimated time until compaction at current burn rate</td></tr>
-        <tr><td>Session cost</td><td>Accumulated API cost for this session</td></tr>
+        <tr><td>🟢 Productive</td><td>&lt; 65%</td><td>Sweet spot — high recall quality</td></tr>
+        <tr><td>🟡 Degrading</td><td>65–80%</td><td>Recall declining; save a checkpoint soon</td></tr>
+        <tr><td>🔴 Critical</td><td>&gt; 80%</td><td>Compaction imminent; quality significantly degraded</td></tr>
       </tbody>
     </table>
 
-    <h2>Warm-Up Baseline</h2>
-    <p>The monitor calibrates against a warm-up baseline — a measurement of context quality at the start of a session, before deep work has accumulated. This baseline is used to detect when quality is declining relative to the session's peak.</p>
-    <p>The baseline is set automatically when you start a session or resume a context. You can reset it manually if the session scope changes significantly:</p>
-    <pre><code>/monitor reset-baseline</code></pre>
-
-    <h2>Zone Warnings</h2>
-    <p>When the session transitions from Healthy to Degrading, or from Degrading to Critical, the monitor emits a zone warning inline:</p>
-    <pre><code>⚠ Context zone: DEGRADING
-   87k tokens used (43%). Recall quality declining.
-   Recommend: /context-save before continuing.</code></pre>
-    <pre><code>⛔ Context zone: CRITICAL
-   162k tokens used (81%). Compaction imminent.
-   Save now: /context-save &lt;name&gt;</code></pre>
-    <p>Warnings fire once per zone transition. If you save and resume, the zone resets.</p>
-
-    <h2>Burn Rate and Cost Estimation</h2>
-    <p>The monitor tracks how quickly tokens are consumed per message (burn rate). Using the burn rate and remaining token budget, it estimates time to compaction. This estimate is shown in the status line as <code>~18 min</code>.</p>
-    <p>Cost is accumulated from session start using Anthropic's published pricing for the active model. The monitor does not make API calls to track cost — it calculates locally from token counts and model rates stored in <code>monitor-config.json</code>.</p>
-
-    <h2>Monitor Configuration</h2>
-    <p>The monitor reads configuration from <code>~/.claude/context-curator/monitor-config.json</code>:</p>
-    <pre><code>{
-  "degradingThreshold": 0.40,
-  "criticalThreshold": 0.75,
-  "burnRateWindow": 10,
-  "modelRates": {
-    "claude-opus-4-7": { "input": 15.00, "output": 75.00 },
-    "claude-sonnet-4-6": { "input": 3.00, "output": 15.00 }
-  }
-}</code></pre>
-    <p><code>degradingThreshold</code> and <code>criticalThreshold</code> are fractions of the context window (0.40 = 40%). <code>burnRateWindow</code> is the number of recent messages used to calculate the rolling burn rate average.</p>
-
-    <h2>How the Monitor Works</h2>
-    <p>The monitor runs as a PostMessage hook — it fires after every Claude response, reads the current token count from the session state, calculates zone and metrics, and updates the status line. No model API calls are made. All computation is local arithmetic over token counts and timestamps.</p>
-    <p>This means monitoring has no cost and no latency impact on your session.</p>
+    <p>These thresholds are configurable in <code>~/.claude/context-curator/monitor-config.json</code>.</p>
 
     <hr>
-    <p><strong>Next:</strong> <a href="hooks-automation.html">Hooks &amp; Automation</a> — the PreCompact hook that auto-saves before any compaction — or <a href="managing-contexts.html">Managing Contexts</a> to learn how to save when the monitor tells you to.</p>
+
+    <h2>Status Line</h2>
+    <p>After every tool call, a status line appears in the terminal showing your current session state:</p>
+    <pre><code>[🟢 47% | +31k since warm-up | ~$0.18 | 2.1k tok/msg]</code></pre>
+    <p>From left to right:</p>
+    <ul>
+      <li><strong>Zone + fill %</strong> — current zone emoji and how full the context window is</li>
+      <li><strong>+N since warm-up</strong> — tokens used since the last saved checkpoint; shows how much runway remains in the productive zone</li>
+      <li><strong>Estimated cost</strong> — cumulative session cost at current model rates</li>
+      <li><strong>Burn rate</strong> — average tokens per message over the last 10 messages</li>
+    </ul>
+    <p>The status line reads from a state file that the monitoring system maintains. It never parses the session JSONL on the display path — all the expensive work happens asynchronously after each tool call, and the status line just reads the result. This keeps it fast and ensures it doesn't interfere with Claude's response.</p>
+    <p><strong>The status line is suppressed</strong> when running in non-interactive mode (CI, headless environments).</p>
+
+    <h3>The Warm-Up Baseline</h3>
+    <p>The "+Nk since warm-up" field measures from your last saved <a href="glossary.html#context">checkpoint</a>. When you save a context with <code>/context-save</code>, the current token count is recorded as the baseline. Everything after that is "since warm-up."</p>
+    <p>If you haven't saved a checkpoint yet in the current session, the monitor counts from session start.</p>
+
+    <hr>
+
+    <h2>Zone Warnings</h2>
+    <p>When your session crosses into a new zone, a one-time warning appears:</p>
+    <p><strong>At 65% (entering degrading):</strong></p>
+    <pre><code>⚠️  Context at 67% — entering degrading zone.
+    Recall quality is declining. Consider: /context-save checkpoint-name
+    (This warning will not repeat in this zone.)</code></pre>
+    <p><strong>At 80% (entering critical):</strong></p>
+    <pre><code>🔴  Context at 82% — critical. Compaction is imminent.
+    Start a fresh session: /task &lt;current-task&gt; to reload a saved context.
+    (This warning will not repeat in this zone.)</code></pre>
+    <p>Warnings fire <strong>before</strong> Claude's next response — you see the warning while there's still time to act. Each warning fires exactly once per zone entry. After compaction resets the fill level, zone sentinels clear and warnings fire again if you re-enter the zone.</p>
+
+    <hr>
+
+    <h2>Burn Rate and Cost Estimation</h2>
+    <p>The monitor tracks how fast you're consuming context:</p>
+    <ul>
+      <li><strong>Burn rate</strong> — mean tokens per message over the last 10 messages (configurable)</li>
+      <li><strong>Cost estimate</strong> — calculated from per-model input/output rates in <code>monitor-config.json</code></li>
+    </ul>
+    <p>Rates are editable without reinstalling — update <code>monitor-config.json</code> when model pricing changes.</p>
+
+    <h3>Configuration File</h3>
+    <p><code>~/.claude/context-curator/monitor-config.json</code>:</p>
+    <pre><code>{
+  "thresholds": {
+    "degrading": 0.65,
+    "critical": 0.80
+  },
+  "burnRateWindow": 10,
+  "models": {
+    "claude-opus-4-6": {
+      "inputCostPer1kTokens": 0.015,
+      "outputCostPer1kTokens": 0.075
+    },
+    "claude-sonnet-4-6": {
+      "inputCostPer1kTokens": 0.003,
+      "outputCostPer1kTokens": 0.015
+    }
+  }
+}</code></pre>
+
+    <hr>
+
+    <h2>How the Monitor Works</h2>
+    <p>The design constraint is strict: <strong>the monitor must not meaningfully consume the context it is measuring.</strong></p>
+    <p>All monitoring runs as local scripts and hooks. No model calls during a live session. One asynchronous <code>PostToolUse</code> hook parses the session JSONL and writes a state file after each tool call. The status line display hook and threshold warning hook read that state file — they never parse JSONL themselves. One parse per tool call, results shared by all consumers.</p>
+    <p>The state file lives at <code>~/.claude/context-curator/monitor-state.json</code> and is updated atomically (write to temp, rename) to prevent partial reads.</p>
+
+    <hr>
+
+    <h2>When to Save a Checkpoint</h2>
+    <p>The monitor tells you when — but here's the general rule:</p>
+    <ul>
+      <li>Save before you hit 65% if you're in deep understanding territory</li>
+      <li>Save immediately when you see the 🟡 warning</li>
+      <li>The 🔴 warning means compaction is close — save now, then plan to start a fresh session</li>
+    </ul>
+    <p>The <a href="hooks-automation.html">pre-compaction hook</a> saves automatically before compaction, but that's a safety net, not a substitute for intentional checkpoints. Named checkpoints are searchable; auto-saves are timestamped blobs.</p>
+
+    <hr>
+
+    <ul>
+      <li><a href="managing-contexts.html">Managing Contexts</a> — how to save, name, and restore checkpoints</li>
+      <li><a href="hooks-automation.html">Hooks and Automation</a> — automatic pre-compaction saves as a safety net</li>
+    </ul>
 
   </main>
 </div>

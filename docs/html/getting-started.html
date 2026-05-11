@@ -18,12 +18,13 @@
     <a class="nav-item active" href="getting-started.html">Getting Started</a>
     <a class="nav-item" href="managing-contexts.html">Managing Contexts</a>
     <a class="nav-item" href="context-monitoring.html">Context Monitoring</a>
-    <a class="nav-item" href="workflows.html">Workflows</a>
     <a class="nav-item" href="hooks-automation.html">Hooks &amp; Automation</a>
+    <div class="nav-divider"></div>
+    <a class="nav-item" href="for-teams.html">For Teams</a>
     <a class="nav-item" href="security.html">Security</a>
-    <a class="nav-item" href="skill-marketplace.html">Skill Marketplace</a>
-    <a class="nav-item" href="boss-fight-workflow.html">Boss-Fight Workflow</a>
     <a class="nav-item" href="reference.html">Reference</a>
+    <div class="nav-divider"></div>
+    <a class="nav-item" href="boss-fight-workflow.html">Boss-Fight Workflow</a>
     <div class="nav-divider"></div>
     <a class="nav-item" href="glossary.html">Glossary</a>
     <a class="nav-item" href="permuted-index.html">Index</a>
@@ -31,12 +32,14 @@
   <main class="content">
 
     <h1>Getting Started</h1>
-    <p class="page-lead">Install Context Curator, initialize a project, create your first task, and switch between tasks.</p>
+    <p>This page covers installation, project setup, and creating your first task.</p>
 
     <h2>Installation</h2>
+
     <pre><code>git clone https://github.com/0x6a77/context-curator.git
 cd context-curator
 ./install.sh</code></pre>
+
     <p>The installer compiles the TypeScript source and places everything in:</p>
     <ul>
       <li>Scripts: <code>~/.claude/context-curator/dist/</code></li>
@@ -52,13 +55,16 @@ cd context-curator
 ./install.sh --project-install</code></pre>
     <p>This copies the skills into <code>.claude/skills/context-curator/</code> in your project. Commit that directory and teammates get the full command set automatically.</p>
 
+    <hr>
+
     <h2>Initialize a Project</h2>
     <p>Before using Context Curator in a project, run:</p>
     <pre><code>cd ~/my-project
 claude
 /task-init</code></pre>
     <p>This sets up the <code>.claude/</code> directory structure, creates a <code>.gitignore</code> so task state doesn't leak into git, copies your root <code>CLAUDE.md</code> into the default task, and creates the <code>prod-mgmt/</code> directory for development artifacts.</p>
-    <p>Running <code>/task-init</code> again on an already-initialized project is safe — it won't overwrite anything.</p>
+
+    <p>You only need to do this once per project. Running <code>/task-init</code> again on an already-initialized project is safe — it won't overwrite anything.</p>
 
     <p><strong>What gets created:</strong></p>
     <pre><code>.claude/
@@ -70,73 +76,55 @@ claude
 
 prod-mgmt/
   risk-acceptances.md  ← governance register for PRD-driven development</code></pre>
+
     <p>Your root <code>CLAUDE.md</code> is never modified.</p>
+
+    <hr>
 
     <h2>Creating a Task</h2>
     <p>A <a href="glossary.html#task">task</a> is a focused work environment with its own instructions for Claude. Create one with:</p>
     <pre><code>/task auth-refactor</code></pre>
-    <p>If the task doesn't exist yet, Claude will ask what it should focus on:</p>
+
+    <p>If the task doesn't exist yet, Claude will ask what it should focus on. Describe the work:</p>
     <pre><code>What should this task focus on?
 &gt; Refactoring the OAuth flow in src/auth/. Focus on the token refresh
-&gt; logic, the session state, and the three places auth state is stored.
+&gt; logic, the session state, and the three places auth state is stored.</code></pre>
 
-✓ Created task: auth-refactor
-Run: /resume &lt;uuid&gt;</code></pre>
-    <p>Run that command, and Claude loads with the task instructions already active.</p>
+    <p>Claude creates a task-specific <code>CLAUDE.md</code> based on your description, then tells you to run:</p>
+    <pre><code>/resume &lt;uuid&gt;</code></pre>
+
+    <p>Run that, and Claude loads the task — instructions already loaded, ready to work.</p>
+
     <p><strong>Task ID rules:</strong> Lowercase letters, numbers, and hyphens only. No uppercase, no spaces. Examples: <code>auth-refactor</code>, <code>payment-v2</code>, <code>legacy-migration-2026</code>.</p>
+
+    <hr>
 
     <h2>Switching Between Tasks</h2>
     <p>To switch to a task that already exists:</p>
     <pre><code>/task auth-refactor</code></pre>
+
     <p>If you have saved <a href="glossary.html#context">contexts</a> for this task, Claude shows them:</p>
     <pre><code>auth-refactor — available contexts:
 
 Personal:
-  1. morning-progress (47 msgs, 2026-05-09) — Mapped the token refresh flow
-  2. bug-hunt (23 msgs, 2026-05-08) — Reproduced the logout race condition
+  1. morning-progress (47 msgs, 2026-05-09) — Mapped the token refresh flow, found the session race condition
+  2. bug-hunt (23 msgs, 2026-05-08) — Reproduced the logout bug under concurrent requests
 
 Golden (shared):
-  ⭐ 3. team-baseline (61 msgs, jsmith, 2026-05-07) — Full auth subsystem
+  ⭐ 3. team-baseline (61 msgs, jsmith, 2026-05-07) — Full auth subsystem understanding, all edge cases documented
 
 Start fresh (no context)</code></pre>
+
     <p>Select a context or start fresh. Then run <code>/resume &lt;uuid&gt;</code> and Claude picks up exactly where that session left off.</p>
+
+    <hr>
 
     <h2>The Default Task</h2>
     <p>Every project has a <code>default</code> task. It uses your root <code>CLAUDE.md</code> with no task-specific additions — plain Claude with no special focus. Switch to it any time:</p>
     <pre><code>/task default</code></pre>
     <p>This restores vanilla Claude behavior. Useful when you need to step outside your current task focus.</p>
 
-    <h2>Sandbox Configuration</h2>
-    <p>If you run Claude Code with sandbox mode enabled, Context Curator needs one extra step. It writes to <code>~/.claude/projects/</code> (outside your project directory), which the sandbox blocks by default.</p>
-    <p>Create <code>.claude/settings.json</code> in your project:</p>
-    <pre><code>{
-  "env": {
-    "INHERIT_FROM_SHELL": "true"
-  },
-  "sandbox": {
-    "enabled": true,
-    "excludedCommands": [
-      "node ~/.claude/context-curator/dist/scripts/"
-    ]
-  }
-}</code></pre>
-    <p>The <code>excludedCommands</code> entry lets Context Curator write task and context data to <code>~/.claude/projects/</code> while keeping all other sandbox restrictions in place. Commit <code>settings.json</code> to git — all teammates need it.</p>
-    <p>If you're not using sandbox mode, skip this step.</p>
-
-    <h2>Optional Setup</h2>
-
-    <h3>Container-Use</h3>
-    <p><a href="https://github.com/dagger/container-use">container-use</a> runs Claude's file and shell operations inside isolated containers. To enable it alongside Context Curator, add to your global <code>~/.claude/CLAUDE.md</code>:</p>
-    <pre><code>## Container Use
-
-ALWAYS use ONLY Environments for ANY and ALL file, code, or shell operations.</code></pre>
-
-    <h3>Consistent Commit Messages</h3>
-    <p>To get Claude to suggest a consistent commit message format on every session, add to your global <code>~/.claude/CLAUDE.md</code>:</p>
-    <pre><code>## Git Commits
-
-For every prompt, suggest a commit message: first line under 50 characters,
-followed by a blank line, followed by the prompt text.</code></pre>
+    <hr>
 
     <h2>Quick Example</h2>
     <pre><code># Initialize (first time only)
@@ -160,7 +148,34 @@ cd ~/my-project
 # Claude is back at peak understanding instantly</code></pre>
 
     <hr>
-    <p><strong>Next:</strong> <a href="managing-contexts.html">Managing Contexts</a> — save, list, and share warmed-up sessions — or <a href="workflows.html">Workflows</a> for common usage patterns.</p>
+
+    <h2>Native Claude Code Commands</h2>
+    <p>These built-in commands complement Context Curator. They work in any task.</p>
+
+    <table>
+      <thead>
+        <tr><th>Command</th><th>What it does</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>/fork [name]</code></td><td>Branch the conversation to explore an alternative approach without losing the main thread</td></tr>
+        <tr><td><code>/rewind</code></td><td>Roll back the conversation to a previous checkpoint</td></tr>
+        <tr><td><code>/rename [name]</code></td><td>Give the current session a memorable name for easier identification</td></tr>
+        <tr><td><code>/compact [instructions]</code></td><td>Manually compact with optional instructions about what to preserve</td></tr>
+        <tr><td><code>/context</code></td><td>Show current token usage and context window fill level</td></tr>
+      </tbody>
+    </table>
+
+    <p><strong>Note on <code>/compact</code>:</strong> Context Curator's PreCompact hook fires before <code>/compact</code>, so your session is saved before any compaction runs — including manual compaction.</p>
+
+    <hr>
+
+    <p>You now have everything you need to use Context Curator solo.</p>
+    <ul>
+      <li><a href="managing-contexts.html">Managing Contexts</a> — save, list, and restore warmed-up sessions</li>
+      <li><a href="context-monitoring.html">Context Monitoring</a> — know when to save before quality drops</li>
+      <li><a href="hooks-automation.html">Hooks and Automation</a> — automatic protection so you never lose a session</li>
+    </ul>
+    <p>When you're ready to bring in teammates: <a href="for-teams.html">For Teams</a></p>
 
   </main>
 </div>

@@ -22,7 +22,7 @@ The adversarial review phase of the [Boss-Fight Workflow](boss-fight-workflow.md
 
 ### bundle
 
-A named collection of skills that can be installed together. Context Curator ships three bundles: `authoring` (PRD document skills), `session` (context management), and `monitor` (status line). See [Skill Marketplace](skill-marketplace.md).
+A named collection of skills that can be installed together. Context Curator ships three bundles: `authoring` (PRD document skills), `session` (context management), and `monitor` (status line). See [For Teams](for-teams.md).
 
 ---
 
@@ -62,9 +62,15 @@ A structured implementation roadmap tied to a specific PRD version. Organized in
 
 ---
 
-### feature-section map
+### docs brief
 
-A file (`docs/feature-section-map.md`) that maps each PRD F-XXX feature code to the product documentation section where it belongs. Maintained by the [`/docs-markdown` skill](boss-fight-workflow.md#docs-markdown) and used to route new features to the correct documentation page.
+The documentation design brief (`docs/docs-brief.md`). Defines the core message that anchors every page, reader journey gates (1–4) that determine what is revealed at each stage, navigation architecture, editorial rules, and the feature routing table. Maintained by the designer-developer; read by the `/docs-markdown` skill before updating any page.
+
+---
+
+### gate
+
+A stage in the reader journey defined in the [docs brief](boss-fight-workflow.md#user-documentation). Gate 1 delivers the core insight in five minutes. Gate 2 covers solo use over the first week. Gate 3 covers team workflows. Gate 4 covers the Boss-Fight governance methodology. A feature's gate assignment determines how prominently it appears in the documentation — not just which page it lands on.
 
 ---
 

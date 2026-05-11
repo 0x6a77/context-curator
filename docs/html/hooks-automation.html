@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hooks &amp; Automation — Context Curator</title>
+  <title>Hooks and Automation — Context Curator</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/style.css">
@@ -18,20 +18,21 @@
     <a class="nav-item" href="getting-started.html">Getting Started</a>
     <a class="nav-item" href="managing-contexts.html">Managing Contexts</a>
     <a class="nav-item" href="context-monitoring.html">Context Monitoring</a>
-    <a class="nav-item" href="workflows.html">Workflows</a>
     <a class="nav-item active" href="hooks-automation.html">Hooks &amp; Automation</a>
+    <div class="nav-divider"></div>
+    <a class="nav-item" href="for-teams.html">For Teams</a>
     <a class="nav-item" href="security.html">Security</a>
-    <a class="nav-item" href="skill-marketplace.html">Skill Marketplace</a>
-    <a class="nav-item" href="boss-fight-workflow.html">Boss-Fight Workflow</a>
     <a class="nav-item" href="reference.html">Reference</a>
+    <div class="nav-divider"></div>
+    <a class="nav-item" href="boss-fight-workflow.html">Boss-Fight Workflow</a>
     <div class="nav-divider"></div>
     <a class="nav-item" href="glossary.html">Glossary</a>
     <a class="nav-item" href="permuted-index.html">Index</a>
   </nav>
   <main class="content">
 
-    <h1>Hooks &amp; Automation</h1>
-    <p class="page-lead">Context Curator registers two hooks that fire automatically on compaction events, protecting your context without requiring manual action.</p>
+    <h1>Hooks and Automation</h1>
+    <p>Context Curator registers two hooks that fire automatically on compaction events, protecting your context without requiring manual action.</p>
 
     <h2>PreCompact Auto-Save Hook</h2>
     <p>Before every compaction — automatic or manual — a hook saves the current session to a timestamped file:</p>
@@ -40,42 +41,43 @@
     <p>Auto-saves are not the same as named contexts. They're an emergency fallback, not a workflow tool. For intentional checkpoints you plan to resume from, use <code>/context-save</code>.</p>
 
     <h3>Accessing Auto-Saves</h3>
-    <p>Auto-saves live in <code>~/.claude/projects/&lt;project&gt;/auto-saves/</code>. Browse them by timestamp to find the most recent one before a compaction event, then manually restore from it if needed.</p>
+    <p>Auto-saves live in <code>~/.claude/projects/&lt;project&gt;/auto-saves/</code>. You can browse them by timestamp to find the most recent one before a compaction event, then manually restore from it if needed.</p>
+
+    <hr>
 
     <h2>PostCompact Task Re-Injection Hook</h2>
     <p>After every compaction, a hook re-injects your current task context into the session.</p>
     <p><strong>The problem it solves:</strong> After compaction, Claude loses the warm context built up during the session. The session continues but Claude's understanding of your specific task — the quirks, the architecture, the open threads — is gone. You'd normally have to re-explain everything.</p>
-    <p><strong>What the hook does:</strong> It reads which task is currently active from your <code>.claude/CLAUDE.md</code>, generates a concise summary of the task's <code>CLAUDE.md</code> content, and injects it as a system message. Claude picks up with the task context fresh in mind.</p>
+    <p><strong>What the hook does:</strong> It reads which task is currently active from your <code>.claude/CLAUDE.md</code>, generates a concise summary of the task's CLAUDE.md content, and injects it as a system message. Claude picks up with the task context fresh in mind.</p>
 
     <h3>Behavior</h3>
-    <table>
-      <thead>
-        <tr><th>Condition</th><th>What happens</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>Non-default task active</td><td>Injects a one-paragraph context reminder from the task CLAUDE.md</td></tr>
-        <tr><td>Default task active</td><td>Injects nothing — no reminder needed in vanilla mode</td></tr>
-        <tr><td>Task CLAUDE.md not readable</td><td>Logs a warning to stderr; session continues without injection</td></tr>
-      </tbody>
-    </table>
+    <ul>
+      <li><strong>Non-default task active:</strong> Injects a one-paragraph context reminder from the task CLAUDE.md. Claude's next response acknowledges the task context.</li>
+      <li><strong>Default task active:</strong> Injects nothing. No reminder needed when you're in vanilla mode.</li>
+      <li><strong>Task CLAUDE.md not readable:</strong> Logs a warning to stderr but does not fail the session. Claude continues without the injection; you may notice reduced task focus.</li>
+    </ul>
     <p>The hook fires for both automatic and manual compaction. It runs synchronously via a <code>PostCompact</code> hook so the injection happens before Claude's next response.</p>
 
+    <hr>
+
     <h2>Hook Registration</h2>
-    <p>Both hooks are registered globally in <code>~/.claude/settings.json</code> by the installer. Verify they're registered:</p>
+    <p>Both hooks are registered globally in <code>~/.claude/settings.json</code> by the installer. You can verify they're registered:</p>
     <pre><code>cat ~/.claude/settings.json | grep -A5 hooks</code></pre>
     <p>The hooks run local TypeScript scripts via <code>npx tsx</code>. No network calls, no model invocations. They read from and write to local files only.</p>
 
-    <h2>When Hooks Are and Aren't Enough</h2>
-    <p><strong>Hooks handle:</strong> Unplanned compaction (auto-compact fires mid-session), manual compaction via <code>/compact</code>, session continuity after any compaction event.</p>
-    <p><strong>Hooks don't handle:</strong> Intentional session breaks where you want to return days later at peak understanding. For those, save a named context with <code>/context-save</code> before ending the session. Named contexts have summaries, are searchable, and are usable by teammates (if golden).</p>
+    <hr>
 
-    <div class="callout callout-note">
-      <div class="callout-label">Note</div>
-      <p>Think of hooks as your auto-save in a video game — they save your progress constantly so you don't lose much if something goes wrong. Named contexts are your manual saves — intentional, named, and available to load later.</p>
-    </div>
+    <h2>When Hooks Are and Aren't Enough</h2>
+    <p><strong>Hooks handle:</strong> Unplanned compaction events (auto-compact fires mid-session), manual compaction, session continuity after any compaction.</p>
+    <p><strong>Hooks don't handle:</strong> Intentional session breaks where you want to return days later at peak understanding. For those, save a named context with <code>/context-save</code> before ending the session. Named contexts have summaries, are searchable, and are usable by teammates (if golden).</p>
+    <p>Think of hooks as your auto-save in a video game — they save your progress constantly so you don't lose much if something goes wrong. Named contexts are your manual saves — intentional, named, and available to load later.</p>
 
     <hr>
-    <p><strong>Next:</strong> <a href="managing-contexts.html">Managing Contexts</a> — intentional named saves alongside auto-saves — or <a href="context-monitoring.html">Context Monitoring</a> — know when compaction is approaching so you can save before it happens.</p>
+
+    <ul>
+      <li><a href="managing-contexts.html">Managing Contexts</a> — intentional named saves alongside auto-saves</li>
+      <li><a href="context-monitoring.html">Context Monitoring</a> — know when compaction is approaching so you can save before it happens</li>
+    </ul>
 
   </main>
 </div>

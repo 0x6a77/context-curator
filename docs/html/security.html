@@ -18,12 +18,13 @@
     <a class="nav-item" href="getting-started.html">Getting Started</a>
     <a class="nav-item" href="managing-contexts.html">Managing Contexts</a>
     <a class="nav-item" href="context-monitoring.html">Context Monitoring</a>
-    <a class="nav-item" href="workflows.html">Workflows</a>
     <a class="nav-item" href="hooks-automation.html">Hooks &amp; Automation</a>
+    <div class="nav-divider"></div>
+    <a class="nav-item" href="for-teams.html">For Teams</a>
     <a class="nav-item active" href="security.html">Security</a>
-    <a class="nav-item" href="skill-marketplace.html">Skill Marketplace</a>
-    <a class="nav-item" href="boss-fight-workflow.html">Boss-Fight Workflow</a>
     <a class="nav-item" href="reference.html">Reference</a>
+    <div class="nav-divider"></div>
+    <a class="nav-item" href="boss-fight-workflow.html">Boss-Fight Workflow</a>
     <div class="nav-divider"></div>
     <a class="nav-item" href="glossary.html">Glossary</a>
     <a class="nav-item" href="permuted-index.html">Index</a>
@@ -31,7 +32,7 @@
   <main class="content">
 
     <h1>Security</h1>
-    <p class="page-lead">Context Curator scans for secrets before every save operation and maintains a minimal, conflict-free git footprint.</p>
+    <p>Context Curator scans for secrets before every save operation and maintains a minimal, conflict-free git footprint.</p>
 
     <h2>Secret Detection</h2>
     <p>Before any context is saved as golden or promoted to a golden context, Context Curator scans the entire session for secrets — all messages, including tool calls and results.</p>
@@ -52,16 +53,11 @@
     <p>The scanner intentionally prefers false positives over false negatives. If something looks like a secret pattern, it's flagged. The cost of a false positive (manual review) is much lower than the cost of a leaked credential.</p>
 
     <h3>When Scanning Happens</h3>
-    <table>
-      <thead>
-        <tr><th>Operation</th><th>Behavior</th></tr>
-      </thead>
-      <tbody>
-        <tr><td><code>/context-save --golden</code></td><td>Blocks if secrets found</td></tr>
-        <tr><td><code>/context-promote</code></td><td>Blocks if secrets found</td></tr>
-        <tr><td><code>/context-save</code> (personal)</td><td>Warns but does not block</td></tr>
-      </tbody>
-    </table>
+    <ul>
+      <li><strong>Before <code>/context-save --golden</code></strong> — blocks if secrets found</li>
+      <li><strong>Before <code>/context-promote</code></strong> — blocks if secrets found</li>
+      <li><strong>Before <code>/context-save</code> (personal)</strong> — warns but does not block; personal contexts never leave your machine</li>
+    </ul>
     <p>For personal saves, a warning tells you a secret pattern was detected but lets you save anyway — you may intentionally be storing a session that included credentials, and that's your machine. For golden contexts shared with the team, there's no ambiguity: secrets block the operation.</p>
 
     <h3>Redaction</h3>
@@ -70,18 +66,18 @@
 # → "Found AWS key in message 34. Redact? (y/n)"</code></pre>
     <p>Redaction masks the secret in place and re-scans. The redacted context is what gets promoted — your personal original is unchanged.</p>
 
+    <hr>
+
     <h2>Git Footprint</h2>
     <p>Context Curator is designed to add nothing to <code>git status</code> that you don't want there.</p>
-
-    <h3>What Gets Committed</h3>
+    <p><strong>What gets committed:</strong></p>
     <ul>
       <li>Task <code>CLAUDE.md</code> files (<code>.claude/tasks/&lt;task&gt;/CLAUDE.md</code>)</li>
       <li>Golden contexts (<code>.claude/tasks/&lt;task&gt;/contexts/*.jsonl</code>)</li>
       <li>Project-scope skills (<code>.claude/skills/</code>) if you used <code>--project-install</code></li>
       <li><code>prod-mgmt/risk-acceptances.md</code> (governance artifact)</li>
     </ul>
-
-    <h3>What Never Gets Committed</h3>
+    <p><strong>What never gets committed:</strong></p>
     <ul>
       <li><code>.claude/CLAUDE.md</code> — the active working file; each developer has their own</li>
       <li>Personal contexts (<code>~/.claude/projects/...</code>) — live in home directory, never in the project</li>
@@ -90,8 +86,10 @@
     </ul>
     <p>The key mechanism is <code>.claude/.gitignore</code>, which contains an entry for <code>CLAUDE.md</code>. This file is created by <code>/task-init</code>. The working <code>CLAUDE.md</code> that gets updated every time you switch tasks is ignored by git, while the task-specific <code>CLAUDE.md</code> files you write are tracked normally.</p>
 
-    <h2>No Git Conflicts</h2>
+    <h3>No Git Conflicts</h3>
     <p>Two developers on the same project can both use Context Curator and switch tasks independently without ever creating a merge conflict. The file they each modify (<code>.claude/CLAUDE.md</code>) is git-ignored; the files they share (task <code>CLAUDE.md</code> files and golden contexts) are read-only for this purpose — they're committed once and consumed by everyone.</p>
+
+    <hr>
 
     <h2>Checking the Git Footprint</h2>
     <p>After a full workflow, verify nothing leaked into the working tree:</p>
@@ -99,7 +97,11 @@
     <p>No Context Curator files should appear except items you explicitly committed (golden contexts, task CLAUDE.md files). If you see <code>.claude/CLAUDE.md</code> in the output, the <code>.gitignore</code> entry is missing — re-run <code>/task-init</code>.</p>
 
     <hr>
-    <p><strong>Next:</strong> <a href="managing-contexts.html">Managing Contexts</a> — save, list, and promote contexts — or <a href="reference.html">Reference</a> for the full CLAUDE.md two-file system details.</p>
+
+    <ul>
+      <li><a href="managing-contexts.html">Managing Contexts</a> — save, list, and promote contexts</li>
+      <li><a href="reference.html">Reference</a> — CLAUDE.md two-file system details</li>
+    </ul>
 
   </main>
 </div>

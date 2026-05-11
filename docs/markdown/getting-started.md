@@ -158,6 +158,22 @@ cd ~/my-project
 
 ---
 
+## Native Claude Code Commands
+
+These built-in commands complement Context Curator. They work in any task.
+
+| Command | What it does |
+|---------|-------------|
+| `/fork [name]` | Branch the conversation to explore an alternative approach without losing the main thread |
+| `/rewind` | Roll back the conversation to a previous checkpoint |
+| `/rename [name]` | Give the current session a memorable name for easier identification |
+| `/compact [instructions]` | Manually compact with optional instructions about what to preserve |
+| `/context` | Show current token usage and context window fill level |
+
+**Note on `/compact`:** Context Curator's PreCompact hook fires before `/compact`, so your session is saved before any compaction runs — including manual compaction.
+
+---
+
 You now have everything you need to use Context Curator solo.
 
 - [Managing Contexts](managing-contexts.md) — save, list, and restore warmed-up sessions

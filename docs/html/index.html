@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Introduction — Context Curator</title>
+  <title>Context Curator</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/style.css">
@@ -18,12 +18,13 @@
     <a class="nav-item" href="getting-started.html">Getting Started</a>
     <a class="nav-item" href="managing-contexts.html">Managing Contexts</a>
     <a class="nav-item" href="context-monitoring.html">Context Monitoring</a>
-    <a class="nav-item" href="workflows.html">Workflows</a>
     <a class="nav-item" href="hooks-automation.html">Hooks &amp; Automation</a>
+    <div class="nav-divider"></div>
+    <a class="nav-item" href="for-teams.html">For Teams</a>
     <a class="nav-item" href="security.html">Security</a>
-    <a class="nav-item" href="skill-marketplace.html">Skill Marketplace</a>
-    <a class="nav-item" href="boss-fight-workflow.html">Boss-Fight Workflow</a>
     <a class="nav-item" href="reference.html">Reference</a>
+    <div class="nav-divider"></div>
+    <a class="nav-item" href="boss-fight-workflow.html">Boss-Fight Workflow</a>
     <div class="nav-divider"></div>
     <a class="nav-item" href="glossary.html">Glossary</a>
     <a class="nav-item" href="permuted-index.html">Index</a>
@@ -31,50 +32,68 @@
   <main class="content">
 
     <h1>Context Curator</h1>
-    <p class="page-lead">Task-based context management for Claude Code. Preserve your hard-won Claude understanding across sessions and share it with your team.</p>
 
-    <h2>The Problem</h2>
-    <p>Working on a large codebase takes hours before Claude really understands the subsystem you're in — the quirky auth flow, the three places state gets stored, the reason the retry logic is unusual. Then auto-compact fires and you start over.</p>
-    <p>Even with large context windows, this is real. Context quality degrades well before the token ceiling — multi-needle recall drops, suggestions become generic, the "sweet spot" is gone. Developers call this <a href="glossary.html#context-rot">context rot</a>.</p>
+    <p>Working with AI feels fast but stays expensive. Every session starts cold —
+    Claude doesn't know your codebase, your constraints, your reasoning from last
+    week. You spend the first hour rebuilding understanding you already had. Then
+    the session compacts and you start over.</p>
 
-    <svg viewBox="0 0 520 120" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:520px;display:block;margin:1.5rem 0;font-family:Inter,sans-serif">
-      <rect x="0" y="0" width="520" height="120" rx="6" fill="#1a1a1a" stroke="#2a2a2a"/>
-      <!-- timeline bar -->
-      <rect x="28" y="54" width="464" height="4" rx="2" fill="#2a2a2a"/>
-      <!-- warm-up zone -->
-      <rect x="28" y="54" width="150" height="4" rx="2" fill="#f59e0b"/>
-      <!-- sweet spot zone -->
-      <rect x="178" y="54" width="170" height="4" rx="2" fill="#34d399"/>
-      <!-- compaction -->
-      <rect x="348" y="40" width="3" height="32" fill="#f87171"/>
-      <!-- hour labels -->
-      <text x="28" y="80" font-size="10" fill="#888" font-family="Inter,sans-serif">Hour 0</text>
-      <text x="103" y="80" font-size="10" fill="#888" font-family="Inter,sans-serif">1–3</text>
-      <text x="220" y="80" font-size="10" fill="#888" font-family="Inter,sans-serif">4–6</text>
-      <text x="348" y="80" font-size="10" fill="#f87171" font-family="Inter,sans-serif">Hour 7</text>
-      <!-- labels -->
-      <text x="28" y="30" font-size="11" fill="#f59e0b" font-family="Inter,sans-serif" font-weight="500">Warm-up</text>
-      <text x="178" y="30" font-size="11" fill="#34d399" font-family="Inter,sans-serif" font-weight="500">Sweet spot ✦</text>
-      <text x="352" y="30" font-size="11" fill="#f87171" font-family="Inter,sans-serif" font-weight="500">Auto-compact 💥</text>
-      <text x="380" y="105" font-size="10" fill="#888" font-family="Inter,sans-serif">Back to generic suggestions</text>
-    </svg>
+    <p>Context Curator changes one thing: accumulated understanding doesn't have to
+    be disposable. You save it, name it, restore it, give it to a teammate. The
+    session that took two hours to warm up becomes the starting point for every
+    session after it.</p>
 
-    <h2>What Context Curator Does</h2>
-    <p>Context Curator gives you five things:</p>
-    <p><strong>Tasks</strong> — Focused work environments, each with their own instructions for Claude. Switch between them instantly; Claude loads the right context for the work.</p>
-    <p><strong>Contexts</strong> — Named snapshots of warmed-up sessions. Save before compaction, restore on demand — Claude resumes at peak understanding without the warm-up cost.</p>
-    <p><strong>Personal by default</strong> — Your contexts stay in your home directory, never committed to git, never visible to teammates.</p>
-    <p><strong>Golden contexts</strong> — When a session is genuinely valuable to share, promote it. Golden contexts live in the project repo; any teammate can restore them.</p>
-    <p><strong>Hooks</strong> — Automatic protection. A pre-compaction hook saves your session before anything is lost. A post-compaction hook re-injects your task context so work continues without interruption.</p>
+    <h2>The Four Commands</h2>
 
-    <h2>Who This Is For</h2>
-    <p>Context Curator is for developers who use Claude Code on complex, multi-session projects. It works best when:</p>
+    <pre><code>/task-init            # set up a project (once)
+/task &lt;name&gt;          # switch to a focused task environment
+/context-save &lt;name&gt;  # bottle the current session's understanding
+/resume &lt;uuid&gt;        # restore it — Claude picks up at peak understanding</code></pre>
+
+    <p>That's the whole tool. Everything else is depth on top of these four.</p>
+
+    <p>→ <a href="getting-started.html">Getting Started</a> — install, first task, first save</p>
+
+    <hr>
+
+    <h2>Why This Matters</h2>
+
+    <p><em>For readers who want the larger context.</em></p>
+
+    <p>We are at the beginning of a transition. Code generation is no longer the
+    bottleneck in software development — AI handles most of it. The new
+    bottlenecks are harder to see:</p>
+
+    <p><strong>Accumulated understanding.</strong> A codebase's complexity lives in the subtle
+    things — the quirky auth flow, the three places state gets stored, the reason
+    the retry logic is unusual. That understanding takes time to build. When AI
+    builds it, the session is the only place it lives. When the session ends, it's
+    gone.</p>
+
+    <p><strong>Quality without a reviewer.</strong> Standard code review catches bugs. It misses
+    coverage gaps — the cases the AI didn't think to test because it doesn't know
+    what it doesn't know about its own output. You need a reviewer who genuinely
+    doesn't share your blind spots.</p>
+
+    <p><strong>Knowledge transfer.</strong> When one developer has a deeply warmed-up session and
+    another starts cold, they're not working from the same understanding. There's
+    no good way to share what AI has learned with the rest of the team.</p>
+
+    <p>Context Curator is infrastructure for the world that's coming: AI
+    understanding that persists, transfers across a team, and is governed by a
+    review process that doesn't share the constructor's blind spots.</p>
+
     <ul>
-      <li>You return to the same codebase areas repeatedly</li>
-      <li>Warm-up time is measurable — 30 minutes or more before Claude is productive</li>
-      <li>You work in a team that would benefit from shared understanding</li>
-      <li>You use Claude Code for long, exploration-heavy sessions</li>
+      <li><strong>Tasks and contexts</strong> solve accumulated understanding — save warmth, share
+        it, restore it on demand</li>
+      <li><strong>Hooks and monitoring</strong> solve continuity — automatic protection before
+        compaction fires, status line shows when quality is degrading</li>
+      <li><strong>Boss-Fight Coding</strong> solves quality without a reviewer — structural
+        adversarial review borrowed from financial services governance</li>
     </ul>
+
+    <p>You don't need all of this on day one. <a href="getting-started.html">Getting Started</a>
+    covers what you need for the first week.</p>
 
     <hr>
 
@@ -82,24 +101,27 @@
 
     <div class="toc-section">
       <h3><a href="getting-started.html">Getting Started</a></h3>
-      <p>Install Context Curator, initialize a project, create your first task, and switch between tasks.</p>
+      <p>Install Context Curator, initialize a project, and save your first context.</p>
       <ul class="toc-bullets">
         <li>Installation and project-scope install</li>
         <li>Initializing a project with <code>/task-init</code></li>
-        <li>Creating and naming tasks</li>
-        <li>Switching tasks with <code>/task</code></li>
-        <li>Sandbox configuration</li>
+        <li>Creating and naming tasks with <code>/task</code></li>
+        <li>Switching between tasks</li>
+        <li>Saving a context with <code>/context-save</code></li>
+        <li>Restoring with <code>/resume</code></li>
       </ul>
     </div>
 
     <div class="toc-section">
       <h3><a href="managing-contexts.html">Managing Contexts</a></h3>
-      <p>Save named snapshots of warmed-up sessions, restore them on demand, and share the best ones with your team.</p>
+      <p>Save named snapshots of warmed-up sessions, restore them on demand, and keep your context library tidy.</p>
       <ul class="toc-bullets">
-        <li>Saving personal and golden contexts</li>
-        <li>Listing contexts with AI-generated summaries</li>
-        <li>Promoting to golden with <code>/context-promote</code></li>
-        <li>Managing your context library</li>
+        <li>Saving personal contexts</li>
+        <li>Listing contexts with <code>/context-list</code></li>
+        <li>AI-generated summaries</li>
+        <li>Managing your context library (rename, archive, delete)</li>
+        <li>Handling interruptions without losing focus</li>
+        <li>Storage locations</li>
       </ul>
     </div>
 
@@ -107,29 +129,35 @@
       <h3><a href="context-monitoring.html">Context Monitoring</a></h3>
       <p>Track session health in real time and know when to save before compaction hits.</p>
       <ul class="toc-bullets">
-        <li>The three zones: Healthy, Degrading, Critical</li>
-        <li>Status line fields and burn rate</li>
-        <li>Zone warnings and when to act</li>
+        <li>The three context zones (Healthy, Degrading, Critical)</li>
+        <li>The status line and its fields</li>
+        <li>Warm-up baseline calibration</li>
+        <li>Zone warnings</li>
+        <li>Burn rate and cost estimation</li>
       </ul>
     </div>
 
     <div class="toc-section">
-      <h3><a href="workflows.html">Workflows</a></h3>
-      <p>Common usage patterns for day-to-day work.</p>
-      <ul class="toc-bullets">
-        <li>Solo developer loop</li>
-        <li>Team collaboration with golden contexts</li>
-        <li>Handling interruptions without losing focus</li>
-        <li>Native Claude Code commands</li>
-      </ul>
-    </div>
-
-    <div class="toc-section">
-      <h3><a href="hooks-automation.html">Hooks &amp; Automation</a></h3>
+      <h3><a href="hooks-automation.html">Hooks and Automation</a></h3>
       <p>Automatic session protection that fires before and after every compaction event.</p>
       <ul class="toc-bullets">
         <li>PreCompact auto-save hook</li>
         <li>PostCompact task re-injection hook</li>
+        <li>Hook registration</li>
+      </ul>
+    </div>
+
+    <hr>
+
+    <div class="toc-section">
+      <h3><a href="for-teams.html">For Teams</a></h3>
+      <p>Share warmed-up contexts with teammates, set up project-scope install, and publish team skill bundles.</p>
+      <ul class="toc-bullets">
+        <li>Golden contexts — promoting a personal context for team use</li>
+        <li>Project-scope install — commit skills so teammates get them automatically</li>
+        <li>Selective bundle install</li>
+        <li>Team manifests</li>
+        <li>Sandbox configuration</li>
       </ul>
     </div>
 
@@ -137,45 +165,42 @@
       <h3><a href="security.html">Security</a></h3>
       <p>Secret detection before every golden save, and a git footprint that never creates merge conflicts.</p>
       <ul class="toc-bullets">
-        <li>Secret detection (AWS keys, Stripe keys, GitHub tokens, RSA keys)</li>
+        <li>What gets detected (AWS keys, tokens, passwords, private keys)</li>
+        <li>When scanning happens</li>
         <li>Redaction workflow</li>
-        <li>What gets committed vs. what stays local</li>
-      </ul>
-    </div>
-
-    <div class="toc-section">
-      <h3><a href="skill-marketplace.html">Skill Marketplace</a></h3>
-      <p>Install only the bundles you need, or publish your own team bundles.</p>
-      <ul class="toc-bullets">
-        <li>Bundles: <code>authoring</code>, <code>session</code>, <code>monitor</code>, <code>full</code></li>
-        <li>Manifest format and version verification</li>
-        <li>Team manifests</li>
-      </ul>
-    </div>
-
-    <div class="toc-section">
-      <h3><a href="boss-fight-workflow.html">Boss-Fight Workflow</a></h3>
-      <p>PRD-driven development with an adversarial review phase that prevents tests from vacuously passing.</p>
-      <ul class="toc-bullets">
-        <li>Document authoring skills: <code>/prd</code>, <code>/test-plan</code>, <code>/dev-plan</code></li>
-        <li>The full 8-phase process flow</li>
-        <li>The adversary task and LoD2 model</li>
-        <li>Risk acceptances and process sequencing</li>
+        <li>What commits vs. what stays local</li>
       </ul>
     </div>
 
     <div class="toc-section">
       <h3><a href="reference.html">Reference</a></h3>
-      <p>The CLAUDE.md two-file system, <code>/resume</code> re-read behavior, cross-platform compatibility, and error handling.</p>
+      <p>The CLAUDE.md two-file system, cross-platform notes, and error handling.</p>
       <ul class="toc-bullets">
-        <li>Two-file CLAUDE.md system</li>
-        <li>Complete directory reference table</li>
+        <li>The two-file CLAUDE.md system</li>
+        <li>Cross-platform compatibility (macOS, Linux, WSL2)</li>
+        <li>Error handling behavior</li>
+        <li>Complete directory reference</li>
+      </ul>
+    </div>
+
+    <hr>
+
+    <div class="toc-section">
+      <h3><a href="boss-fight-workflow.html">Boss-Fight Workflow</a></h3>
+      <p>PRD-driven development with adversarial review — a governance framework for
+      AI-generated software. Code generation is the last step, not the first.</p>
+      <ul class="toc-bullets">
+        <li>The artifact triad (PRD → test plan → dev plan)</li>
+        <li>User documentation as a feedback mechanism (Phase 1a)</li>
+        <li>The adversary task and what it produces</li>
+        <li>Process sequencing with <code>/prd-process</code></li>
+        <li>Risk acceptances</li>
       </ul>
     </div>
 
     <div class="toc-section">
       <h3><a href="glossary.html">Glossary</a></h3>
-      <p>Definitions for every significant term: adversary task, auto-save, boss fight, bundle, compaction, context, context rot, context zone, golden context, hook, monitor, task, warm-up, and more.</p>
+      <p>Definitions for every significant term.</p>
     </div>
 
   </main>

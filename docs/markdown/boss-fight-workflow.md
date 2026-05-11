@@ -96,12 +96,13 @@ Documentation is generated immediately after every PRD update that introduces or
 
 Updates the base markdown documentation set:
 
-1. Reads the PRD and identifies changed or new features
-2. For each new feature not yet in the section map: asks which product section it belongs in
-3. Updates the affected product section pages
-4. Regenerates `toc.md` if sections changed
-5. Updates `glossary.md` with new terms
-6. Regenerates the permuted index
+1. Reads `docs/docs-brief.md` — loads the core message, reader journey gates, navigation architecture, and editorial rules
+2. Reads the PRD and identifies changed or new features
+3. For each new feature not yet in the Feature Routing table: asks for a gate (1–4) and page assignment, then updates the table
+4. Updates affected pages applying the editorial rules and gate-appropriate depth
+5. Regenerates `toc.md` reflecting the navigation architecture in the brief
+6. Updates `glossary.md` with new terms
+7. Regenerates the permuted index
 
 Run after every meaningful PRD update.
 
@@ -213,5 +214,5 @@ STRICT isolation is the load-bearing element. If the adversary shares session co
 
 ## Next Steps
 
-- [Skill Marketplace](skill-marketplace.md) — install just the authoring bundle without the full context stack
+- [For Teams](for-teams.md) — install just the authoring bundle, or share the full stack with your team
 - [Managing Contexts](managing-contexts.md) — save deep PRD authoring sessions as golden contexts for the team

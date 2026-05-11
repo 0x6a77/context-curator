@@ -18,12 +18,13 @@
     <a class="nav-item" href="getting-started.html">Getting Started</a>
     <a class="nav-item" href="managing-contexts.html">Managing Contexts</a>
     <a class="nav-item" href="context-monitoring.html">Context Monitoring</a>
-    <a class="nav-item" href="workflows.html">Workflows</a>
     <a class="nav-item" href="hooks-automation.html">Hooks &amp; Automation</a>
+    <div class="nav-divider"></div>
+    <a class="nav-item" href="for-teams.html">For Teams</a>
     <a class="nav-item" href="security.html">Security</a>
-    <a class="nav-item" href="skill-marketplace.html">Skill Marketplace</a>
-    <a class="nav-item active" href="boss-fight-workflow.html">Boss-Fight Workflow</a>
     <a class="nav-item" href="reference.html">Reference</a>
+    <div class="nav-divider"></div>
+    <a class="nav-item active" href="boss-fight-workflow.html">Boss-Fight Workflow</a>
     <div class="nav-divider"></div>
     <a class="nav-item" href="glossary.html">Glossary</a>
     <a class="nav-item" href="permuted-index.html">Index</a>
@@ -31,7 +32,9 @@
   <main class="content">
 
     <h1>Boss-Fight Workflow</h1>
-    <p class="page-lead">A PRD-driven development process built around a structurally adversarial review phase — the "boss fight" you must pass to advance.</p>
+    <p>Boss-Fight Coding is a PRD-driven development process built around a structurally adversarial review phase — the "boss fight" you must pass to advance. This page covers the full process: document authoring skills, the adversary task, process sequencing, and user documentation.</p>
+
+    <hr>
 
     <h2>The Core Idea</h2>
     <p>Most development process failures happen because requirements are vague, tests are weak, or the team evaluates their own work. Boss-Fight Coding addresses all three:</p>
@@ -42,138 +45,102 @@
     </ol>
     <p>The adversary is the boss fight. You can only advance by genuinely defeating it — not by tweaking your tests until the adversary is satisfied, but by having tests that actually verify what the PRD requires.</p>
 
+    <hr>
+
     <h2>Document Authoring Skills</h2>
     <p>Four skills enforce idiomatic format when writing process artifacts. They're auto-invocable — Claude loads the right skill automatically when you open a PRD, test plan, or dev plan file.</p>
 
-    <h3>/prd — PRD Authoring</h3>
+    <h3><code>/prd</code> — PRD Authoring</h3>
     <p>Loads when you work on a <code>*prd*.md</code> file. Enforces the F-XXX/T-XXX code system, falsifiable acceptance criteria, and the required feature section format.</p>
     <p><strong>Commands:</strong></p>
     <ul>
       <li><code>/prd new-feature</code> — scaffolds a complete feature section with placeholder F-XXX code, Expected Behaviors, Test Scenarios, and an Acceptance Criteria table</li>
-      <li><code>/prd check-ac</code> — reviews every AC clause and flags anything vague, circular, or not independently testable</li>
+      <li><code>/prd check-ac</code> — reviews every AC clause in the PRD and flags anything vague, circular, or not independently testable</li>
     </ul>
     <p><strong>What "vague" means:</strong> An acceptance criterion like "the system handles errors gracefully" is vague — there's no test you can write that would fail for a wrong implementation. A strong criterion is specific and falsifiable: "saving a context over 100KB exits non-zero with output containing '100KB' or 'too large'."</p>
 
-    <h3>/test-plan — Test Plan Authoring</h3>
+    <h3><code>/test-plan</code> — Test Plan Authoring</h3>
     <p>Loads when you work on a <code>*test-plan*.md</code> file. Enforces mandatory sections, banned test patterns, and fix priority tiers.</p>
+    <p><strong>Commands:</strong></p>
     <ul>
-      <li><code>/test-plan new</code> — scaffolds a complete test plan with all mandatory sections including a banned patterns list (minimum 6)</li>
+      <li><code>/test-plan new</code> — scaffolds a complete test plan with all mandatory sections: testing philosophy, banned patterns list (minimum 6), fix priority tiers, environment setup, feature test groups, and summary</li>
     </ul>
     <p><strong>The banned patterns are load-bearing.</strong> Vacuous OR fallbacks, conditional file-existence guards, placeholder assertions, self-fulfilling setup — these are the patterns that make tests pass vacuously while the implementation is wrong. The adversary checks for all of them.</p>
 
-    <h3>/dev-plan — Dev Plan Authoring</h3>
+    <h3><code>/dev-plan</code> — Dev Plan Authoring</h3>
     <p>Loads when you work on a <code>*dev-plan*.md</code> file. Enforces phase structure, design decision format, and PRD version reference.</p>
+    <p><strong>Commands:</strong></p>
     <ul>
       <li><code>/dev-plan new</code> — scaffolds a complete dev plan: PRD version reference, executive summary, architecture overview, implementation phases, file structure table, key design decisions, and troubleshooting</li>
     </ul>
 
-    <h3>/test-inventory — Adversary Output Format</h3>
+    <h3><code>/test-inventory</code> — Adversary Output Format</h3>
     <p>Only available when the adversary task is active. Loads the output schema so the adversary produces consistent inventory structure. Running <code>/test-inventory</code> outside the adversary task is an error by design.</p>
+
+    <hr>
 
     <h2>The Full Process Flow</h2>
 
-    <svg viewBox="0 0 560 700" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:520px;display:block;margin:1.5rem auto;font-family:Inter,sans-serif" aria-label="Boss-Fight process flow diagram">
-      <defs>
-        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-          <path d="M0,0 L10,5 L0,10 z" fill="#6366f1"/>
-        </marker>
-        <marker id="arr-warn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-          <path d="M0,0 L10,5 L0,10 z" fill="#f59e0b"/>
-        </marker>
-        <marker id="arr-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-          <path d="M0,0 L10,5 L0,10 z" fill="#34d399"/>
-        </marker>
-        <marker id="arr-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-          <path d="M0,0 L10,5 L0,10 z" fill="#f87171"/>
-        </marker>
-      </defs>
+    <pre><code>Phase 1: PRD Authoring
+  Write features → F-XXX codes → T-XXX acceptance criteria
 
-      <!-- Phase 1 -->
-      <rect x="170" y="10" width="220" height="54" rx="5" fill="#1a1a1a" stroke="#2a2a2a"/>
-      <text x="280" y="32" text-anchor="middle" fill="#888" font-size="10" letter-spacing="0.05em">PHASE 1</text>
-      <text x="280" y="50" text-anchor="middle" fill="#e8e8e8" font-size="12" font-weight="500">PRD Authoring</text>
-      <line x1="280" y1="64" x2="280" y2="84" stroke="#6366f1" stroke-width="1.5" marker-end="url(#arr)"/>
+Phase 1a: User Documentation
+  /docs-markdown → update markdown docs
+  /docs-html → regenerate HTML
+  Share with users → capture feedback → iterate
 
-      <!-- Phase 1a (highlighted) -->
-      <rect x="165" y="86" width="230" height="54" rx="5" fill="#12122e" stroke="#6366f1" stroke-width="1.5"/>
-      <text x="280" y="108" text-anchor="middle" fill="#6366f1" font-size="10" letter-spacing="0.05em">PHASE 1a</text>
-      <text x="280" y="126" text-anchor="middle" fill="#e8e8e8" font-size="12" font-weight="500">User Documentation</text>
-      <line x1="280" y1="140" x2="280" y2="160" stroke="#6366f1" stroke-width="1.5" marker-end="url(#arr)"/>
+Phase 2: Test Plan
+  AC clauses → concrete test cases (Setup/Execution/Validation)
 
-      <!-- Phase 2 -->
-      <rect x="170" y="162" width="220" height="54" rx="5" fill="#1a1a1a" stroke="#2a2a2a"/>
-      <text x="280" y="184" text-anchor="middle" fill="#888" font-size="10" letter-spacing="0.05em">PHASE 2</text>
-      <text x="280" y="202" text-anchor="middle" fill="#e8e8e8" font-size="12" font-weight="500">Test Plan</text>
-      <line x1="280" y1="216" x2="280" y2="236" stroke="#6366f1" stroke-width="1.5" marker-end="url(#arr)"/>
+Phase 3: Dev Plan
+  Features → ordered implementation phases
 
-      <!-- Phase 3 -->
-      <rect x="170" y="238" width="220" height="54" rx="5" fill="#1a1a1a" stroke="#2a2a2a"/>
-      <text x="280" y="260" text-anchor="middle" fill="#888" font-size="10" letter-spacing="0.05em">PHASE 3</text>
-      <text x="280" y="278" text-anchor="middle" fill="#e8e8e8" font-size="12" font-weight="500">Dev Plan</text>
-      <line x1="280" y1="292" x2="280" y2="312" stroke="#6366f1" stroke-width="1.5" marker-end="url(#arr)"/>
+Phase 4: Implementation
+  Follow dev plan phases → write code → pass tests
 
-      <!-- Phase 4 -->
-      <rect x="170" y="314" width="220" height="54" rx="5" fill="#1a1a1a" stroke="#2a2a2a"/>
-      <text x="280" y="336" text-anchor="middle" fill="#888" font-size="10" letter-spacing="0.05em">PHASE 4</text>
-      <text x="280" y="354" text-anchor="middle" fill="#e8e8e8" font-size="12" font-weight="500">Implementation</text>
-      <line x1="280" y1="368" x2="280" y2="388" stroke="#6366f1" stroke-width="1.5" marker-end="url(#arr)"/>
+Phase 5: Adversarial Review (Boss Fight)
+  /task adversary → fresh session → test-inventory.md
 
-      <!-- Phase 5 Boss Fight -->
-      <rect x="155" y="390" width="250" height="54" rx="5" fill="#1a0808" stroke="#f87171" stroke-width="1.5"/>
-      <text x="280" y="412" text-anchor="middle" fill="#f87171" font-size="10" letter-spacing="0.05em">PHASE 5 — BOSS FIGHT</text>
-      <text x="280" y="430" text-anchor="middle" fill="#e8e8e8" font-size="12" font-weight="500">Adversarial Review</text>
+  FAIL/ESCALATE?          All PASS/ACCEPTED?
+       ↓                        ↓
+Phase 6: Remediation     Phase 8: Verification
+  Fix upstream              Tests pass + adversary clean
 
-      <!-- Branch: FAIL left, PASS right -->
-      <line x1="220" y1="444" x2="130" y2="474" stroke="#f87171" stroke-width="1.5" marker-end="url(#arr-red)"/>
-      <text x="148" y="466" text-anchor="middle" fill="#f87171" font-size="10">FAIL</text>
-      <line x1="340" y1="444" x2="430" y2="474" stroke="#34d399" stroke-width="1.5" marker-end="url(#arr-green)"/>
-      <text x="410" y="466" text-anchor="middle" fill="#34d399" font-size="10">PASS</text>
+  Oscillating?
+       ↓
+Phase 7: Risk Acceptance
+  Document and accept specific findings → re-run adversary</code></pre>
 
-      <!-- Phase 6 Remediation (left) -->
-      <rect x="20" y="476" width="210" height="54" rx="5" fill="#1a1a1a" stroke="#2a2a2a"/>
-      <text x="125" y="498" text-anchor="middle" fill="#888" font-size="10" letter-spacing="0.05em">PHASE 6</text>
-      <text x="125" y="516" text-anchor="middle" fill="#e8e8e8" font-size="12" font-weight="500">Remediation</text>
+    <hr>
 
-      <!-- Phase 8 Verification (right) -->
-      <rect x="330" y="476" width="210" height="54" rx="5" fill="#0d1a12" stroke="#34d399" stroke-width="1.5"/>
-      <text x="435" y="498" text-anchor="middle" fill="#34d399" font-size="10" letter-spacing="0.05em">PHASE 8</text>
-      <text x="435" y="516" text-anchor="middle" fill="#e8e8e8" font-size="12" font-weight="500">Verification</text>
+    <h2>User Documentation: <code>/docs-markdown</code> and <code>/docs-html</code></h2>
+    <p>Documentation is generated immediately after every PRD update that introduces or changes user-facing behavior — before code is written. The reason: user documentation is the cheapest possible way to find out whether you've specified the right thing. A user who reads your documentation and says "I'd never do it that way" costs a PRD revision. The same user encountering your released product costs a feature rewrite.</p>
 
-      <!-- Phase 6 → re-run Phase 5 (solid, fixed issues) -->
-      <path d="M 125 476 C 125 456 155 430 155 417" stroke="#6366f1" stroke-width="1.5" fill="none" marker-end="url(#arr)" stroke-dasharray="4,3"/>
-
-      <!-- Phase 6 → Phase 7 (oscillating) -->
-      <line x1="125" y1="530" x2="125" y2="556" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arr-warn)"/>
-      <text x="142" y="546" fill="#f59e0b" font-size="10">oscillating?</text>
-
-      <!-- Phase 7 Risk Acceptance -->
-      <rect x="20" y="558" width="210" height="54" rx="5" fill="#1c1800" stroke="#f59e0b" stroke-width="1.5"/>
-      <text x="125" y="580" text-anchor="middle" fill="#f59e0b" font-size="10" letter-spacing="0.05em">PHASE 7</text>
-      <text x="125" y="598" text-anchor="middle" fill="#e8e8e8" font-size="12" font-weight="500">Risk Acceptance</text>
-
-      <!-- Phase 7 → back to Phase 5 -->
-      <path d="M 20 585 C -20 585 -20 417 155 417" stroke="#6366f1" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
-      <text x="10" y="512" fill="#888" font-size="10" transform="rotate(-90,10,512)">re-run</text>
-    </svg>
-
-    <h2>User Documentation: /docs-markdown and /docs-html</h2>
-    <p>Documentation is generated immediately after every PRD update that introduces or changes user-facing behavior — before code is written. A user who reads your documentation and says "I'd never do it that way" costs a PRD revision. The same user encountering your released product costs a feature rewrite.</p>
-
-    <h3>/docs-markdown</h3>
+    <h3><code>/docs-markdown</code></h3>
     <p>Updates the base markdown documentation set:</p>
     <ol>
+      <li>Reads <code>docs/docs-brief.md</code> — loads the core message, reader journey gates, navigation architecture, and editorial rules</li>
       <li>Reads the PRD and identifies changed or new features</li>
-      <li>For each new feature not yet in the section map: asks which product section it belongs in</li>
-      <li>Updates the affected product section pages</li>
-      <li>Regenerates <code>toc.md</code> if sections changed</li>
+      <li>For each new feature not yet in the Feature Routing table: asks for a gate (1–4) and page assignment, then updates the table</li>
+      <li>Updates affected pages applying the editorial rules and gate-appropriate depth</li>
+      <li>Regenerates <code>toc.md</code> reflecting the navigation architecture in the brief</li>
       <li>Updates <code>glossary.md</code> with new terms</li>
       <li>Regenerates the permuted index</li>
     </ol>
+    <p>Run after every meaningful PRD update.</p>
 
-    <h3>/docs-html</h3>
-    <p>Generates the HTML documentation from the markdown base. Produces a shared CSS/JS asset file and one HTML page per section. No build pipeline required — output is plain HTML.</p>
-    <p><strong>Style guide:</strong> <code>docs/html/style.md</code> governs the look of the generated HTML. Edit it to set typeface, colors, language register, and layout. If the file is absent, <code>/docs-html</code> writes sensible accessible defaults.</p>
-    <p><strong>Invariant:</strong> Markdown is always updated first. HTML files are never hand-edited — they're regenerated from markdown.</p>
+    <h3><code>/docs-html</code></h3>
+    <p>Generates the navigable HTML documentation from the markdown base:</p>
+    <ol>
+      <li>Reads <code>docs/html/style.md</code> for typeface, color, and layout conventions</li>
+      <li>Converts all markdown files to HTML with consistent navigation</li>
+      <li>Validates accessibility (WCAG 2.1 AA): heading hierarchy, alt text, contrast</li>
+      <li>Writes <code>docs/index.html</code> (introduction + TOC combined) as the shareable entry point</li>
+    </ol>
+    <p><strong>Style guide:</strong> <code>docs/html/style.md</code> governs the look of the generated HTML. Edit it to set typeface, colors, language register, and layout. If the file is absent, <code>/docs-html</code> writes sensible accessible defaults and reports them for your review.</p>
+    <p><strong>Invariant:</strong> Markdown is always updated first. HTML files are never hand-edited — they're regenerated from markdown. This makes documentation diffs reviewable the same way code diffs are.</p>
+
+    <hr>
 
     <h2>The Adversary Task</h2>
     <p>The adversary is your LoD2 — the second line of defence in a three-lines-of-defence model:</p>
@@ -187,7 +154,7 @@
         <tr><td>LoD3</td><td>Internal audit — out of scope</td><td>—</td></tr>
       </tbody>
     </table>
-    <p>The LoD2 relationship is structurally adversarial to LoD1 by governance design. The adversary does not report to the engineering team and produces no remediation guidance — findings go to the control owner (LoD1) to resolve. An adversary that collaborates with the team it's reviewing isn't an adversary.</p>
+    <p>The LoD2 relationship is structurally adversarial to LoD1 by governance design. The adversary does not report to the engineering team and produces no remediation guidance — findings go to the control owner (LoD1) to resolve. This independence is what gives the review value. An adversary that collaborates with the team it's reviewing isn't an adversary.</p>
     <p>The adversary is a specialized task with strict context isolation — every session starts fresh, with no knowledge of prior sessions, your intent, or your constraints. It reads only what's in the project files.</p>
     <pre><code>/task adversary
 # Completely fresh session with adversary DNA loaded
@@ -204,14 +171,16 @@ SCOPE:         T-INIT-8, T-INIT-9
 FINDING:       Project-scope skill resolution requires live Claude Code session
 SEVERITY:      LOW
 DISPOSITION:   ACCEPTED
-RATIONALE:     No headless test harness available; verified manually on each release
+RATIONALE:     No headless test harness available; behavior verified manually on each release
 APPROVED_BY:   jeff.williams
 APPROVED_DATE: 2026-05-09
 EXPIRY:        v2.0-release</code></pre>
     <p>Re-run the adversary after adding an acceptance. The finding will be marked ACCEPTED rather than FAIL.</p>
 
-    <h2>Process Sequencing: /prd-process</h2>
-    <p>The most common process failure is updating the PRD and starting to implement without re-running the adversary — the test inventory is now stale.</p>
+    <hr>
+
+    <h2>Process Sequencing: <code>/prd-process</code></h2>
+    <p>The most common process failure is updating the PRD and starting to implement without re-running the adversary. The adversary's test inventory is now stale — covering the old feature set, not the current one.</p>
     <pre><code>/prd-process</code></pre>
     <p>Reports the current phase and whether anything is out of order:</p>
     <pre><code>{
@@ -219,11 +188,12 @@ EXPIRY:        v2.0-release</code></pre>
   "nextPhase": 5,
   "adversaryStale": true,
   "warnings": [
-    "prd.md was modified after test-inventory.md — adversary run is stale."
+    "prd.md was modified after test-inventory.md — adversary run is stale. Run /task adversary before continuing."
   ]
 }</code></pre>
-    <p>When the adversary is stale and you try to do implementation work, <code>/prd-process</code> requires an explicit <code>--force</code> to proceed.</p>
+    <p>When the adversary is stale and you try to do implementation work, <code>/prd-process</code> requires an explicit <code>--force</code> to proceed. This turns an accidental skip into a named, documented decision.</p>
 
+    <p><strong>Phase detection:</strong></p>
     <table>
       <thead>
         <tr><th>Phase</th><th>Complete When</th></tr>
@@ -233,17 +203,23 @@ EXPIRY:        v2.0-release</code></pre>
         <tr><td>1a — Documentation</td><td><code>docs/html/</code> exists with files newer than <code>prd.md</code></td></tr>
         <tr><td>2 — Test Plan</td><td><code>prod-mgmt/test-plan.md</code> exists</td></tr>
         <tr><td>3 — Dev Plan</td><td><code>prod-mgmt/dev-plan.md</code> exists</td></tr>
-        <tr><td>4 — Implementation</td><td>Test files exist in <code>tests/</code></td></tr>
+        <tr><td>4 — Implementation</td><td>test files exist in <code>tests/</code></td></tr>
         <tr><td>5 — Adversarial Review</td><td><code>prod-mgmt/test-inventory.md</code> exists and is newer than <code>prd.md</code></td></tr>
       </tbody>
     </table>
 
+    <hr>
+
     <h2>The Specialized Task Framework</h2>
     <p>The adversary is built on a specialized task framework that provides STRICT context isolation — no context restoration, no context saving, every invocation starts fresh. Isolation is enforced by hooks, not just instructions: a PreCompact hook blocks compaction saves and a SessionStart hook validates that no prior context was loaded.</p>
-    <p>STRICT isolation is the load-bearing element. If the adversary shares session context with your development sessions, it has been captured — it's a collaborator with a different label, not an adversary.</p>
+    <p>STRICT isolation is the load-bearing element. If the adversary shares session context with your development sessions, it has been captured — it's a collaborator with a different label, not an adversary. Hook enforcement means this can't happen accidentally.</p>
 
     <hr>
-    <p><strong>Next:</strong> <a href="skill-marketplace.html">Skill Marketplace</a> — install just the authoring bundle — or <a href="managing-contexts.html">Managing Contexts</a> to save deep PRD authoring sessions as golden contexts.</p>
+
+    <ul>
+      <li><a href="for-teams.html">For Teams</a> — install just the authoring bundle, or share the full stack with your team</li>
+      <li><a href="managing-contexts.html">Managing Contexts</a> — save deep PRD authoring sessions as golden contexts for the team</li>
+    </ul>
 
   </main>
 </div>

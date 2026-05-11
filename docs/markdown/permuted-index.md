@@ -16,7 +16,7 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **alt attribute, non-empty on img** → [Boss-Fight Workflow: /docs-html](boss-fight-workflow.md#docs-html)
 
-**authoring bundle** → [Skill Marketplace: bundles](skill-marketplace.md#bundles)
+**authoring bundle** → [For Teams: selective bundle install](for-teams.md#selective-bundle-install)
 
 **auto-save** → [Hooks and Automation: PreCompact auto-save hook](hooks-automation.md#precompact-auto-save-hook) | [Glossary: auto-save](glossary.md#auto-save)
 
@@ -26,19 +26,21 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **banned patterns (test plan)** → [Boss-Fight Workflow: /test-plan](boss-fight-workflow.md#test-plan--test-plan-authoring)
 
-**baseline, warm-up** → [Context Monitoring: warm-up baseline](context-monitoring.md#warm-up-baseline) | [Glossary: warm-up baseline](glossary.md#warm-up-baseline)
+**baseline, warm-up** → [Context Monitoring: warm-up baseline](context-monitoring.md#the-warm-up-baseline) | [Glossary: warm-up baseline](glossary.md#warm-up-baseline)
 
 **boss fight** → [Boss-Fight Workflow: the core idea](boss-fight-workflow.md#the-core-idea) | [Glossary: boss fight](glossary.md#boss-fight)
 
-**bundle, authoring** → [Skill Marketplace: bundles](skill-marketplace.md#bundles) | [Glossary: bundle](glossary.md#bundle)
+**brief, docs** → [Boss-Fight Workflow: /docs-markdown](boss-fight-workflow.md#docs-markdown) | [Glossary: docs brief](glossary.md#docs-brief)
 
-**bundle, full** → [Skill Marketplace: bundles](skill-marketplace.md#bundles)
+**bundle, authoring** → [For Teams: selective bundle install](for-teams.md#selective-bundle-install) | [Glossary: bundle](glossary.md#bundle)
 
-**bundle, installing** → [Skill Marketplace: installing a specific bundle](skill-marketplace.md#installing-a-specific-bundle)
+**bundle, full** → [For Teams: selective bundle install](for-teams.md#selective-bundle-install)
 
-**bundle, monitor** → [Skill Marketplace: bundles](skill-marketplace.md#bundles)
+**bundle, installing** → [For Teams: selective bundle install](for-teams.md#selective-bundle-install)
 
-**bundle, session** → [Skill Marketplace: bundles](skill-marketplace.md#bundles)
+**bundle, monitor** → [For Teams: selective bundle install](for-teams.md#selective-bundle-install)
+
+**bundle, session** → [For Teams: selective bundle install](for-teams.md#selective-bundle-install)
 
 **burn rate** → [Context Monitoring: burn rate and cost estimation](context-monitoring.md#burn-rate-and-cost-estimation) | [Glossary: monitor](glossary.md#monitor)
 
@@ -58,7 +60,13 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **CLAUDE.md re-read on /resume** → [Reference: how /resume re-reads CLAUDE.md](reference.md#how-resume-re-reads-claudemd)
 
+**collaboration, team** → [For Teams](for-teams.md)
+
+**commands, native Claude Code** → [Getting Started: native Claude Code commands](getting-started.md#native-claude-code-commands)
+
 **commit, what gets committed** → [Security: git footprint](security.md#git-footprint)
+
+**compact, /compact** → [Getting Started: native Claude Code commands](getting-started.md#native-claude-code-commands)
 
 **compaction** → [Hooks and Automation](hooks-automation.md) | [Glossary: compaction](glossary.md#compaction)
 
@@ -70,35 +78,37 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **context** → [Managing Contexts](managing-contexts.md) | [Glossary: context](glossary.md#context)
 
-**context, golden** → [Managing Contexts: promoting to golden](managing-contexts.md#promoting-to-golden) | [Glossary: golden context](glossary.md#golden-context)
+**context, golden** → [For Teams: golden contexts](for-teams.md#golden-contexts) | [Glossary: golden context](glossary.md#golden-context)
 
-**context, personal** → [Managing Contexts: saving personal contexts](managing-contexts.md) | [Glossary: personal context](glossary.md#personal-context)
+**context, personal** → [Managing Contexts: saving a context](managing-contexts.md) | [Glossary: personal context](glossary.md#personal-context)
 
 **context, restoring** → [Managing Contexts](managing-contexts.md)
 
 **context, saving** → [Managing Contexts: saving with /context-save](managing-contexts.md)
 
-**context degradation** → [Context Monitoring: the three zones](context-monitoring.md#the-three-context-zones) | [Glossary: context rot](glossary.md#context-rot)
+**context degradation** → [Context Monitoring: the three zones](context-monitoring.md#the-three-degradation-zones) | [Glossary: context rot](glossary.md#context-rot)
 
 **context-list, /context-list** → [Managing Contexts: listing contexts](managing-contexts.md)
 
-**context-manage, /context-manage** → [Managing Contexts: managing contexts](managing-contexts.md)
+**context-manage, /context-manage** → [Managing Contexts: managing your context library](managing-contexts.md)
 
-**context-promote, /context-promote** → [Managing Contexts: promoting to golden](managing-contexts.md)
+**context-promote, /context-promote** → [For Teams: promoting a context](for-teams.md#promoting-a-context)
 
 **context-save, /context-save** → [Managing Contexts](managing-contexts.md)
 
-**context-save --golden** → [Managing Contexts: saving golden contexts](managing-contexts.md) | [Security: when scanning happens](security.md#when-scanning-happens)
+**context-save --golden** → [For Teams: saving directly as golden](for-teams.md#saving-directly-as-golden) | [Security: when scanning happens](security.md#when-scanning-happens)
 
 **context rot** → [Introduction](introduction.md) | [Glossary: context rot](glossary.md#context-rot)
 
-**context zone** → [Context Monitoring: the three zones](context-monitoring.md#the-three-context-zones) | [Glossary: context zone](glossary.md#context-zone)
+**context switching** → [Managing Contexts: handling interruptions](managing-contexts.md#handling-interruptions)
+
+**context zone** → [Context Monitoring: the three zones](context-monitoring.md#the-three-degradation-zones) | [Glossary: context zone](glossary.md#context-zone)
 
 **cost tracking** → [Context Monitoring: burn rate and cost estimation](context-monitoring.md#burn-rate-and-cost-estimation)
 
 **credentials, detection** → [Security: secret detection](security.md#secret-detection)
 
-**Critical zone** → [Context Monitoring: the three zones](context-monitoring.md#the-three-context-zones)
+**Critical zone** → [Context Monitoring: the three zones](context-monitoring.md#the-three-degradation-zones)
 
 ---
 
@@ -106,7 +116,7 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **default task** → [Getting Started: the default task](getting-started.md) | [Glossary: default task](glossary.md#default-task)
 
-**Degrading zone** → [Context Monitoring: the three zones](context-monitoring.md#the-three-context-zones)
+**Degrading zone** → [Context Monitoring: the three zones](context-monitoring.md#the-three-degradation-zones)
 
 **detection, secret** → [Security: secret detection](security.md#secret-detection)
 
@@ -115,6 +125,8 @@ Each significant term appears rotated to the front. Use this index to find topic
 **dev-plan, /dev-plan** → [Boss-Fight Workflow: /dev-plan](boss-fight-workflow.md#dev-plan--dev-plan-authoring)
 
 **directory reference table** → [Reference: directory reference](reference.md#directory-reference)
+
+**docs brief** → [Boss-Fight Workflow: /docs-markdown](boss-fight-workflow.md#docs-markdown) | [Glossary: docs brief](glossary.md#docs-brief)
 
 **docs-html, /docs-html** → [Boss-Fight Workflow: /docs-html](boss-fight-workflow.md#docs-html)
 
@@ -142,15 +154,17 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **FAIL verdict** → [Boss-Fight Workflow: the adversary task](boss-fight-workflow.md#the-adversary-task)
 
-**feature-section map** → [Boss-Fight Workflow: /docs-markdown](boss-fight-workflow.md#docs-markdown) | [Glossary: feature-section map](glossary.md#feature-section-map)
-
 **footprint, git** → [Security: git footprint](security.md#git-footprint)
 
 **force, --force flag (prd-process)** → [Boss-Fight Workflow: /prd-process](boss-fight-workflow.md#process-sequencing-prd-process)
 
+**fork, /fork** → [Getting Started: native Claude Code commands](getting-started.md#native-claude-code-commands)
+
 ---
 
 ## G
+
+**gate (reader journey)** → [Boss-Fight Workflow: /docs-markdown](boss-fight-workflow.md#docs-markdown) | [Glossary: gate](glossary.md#gate)
 
 **git conflicts, none** → [Security: no git conflicts](security.md#no-git-conflicts)
 
@@ -160,13 +174,15 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **glossary** → [Glossary](glossary.md)
 
-**golden context** → [Managing Contexts: promoting to golden](managing-contexts.md) | [Security: when scanning happens](security.md#when-scanning-happens) | [Glossary: golden context](glossary.md#golden-context)
+**golden context** → [For Teams: golden contexts](for-teams.md#golden-contexts) | [Security: when scanning happens](security.md#when-scanning-happens) | [Glossary: golden context](glossary.md#golden-context)
+
+**golden context, sharing** → [For Teams: golden contexts](for-teams.md#golden-contexts)
 
 ---
 
 ## H
 
-**Healthy zone** → [Context Monitoring: the three zones](context-monitoring.md#the-three-context-zones)
+**Healthy zone** → [Context Monitoring: the three zones](context-monitoring.md#the-three-degradation-zones)
 
 **heading hierarchy** → [Boss-Fight Workflow: /docs-html](boss-fight-workflow.md#docs-html)
 
@@ -184,11 +200,19 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **index.html** → [Boss-Fight Workflow: /docs-html](boss-fight-workflow.md#docs-html)
 
-**init, /task-init** → [Getting Started: initializing a project](getting-started.md)
+**init, /task-init** → [Getting Started: initializing a project](getting-started.md) | [Reference: the two-file system](reference.md#the-two-file-claudemd-system)
 
-**installation** → [Getting Started: installation](getting-started.md) | [Skill Marketplace: installing a specific bundle](skill-marketplace.md#installing-a-specific-bundle)
+**installation** → [Getting Started: installation](getting-started.md)
+
+**interruption, handling** → [Managing Contexts: handling interruptions](managing-contexts.md#handling-interruptions)
 
 **isolation, context (adversary)** → [Boss-Fight Workflow: the specialized task framework](boss-fight-workflow.md#the-specialized-task-framework)
+
+---
+
+## J
+
+**journey, reader** → [Boss-Fight Workflow: /docs-markdown](boss-fight-workflow.md#docs-markdown) | [Glossary: gate](glossary.md#gate)
 
 ---
 
@@ -216,21 +240,19 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **macOS support** → [Reference: cross-platform compatibility](reference.md#cross-platform-compatibility)
 
-**manage, /context-manage** → [Managing Contexts: managing contexts](managing-contexts.md)
+**manage, /context-manage** → [Managing Contexts: managing your context library](managing-contexts.md)
 
-**manifest, marketplace** → [Skill Marketplace: manifest format](skill-marketplace.md#manifest-format) | [Glossary: manifest](glossary.md#manifest)
+**manifest, marketplace** → [For Teams: team manifests](for-teams.md#team-manifests) | [Glossary: manifest](glossary.md#manifest)
 
-**manifest, team** → [Skill Marketplace: team manifests](skill-marketplace.md#team-manifests)
+**manifest, team** → [For Teams: team manifests](for-teams.md#team-manifests)
 
-**manifest, version verification** → [Skill Marketplace: version verification](skill-marketplace.md#version-verification)
-
-**marketplace** → [Skill Marketplace](skill-marketplace.md)
+**manifest, version verification** → [For Teams: version verification](for-teams.md#version-verification)
 
 **monitor** → [Context Monitoring](context-monitoring.md) | [Glossary: monitor](glossary.md#monitor)
 
-**monitor bundle** → [Skill Marketplace: bundles](skill-marketplace.md#bundles)
+**monitor bundle** → [For Teams: selective bundle install](for-teams.md#selective-bundle-install)
 
-**monitor-config.json** → [Context Monitoring: monitor configuration](context-monitoring.md)
+**monitor-config.json** → [Context Monitoring: configuration file](context-monitoring.md)
 
 ---
 
@@ -260,7 +282,7 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **phase detection (prd-process)** → [Boss-Fight Workflow: /prd-process](boss-fight-workflow.md#process-sequencing-prd-process)
 
-**plugin marketplace** → [Skill Marketplace: installing a specific bundle](skill-marketplace.md#installing-a-specific-bundle)
+**plugin marketplace** → [For Teams: selective bundle install](for-teams.md#selective-bundle-install)
 
 **PostCompact hook** → [Hooks and Automation: PostCompact task re-injection hook](hooks-automation.md#postcompact-task-re-injection-hook)
 
@@ -274,9 +296,11 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **process flow (boss-fight phases)** → [Boss-Fight Workflow: the full process flow](boss-fight-workflow.md#the-full-process-flow)
 
-**promote, /context-promote** → [Managing Contexts: promoting to golden](managing-contexts.md)
+**project-scope install** → [For Teams: project-scope install](for-teams.md#project-scope-install) | [Getting Started: project-scope install](getting-started.md#project-scope-install-optional)
 
-**project-scope skills** → [Skill Marketplace: skill locations](skill-marketplace.md#skill-locations)
+**project-scope skills** → [For Teams: project-scope install](for-teams.md#project-scope-install)
+
+**promote, /context-promote** → [For Teams: promoting a context](for-teams.md#promoting-a-context)
 
 ---
 
@@ -284,13 +308,19 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **re-injection, post-compaction** → [Hooks and Automation: PostCompact task re-injection hook](hooks-automation.md#postcompact-task-re-injection-hook) | [Glossary: re-injection](glossary.md#re-injection)
 
+**reader journey** → [Boss-Fight Workflow: /docs-markdown](boss-fight-workflow.md#docs-markdown) | [Glossary: gate](glossary.md#gate)
+
 **redaction** → [Security: redaction](security.md#redaction)
 
 **reference directory table** → [Reference: directory reference](reference.md#directory-reference)
 
 **remediation phase** → [Boss-Fight Workflow: the full process flow](boss-fight-workflow.md#the-full-process-flow)
 
+**rename, /rename** → [Getting Started: native Claude Code commands](getting-started.md#native-claude-code-commands)
+
 **resume, /resume** → [Reference: how /resume re-reads CLAUDE.md](reference.md#how-resume-re-reads-claudemd)
+
+**rewind, /rewind** → [Getting Started: native Claude Code commands](getting-started.md#native-claude-code-commands)
 
 **risk acceptance** → [Boss-Fight Workflow: risk acceptances](boss-fight-workflow.md#risk-acceptances) | [Glossary: risk acceptance](glossary.md#risk-acceptance)
 
@@ -300,35 +330,39 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 ## S
 
+**sandbox configuration** → [For Teams: sandbox configuration](for-teams.md#sandbox-configuration)
+
 **save, /context-save** → [Managing Contexts](managing-contexts.md)
 
 **scanning, secret** → [Security: when scanning happens](security.md#when-scanning-happens)
 
 **secret detection** → [Security: secret detection](security.md#secret-detection)
 
-**section, product documentation** → [Boss-Fight Workflow: /docs-markdown](boss-fight-workflow.md#docs-markdown)
-
 **session** → [Glossary: session](glossary.md#session)
 
-**session bundle** → [Skill Marketplace: bundles](skill-marketplace.md#bundles)
+**session bundle** → [For Teams: selective bundle install](for-teams.md#selective-bundle-install)
 
 **settings.json, hook registration** → [Hooks and Automation: hook registration](hooks-automation.md#hook-registration)
 
-**skill** → [Skill Marketplace](skill-marketplace.md) | [Glossary: skill](glossary.md#skill)
+**settings.json, sandbox excludedCommands** → [For Teams: sandbox configuration](for-teams.md#sandbox-configuration)
 
-**skill location (user vs project scope)** → [Skill Marketplace: skill locations](skill-marketplace.md#skill-locations)
+**skill** → [For Teams](for-teams.md) | [Glossary: skill](glossary.md#skill)
+
+**skill location (user vs project scope)** → [For Teams: project-scope install](for-teams.md#project-scope-install)
+
+**solo developer loop** → [Managing Contexts: handling interruptions](managing-contexts.md#handling-interruptions) | [Getting Started: quick example](getting-started.md#quick-example)
 
 **specialized task framework** → [Boss-Fight Workflow: the specialized task framework](boss-fight-workflow.md#the-specialized-task-framework)
 
 **stale adversary warning** → [Boss-Fight Workflow: /prd-process](boss-fight-workflow.md#process-sequencing-prd-process)
 
-**status line** → [Context Monitoring: the status line](context-monitoring.md) | [Glossary: status line](glossary.md#status-line)
+**status line** → [Context Monitoring: status line](context-monitoring.md#status-line) | [Glossary: status line](glossary.md#status-line)
 
 **style.md (HTML documentation)** → [Boss-Fight Workflow: /docs-html](boss-fight-workflow.md#docs-html)
 
-**summary, AI-generated** → [Managing Contexts: AI summaries](managing-contexts.md)
+**summary, AI-generated** → [Managing Contexts: AI-generated summaries](managing-contexts.md)
 
-**switching tasks** → [Getting Started: switching tasks](getting-started.md)
+**switching tasks** → [Getting Started: switching between tasks](getting-started.md)
 
 ---
 
@@ -338,17 +372,19 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **task** → [Getting Started](getting-started.md) | [Glossary: task](glossary.md#task)
 
-**task, /task** → [Getting Started: switching tasks](getting-started.md)
+**task, /task** → [Getting Started: switching between tasks](getting-started.md)
 
-**task, creating** → [Getting Started: creating tasks](getting-started.md)
+**task, creating** → [Getting Started: creating a task](getting-started.md)
 
 **task, default** → [Getting Started: the default task](getting-started.md) | [Glossary: default task](glossary.md#default-task)
 
 **task DNA** → [Boss-Fight Workflow: the specialized task framework](boss-fight-workflow.md#the-specialized-task-framework) | [Glossary: task DNA](glossary.md#task-dna)
 
-**task ID rules** → [Getting Started: task ID rules](getting-started.md)
+**task ID rules** → [Getting Started: creating a task](getting-started.md)
 
-**task-init, /task-init** → [Getting Started: initializing](getting-started.md) | [Reference: the two-file system](reference.md#the-two-file-claudemd-system)
+**task-init, /task-init** → [Getting Started: initialize a project](getting-started.md) | [Reference: the two-file system](reference.md#the-two-file-claudemd-system)
+
+**team collaboration** → [For Teams](for-teams.md)
 
 **test inventory** → [Boss-Fight Workflow: what the adversary produces](boss-fight-workflow.md#the-adversary-task) | [Glossary: test inventory](glossary.md#test-inventory)
 
@@ -364,7 +400,7 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 ## U
 
-**user-scope skills** → [Skill Marketplace: skill locations](skill-marketplace.md#skill-locations)
+**user-scope skills** → [For Teams: project-scope install](for-teams.md#project-scope-install)
 
 ---
 
@@ -372,15 +408,15 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **vacuous tests** → [Boss-Fight Workflow: banned patterns](boss-fight-workflow.md#test-plan--test-plan-authoring)
 
-**verify-manifest.ts** → [Skill Marketplace: version verification](skill-marketplace.md#version-verification)
+**verify-manifest.ts** → [For Teams: version verification](for-teams.md#version-verification)
 
-**version verification (manifest)** → [Skill Marketplace: version verification](skill-marketplace.md#version-verification)
+**version verification (manifest)** → [For Teams: version verification](for-teams.md#version-verification)
 
 ---
 
 ## W
 
-**warm-up** → [Introduction: the problem](introduction.md) | [Workflows: solo developer](workflows.md) | [Glossary: warm-up](glossary.md#warm-up)
+**warm-up** → [Introduction: the problem](introduction.md) | [Glossary: warm-up](glossary.md#warm-up)
 
 **warm-up baseline** → [Context Monitoring](context-monitoring.md) | [Glossary: warm-up baseline](glossary.md#warm-up-baseline)
 
@@ -392,36 +428,6 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 ## Z
 
-**zone, context** → [Context Monitoring: the three zones](context-monitoring.md#the-three-context-zones) | [Glossary: context zone](glossary.md#context-zone)
+**zone, context** → [Context Monitoring: the three zones](context-monitoring.md#the-three-degradation-zones) | [Glossary: context zone](glossary.md#context-zone)
 
 **zone warnings** → [Context Monitoring: zone warnings](context-monitoring.md)
-
----
-
-## Workflows supplement
-
-**collaboration, team** → [Workflows: team collaboration](workflows.md#team-collaboration)
-
-**commands, native Claude Code** → [Workflows: native Claude Code commands](workflows.md#native-claude-code-commands)
-
-**compact, /compact** → [Workflows: native Claude Code commands](workflows.md#native-claude-code-commands)
-
-**context switching** → [Workflows: handling interruptions](workflows.md#handling-interruptions)
-
-**fork, /fork** → [Workflows: native Claude Code commands](workflows.md#native-claude-code-commands)
-
-**golden context, sharing** → [Workflows: team collaboration](workflows.md#team-collaboration)
-
-**interruption, handling** → [Workflows: handling interruptions](workflows.md#handling-interruptions)
-
-**rename, /rename** → [Workflows: native Claude Code commands](workflows.md#native-claude-code-commands)
-
-**rewind, /rewind** → [Workflows: native Claude Code commands](workflows.md#native-claude-code-commands)
-
-**sandbox configuration** → [Getting Started: sandbox configuration](getting-started.md#sandbox-configuration)
-
-**settings.json, sandbox excludedCommands** → [Getting Started: sandbox configuration](getting-started.md#sandbox-configuration)
-
-**solo developer loop** → [Workflows: solo developer](workflows.md#solo-developer)
-
-**team collaboration** → [Workflows: team collaboration](workflows.md#team-collaboration)
