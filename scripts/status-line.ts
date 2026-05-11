@@ -42,7 +42,8 @@ async function main() {
   const costStr = `~$${(estimatedCost ?? 0).toFixed(2)}`;
   const burnK = `${((burnRatePerMessage ?? 0) / 1000).toFixed(1)}k tok/msg`;
 
-  process.stderr.write(`[${zoneEmoji} ${Math.round(fillPct ?? 0)}% | ${sinceK} since warm-up | ${costStr} | ${burnK}]\n`);
+  // Math.floor: fillPct 47.5 → "47%", matching T-MON-2 expectation
+  process.stderr.write(`[${zoneEmoji} ${Math.floor(fillPct ?? 0)}% | ${sinceK} since warm-up | ${costStr} | ${burnK}]\n`);
 }
 
 main().catch((err) => {

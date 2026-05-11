@@ -82,7 +82,7 @@ export async function ensureDir(dirPath: string): Promise<void> {
 
 export interface TaskInfo {
   id: string;
-  location: 'golden' | 'personal';
+  location: 'golden' | 'personal' | 'specialized';
   claudeMdPath: string;
   contextsDir: string;
   lastModified?: Date;
@@ -143,9 +143,28 @@ export async function listTasks(cwd: string = process.cwd()): Promise<TaskInfo[]
 
 /**
  * Get info for a single task by ID. Returns null if the task doesn't exist.
- * Checks golden location first, then personal.
+ * Checks specialized (immutable DNA) first, then golden, then personal.
+ * Specialized tasks have no contexts directory — STRICT isolation prevents saving.
  */
 export async function getTaskInfo(taskId: string, cwd: string = process.cwd()): Promise<TaskInfo | null> {
+  const specializedClaudeMd = path.join(
+    getClaudeHome(),
+    'context-curator',
+    'specialized',
+    taskId,
+    'CLAUDE.md'
+  );
+  if (await fileExists(specializedClaudeMd)) {
+    const stats = await fs.stat(specializedClaudeMd);
+    return {
+      id: taskId,
+      location: 'specialized',
+      claudeMdPath: specializedClaudeMd,
+      contextsDir: path.join(getClaudeHome(), 'context-curator', 'specialized', taskId, 'contexts'),
+      lastModified: stats.mtime,
+    };
+  }
+
   const goldenDir = getGoldenTasksDir(cwd);
   const goldenClaudeMd = path.join(goldenDir, taskId, 'CLAUDE.md');
   if (await fileExists(goldenClaudeMd)) {

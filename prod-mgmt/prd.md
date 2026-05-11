@@ -1,7 +1,7 @@
 # Product Requirements Document: Claude Code Context Curator
 
-**Version:** 21.0
-**Last Updated:** May 9, 2026
+**Version:** 21.1
+**Last Updated:** May 10, 2026
 **Status:** Ready for Implementation
 
 ---
@@ -1102,6 +1102,7 @@ Provides the infrastructure for specialized tasks: immutable DNA distribution, S
 - STRICT isolation: `context-list` exits 0 but reports no selectable contexts and explicitly states isolation mode
 - STANDARD isolation: full context save/restore works identically to user tasks
 - `task-list` or any listing command shows specialized tasks in a distinct section
+- `task-check <task-id>` for a specialized task returns `exists:specialized`; `getTaskInfo()` checks the specialized directory and returns `location: 'specialized'` before falling through to `not-found`
 
 **Acceptance Criteria:**
 
@@ -1111,6 +1112,7 @@ Provides the infrastructure for specialized tasks: immutable DNA distribution, S
 | T-SPEC-2 | `save-context` called with the adversary task active exits non-zero; output matches `/strict.isolation\|not.*available\|specialized.*task/i`; no `.jsonl` file is created at **any path within the adversary task directories** (not just one specific filename) |
 | T-SPEC-3 | `context-list` for the adversary task exits 0; output matches `/strict.isolation\|no contexts.*isolation\|isolation.*no contexts/i`; output does NOT match any UUID pattern |
 | T-SPEC-4 | `update-import adversary` updates `.claude/CLAUDE.md` to contain exactly one `@import` line; the imported path resolves to a file on disk whose content contains "ADVERSARY" |
+| T-SPEC-5 | `task-check <task-id>` exits 0 and outputs `exists:specialized` when the task's CLAUDE.md exists only in the specialized directory (`~/.claude/context-curator/specialized/<task-id>/CLAUDE.md`); it does NOT output `not-found` when no golden or personal task of that name exists |
 
 > **Note:** T-SPEC-2 was found INADEQUATE by the LoD2 adversary (run 2026-03-14) — the test checked only one specific file path. The acceptance criterion above now requires checking all paths within the adversary task directories.
 
@@ -1525,6 +1527,7 @@ oauth-flow.v3.jsonl  # After mobile app integration
 
 ## Version History
 
+- **v21.1** (2026-05-10): T-SPEC-5 added — `task-check` must recognize specialized tasks and return `exists:specialized`; `getTaskInfo()` bug fix: specialized directory was not checked, causing `/task adversary` to fall through to the "create new task" prompt
 - **v21.0** (2026-05-09): Process sequencing skill added
     - **F-PROCESS (new):** `/prd-process` skill detects current phase via artifact presence and mtime heuristics; adversary-staleness check warns when `prd.md` is newer than `test-inventory.md`; resists out-of-order implementation requests; `--force` bypass available for intentional exceptions; T-PROC-1 through T-PROC-6 added
     - **`prd-process` added to authoring bundle:** skill directory added to `authoring/prd-process/`; `scripts/prd-process-status.ts` provides the underlying state-machine scan

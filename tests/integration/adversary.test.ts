@@ -326,6 +326,45 @@ describe('T-ADV-4 / T-SPEC-2: save-context rejected when adversary task is activ
 });
 
 // ---------------------------------------------------------------------------
+// T-SPEC-5: task-check recognizes specialized tasks
+// ---------------------------------------------------------------------------
+
+describe('T-SPEC-5: task-check recognizes specialized tasks', () => {
+  let ctx: TestContext;
+
+  beforeEach(() => {
+    ctx = createTestEnvironment('spec5');
+    // Plant specialized DNA only — no golden or personal task of the same name.
+    // This is the scenario that exposed the bug: getTaskInfo() only checked
+    // golden/personal and returned null for a specialized-only task.
+    setupSpecializedAdversaryTask(ctx.personalBase);
+  });
+
+  afterEach(() => ctx.cleanup());
+
+  it('should exit 0 and output exists:specialized when only the specialized path exists', async () => {
+    const result = await runScript(
+      'task-check',
+      ['adversary'],
+      ctx.projectDir,
+      { CLAUDE_HOME: ctx.personalBase }
+    );
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.trim()).toBe('exists:specialized');
+  });
+
+  it('should NOT output not-found when only the specialized path exists', async () => {
+    const result = await runScript(
+      'task-check',
+      ['adversary'],
+      ctx.projectDir,
+      { CLAUDE_HOME: ctx.personalBase }
+    );
+    expect(result.stdout).not.toContain('not-found');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // T-SPEC-3: context-list returns isolation message when adversary is active
 // ---------------------------------------------------------------------------
 

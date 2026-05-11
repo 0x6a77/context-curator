@@ -3178,6 +3178,7 @@ def sanitize_path(path: str) -> str:
 | T-SPEC-2 | `save-context` called with the adversary task active exits non-zero; output matches `/strict.isolation\|not.*available\|specialized.*task/i`; no `.jsonl` file is created at any personal or golden context path |
 | T-SPEC-3 | `context-list` for the adversary task exits 0; output matches `/strict.isolation\|no contexts.*isolation\|isolation.*no contexts/i`; output does NOT match any UUID pattern (`[0-9a-f]{8}-[0-9a-f]{4}`) |
 | T-SPEC-4 | `update-import adversary` updates `.claude/CLAUDE.md` to contain exactly one `@import` line; the imported path resolves to a file on disk whose content contains "ADVERSARY" |
+| T-SPEC-5 | `task-check <task-id>` exits 0 and outputs `exists:specialized` when the task's CLAUDE.md exists only in the specialized directory; it does NOT output `not-found` when no golden or personal task of that name exists |
 
 ### Test 15.1: DNA Immutability Across User Task Operations (T-SPEC-1)
 
@@ -3287,6 +3288,34 @@ def test_specialized_import_path():
     resolved = Path(import_path.replace("~", str(Path.home())))
     assert resolved.exists()
     assert "ADVERSARY" in resolved.read_text()
+```
+
+---
+
+### Test 15.5: task-check Recognizes Specialized Tasks (T-SPEC-5)
+
+**Setup:**
+```python
+# Create adversary DNA in CLAUDE_HOME specialized location only.
+# Do NOT create any golden or personal task of the same name.
+setup_specialized_adversary_task(personal_base)
+```
+
+**Execution:**
+```python
+def test_task_check_specialized():
+    result = run_script("task-check", ["adversary"])
+    assert result.exit_code == 0
+    assert result.stdout.strip() == "exists:specialized"
+```
+
+**Validation:**
+- stdout is exactly `exists:specialized` (not `not-found`, not `exists:golden`, not `exists:personal`)
+- exit code is 0
+
+**Expected Output:**
+```
+exists:specialized
 ```
 
 ---

@@ -17,8 +17,8 @@ Generates the HTML documentation set from `docs/markdown/`. Produces a shared CS
   write them to `style.md`, and tell the user to review before the next run
 - `style.md` defaults must include entries for color palette and typeface/font
 - All output HTML: WCAG 2.1 AA compliant
-- Every page: sidebar `<nav aria-label="Site navigation">` with all section links;
-  active page highlighted
+- Every page: sidebar `<nav aria-label="Site navigation">` links to home (`docs/index.html`)
+  and `glossary.html`; all section links present; active page highlighted
 - Heading hierarchy must not skip levels (no h3 without h2, no h2 without h1)
 - All `<img>` elements: non-empty `alt` attribute
 - Never inline styles or scripts in individual pages — all pages link to shared assets
@@ -42,6 +42,8 @@ docs/html/
   glossary.html
   permuted-index.html
 ```
+
+The file at `docs/html/index.html` is the entry point (`docs/index.html` in the site root).
 
 ## Workflow
 
