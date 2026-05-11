@@ -872,6 +872,94 @@ def test_multiple_task_switches():
 
 ---
 
+## 3a. Task Deletion Tests · F-TASK-DELETE
+
+**Acceptance Criteria:**
+
+| AC ID | Criterion |
+|-------|-----------|
+| T-TASK-DEL-1 | `delete-task` exits 0 and removes both personal and golden task directories for a valid non-default task-id |
+| T-TASK-DEL-2 | `delete-task` exits non-zero for task-id `default` and removes no directories |
+| T-TASK-DEL-3 | `delete-task` exits non-zero for a task-id that does not exist and removes no directories |
+
+### Test 3a.1: Delete a Valid Task
+
+**Setup:**
+```bash
+cd test-project  # Already initialized
+# Create task with golden and personal contexts
+```
+
+**Execution:**
+```bash
+node ~/.claude/context-curator/dist/scripts/delete-task.js my-task
+```
+
+**Validation:**
+```python
+def test_delete_valid_task():
+    # Both directories must be gone
+    assert not verify_file_exists(".claude/tasks/my-task/")
+    personal_task = Path.home() / ".claude/projects" / sanitize_path(project_dir) / "tasks/my-task"
+    assert not personal_task.exists()
+    # Exit code 0
+    assert result["returncode"] == 0
+```
+
+**Expected Output:**
+```
+✓ Deleted golden task: .claude/tasks/my-task
+✓ Deleted personal task: ~/.claude/projects/.../tasks/my-task
+
+✓ Deleted task: my-task
+✓ Removed N context(s)
+```
+
+---
+
+### Test 3a.2: Reject Deletion of Default Task
+
+**Execution:**
+```bash
+node ~/.claude/context-curator/dist/scripts/delete-task.js default
+```
+
+**Validation:**
+```python
+def test_delete_default_task():
+    assert result["returncode"] != 0
+    assert "cannot delete" in (result["stdout"] + result["stderr"]).lower()
+    assert verify_file_exists(".claude/tasks/default/CLAUDE.md")
+```
+
+**Expected Output:**
+```
+❌ Cannot delete the default task
+```
+
+---
+
+### Test 3a.3: Reject Deletion of Non-Existent Task
+
+**Execution:**
+```bash
+node ~/.claude/context-curator/dist/scripts/delete-task.js does-not-exist
+```
+
+**Validation:**
+```python
+def test_delete_nonexistent_task():
+    assert result["returncode"] != 0
+    assert "not found" in (result["stdout"] + result["stderr"]).lower()
+```
+
+**Expected Output:**
+```
+❌ Task 'does-not-exist' not found
+```
+
+---
+
 ## 4. Context Saving Tests · F-CTX-SAVE
 
 **Acceptance Criteria:**

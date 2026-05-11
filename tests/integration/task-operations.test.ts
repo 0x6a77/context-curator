@@ -407,6 +407,59 @@ describe('Task Switching Tests (Group 3)', () => {
 });
 
 // ==========================================================================
+// Task Deletion Tests (Group 3a) · F-TASK-DELETE
+// T-TASK-DEL-1, T-TASK-DEL-2, T-TASK-DEL-3
+// ==========================================================================
+
+describe('Task Deletion Tests (Group 3a)', () => {
+  let ctx: TestContext;
+
+  beforeEach(async () => {
+    ctx = createTestEnvironment('del');
+    writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test Project\n');
+    await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    await runScript('task-create', ['del-task', 'Task to be deleted'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+  });
+
+  afterEach(() => {
+    ctx.cleanup();
+  });
+
+  // T-TASK-DEL-1: delete-task exits 0 and removes both personal and golden directories
+  it('T-TASK-DEL-1: deletes valid task and removes both directories', async () => {
+    const goldenDir = join(ctx.projectDir, '.claude', 'tasks', 'del-task');
+    const personalDir = join(ctx.personalDir, 'tasks', 'del-task');
+
+    const result = await runScript('delete-task', ['del-task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+
+    expect(result.exitCode).toBe(0);
+    expect(fileExists(goldenDir)).toBe(false);
+    expect(fileExists(personalDir)).toBe(false);
+  });
+
+  // T-TASK-DEL-2: delete-task exits non-zero for "default" and removes nothing
+  it('T-TASK-DEL-2: rejects deletion of default task', async () => {
+    const defaultDir = join(ctx.projectDir, '.claude', 'tasks', 'default');
+
+    const result = await runScript('delete-task', ['default'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+
+    expect(result.exitCode).not.toBe(0);
+    const output = (result.stdout + result.stderr).toLowerCase();
+    expect(output).toMatch(/cannot delete|default/);
+    expect(fileExists(defaultDir)).toBe(true);
+  });
+
+  // T-TASK-DEL-3: delete-task exits non-zero for a task that does not exist
+  it('T-TASK-DEL-3: exits non-zero for non-existent task', async () => {
+    const result = await runScript('delete-task', ['does-not-exist'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+
+    expect(result.exitCode).not.toBe(0);
+    const output = (result.stdout + result.stderr).toLowerCase();
+    expect(output).toMatch(/not found|does-not-exist/);
+  });
+});
+
+// ==========================================================================
 // T-SWITCH-4 and T-SWITCH-5: Sessions vs named contexts separation
 // ==========================================================================
 

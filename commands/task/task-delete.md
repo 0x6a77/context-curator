@@ -44,10 +44,10 @@ Show what will be deleted.
 ## Step 4: Confirm Deletion
 
 ```
-Type the task name to confirm deletion: 
+Are you sure? (yes/no): 
 ```
 
-User must type the exact task name (not just "yes") as a safety measure.
+Proceed only if the user responds with "yes". Any other input cancels the deletion.
 
 ## Step 5: Delete
 

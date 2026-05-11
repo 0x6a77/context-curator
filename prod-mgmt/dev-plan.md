@@ -196,6 +196,11 @@ my-project/
 2. Copies skill directories into `.claude/skills/context-curator/`
 3. Adds manifest at `.claude/context-curator-manifest.json`
 
+### Phase 13: Task Deletion UX Fix (F-TASK-DELETE) ✅
+1. `commands/task/task-delete.md` Step 4: changed confirmation from "type the task name" to "Are you sure? (yes/no)"
+   - **Why:** Typing the task name is higher friction than necessary; the task-id is already provided as an argument so the user clearly knows what they are deleting. A simple yes/no is sufficient to prevent accidental triggers.
+2. Documentation updated: `docs/markdown/getting-started.md` — added `/task-delete` section
+
 ---
 
 ## Phase 6: Skills Architecture Migration

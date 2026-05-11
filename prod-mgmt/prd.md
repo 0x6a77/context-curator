@@ -1,7 +1,7 @@
 # Product Requirements Document: Claude Code Context Curator
 
-**Version:** 21.2
-**Last Updated:** May 10, 2026
+**Version:** 21.3
+**Last Updated:** May 11, 2026
 **Status:** Ready for Implementation
 
 ---
@@ -564,6 +564,29 @@ If task exists:
 | T-SWITCH-4 | `context-list --json` for a task with active sessions but no saved contexts returns `contexts: []` (empty array) — session UUIDs must never appear in the `contexts` field |
 | T-SWITCH-5 | When `contexts` is empty, the switch UI displays a "no contexts" message and does NOT present UUID session files as numbered selectable options |
 | T-SWITCH-6 | Switching to `default` task sets `@import` to point to `default/CLAUDE.md` and script output confirms the switch (e.g. "vanilla" or "restored") |
+
+### F-TASK-DELETE · Task Deletion (`/task-delete <task-id>`)
+
+Deletes a task and all its contexts (both personal and golden). Requires a simple yes/no confirmation before proceeding.
+
+**Command:** `/task-delete <task-id>`
+
+**Expected Behaviors:**
+- Rejects deletion of the `default` task
+- Shows what will be deleted (task ID, context count, location)
+- Prompts: "Are you sure? (yes/no)" — a simple boolean, not "type the task name"
+- On "yes": removes both personal and golden task directories
+- On "no" or any other input: cancels without deleting
+- If the deleted task was the current task: switches `@import` to `default`
+- Reminds user to `git rm` golden files if any existed
+
+**Acceptance Criteria:**
+
+| Test ID | Criterion |
+|---------|-----------|
+| T-TASK-DEL-1 | `delete-task` exits 0 and removes both personal and golden task directories when called with a valid non-default task-id |
+| T-TASK-DEL-2 | `delete-task` exits non-zero for task-id `default` and removes no directories |
+| T-TASK-DEL-3 | `delete-task` exits non-zero for a task-id that does not exist and removes no directories |
 
 ### F-CTX-SAVE · Context Saving (`/context-save <n>`)
 
