@@ -90,35 +90,99 @@
 
     <h2>The Full Process Flow</h2>
 
-    <pre><code>Phase 1: PRD Authoring
-  Write features → F-XXX codes → T-XXX acceptance criteria
+    <svg viewBox="0 0 660 720" xmlns="http://www.w3.org/2000/svg"
+         style="width:100%;max-width:660px;display:block;margin:1.5rem 0"
+         role="img"
+         aria-label="PRD-Driven Development process flow: Phase 1 PRD Authoring, Phase 1a User Documentation, Phase 2 Test Plan, Phase 3 Dev Plan, Phase 4 Implementation, Phase 5 Adversarial Review. On FAIL/ESCALATE: Phase 6 Remediation, then Phase 7 Risk Acceptance if oscillating, looping back to Phase 5. On all PASS/ACCEPTED: Phase 8 Verification.">
+      <defs>
+        <marker id="bfw-arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0,8 3,0 6" fill="#6366f1"/>
+        </marker>
+        <marker id="bfw-pass" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0,8 3,0 6" fill="#34d399"/>
+        </marker>
+        <marker id="bfw-fail" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0,8 3,0 6" fill="#f87171"/>
+        </marker>
+        <marker id="bfw-warn" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0,8 3,0 6" fill="#f59e0b"/>
+        </marker>
+        <marker id="bfw-loop" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0,8 3,0 6" fill="#888888"/>
+        </marker>
+      </defs>
 
-Phase 1a: User Documentation
-  /docs-markdown → update markdown docs
-  /docs-html → regenerate HTML
-  Share with users → capture feedback → iterate
+      <!-- Phase 1 -->
+      <rect x="115" y="20" width="190" height="56" rx="6" style="fill:var(--surface);stroke:var(--border);stroke-width:1.5"/>
+      <text x="210" y="40" text-anchor="middle" font-size="11" font-weight="600" font-family="'Inter',sans-serif" style="fill:var(--accent)">PHASE 1</text>
+      <text x="210" y="57" text-anchor="middle" font-size="13" font-family="'Inter',sans-serif" style="fill:var(--text)">PRD Authoring</text>
+      <line x1="210" y1="76" x2="210" y2="103" style="stroke:var(--accent);stroke-width:1.5" marker-end="url(#bfw-arr)"/>
 
-Phase 2: Test Plan
-  AC clauses → concrete test cases (Setup/Execution/Validation)
+      <!-- Phase 1a -->
+      <rect x="115" y="103" width="190" height="56" rx="6" style="fill:var(--surface);stroke:var(--border);stroke-width:1.5"/>
+      <text x="210" y="123" text-anchor="middle" font-size="11" font-weight="600" font-family="'Inter',sans-serif" style="fill:var(--accent)">PHASE 1a</text>
+      <text x="210" y="140" text-anchor="middle" font-size="13" font-family="'Inter',sans-serif" style="fill:var(--text)">User Documentation</text>
+      <line x1="210" y1="159" x2="210" y2="186" style="stroke:var(--accent);stroke-width:1.5" marker-end="url(#bfw-arr)"/>
 
-Phase 3: Dev Plan
-  Features → ordered implementation phases
+      <!-- Phase 2 -->
+      <rect x="115" y="186" width="190" height="56" rx="6" style="fill:var(--surface);stroke:var(--border);stroke-width:1.5"/>
+      <text x="210" y="206" text-anchor="middle" font-size="11" font-weight="600" font-family="'Inter',sans-serif" style="fill:var(--accent)">PHASE 2</text>
+      <text x="210" y="223" text-anchor="middle" font-size="13" font-family="'Inter',sans-serif" style="fill:var(--text)">Test Plan</text>
+      <line x1="210" y1="242" x2="210" y2="269" style="stroke:var(--accent);stroke-width:1.5" marker-end="url(#bfw-arr)"/>
 
-Phase 4: Implementation
-  Follow dev plan phases → write code → pass tests
+      <!-- Phase 3 -->
+      <rect x="115" y="269" width="190" height="56" rx="6" style="fill:var(--surface);stroke:var(--border);stroke-width:1.5"/>
+      <text x="210" y="289" text-anchor="middle" font-size="11" font-weight="600" font-family="'Inter',sans-serif" style="fill:var(--accent)">PHASE 3</text>
+      <text x="210" y="306" text-anchor="middle" font-size="13" font-family="'Inter',sans-serif" style="fill:var(--text)">Dev Plan</text>
+      <line x1="210" y1="325" x2="210" y2="352" style="stroke:var(--accent);stroke-width:1.5" marker-end="url(#bfw-arr)"/>
 
-Phase 5: Adversarial Review (Boss Fight)
-  /task adversary → fresh session → test-inventory.md
+      <!-- Phase 4 -->
+      <rect x="115" y="352" width="190" height="56" rx="6" style="fill:var(--surface);stroke:var(--border);stroke-width:1.5"/>
+      <text x="210" y="372" text-anchor="middle" font-size="11" font-weight="600" font-family="'Inter',sans-serif" style="fill:var(--accent)">PHASE 4</text>
+      <text x="210" y="389" text-anchor="middle" font-size="13" font-family="'Inter',sans-serif" style="fill:var(--text)">Implementation</text>
+      <line x1="210" y1="408" x2="210" y2="435" style="stroke:var(--accent);stroke-width:1.5" marker-end="url(#bfw-arr)"/>
 
-  FAIL/ESCALATE?          All PASS/ACCEPTED?
-       ↓                        ↓
-Phase 6: Remediation     Phase 8: Verification
-  Fix upstream              Tests pass + adversary clean
+      <!-- Phase 5 — Boss Fight (accent border) -->
+      <rect x="115" y="435" width="190" height="70" rx="6" style="fill:var(--surface);stroke:var(--accent);stroke-width:2"/>
+      <text x="210" y="455" text-anchor="middle" font-size="11" font-weight="600" font-family="'Inter',sans-serif" style="fill:var(--accent)">PHASE 5</text>
+      <text x="210" y="472" text-anchor="middle" font-size="13" font-family="'Inter',sans-serif" style="fill:var(--text)">Adversarial Review</text>
+      <text x="210" y="489" text-anchor="middle" font-size="11" font-family="'Inter',sans-serif" style="fill:var(--muted)">Boss Fight</text>
 
-  Oscillating?
-       ↓
-Phase 7: Risk Acceptance
-  Document and accept specific findings → re-run adversary</code></pre>
+      <!-- Phase 5 → Phase 8 (All PASS/ACCEPTED) -->
+      <line x1="305" y1="470" x2="440" y2="470" style="stroke:var(--success);stroke-width:1.5" marker-end="url(#bfw-pass)"/>
+      <text x="372" y="453" text-anchor="middle" font-size="10" font-family="'Inter',sans-serif" style="fill:var(--success)">All PASS /</text>
+      <text x="372" y="465" text-anchor="middle" font-size="10" font-family="'Inter',sans-serif" style="fill:var(--success)">ACCEPTED</text>
+
+      <!-- Phase 8 — Verification -->
+      <rect x="440" y="442" width="190" height="56" rx="6" style="fill:var(--surface);stroke:var(--border);stroke-width:1.5"/>
+      <text x="535" y="462" text-anchor="middle" font-size="11" font-weight="600" font-family="'Inter',sans-serif" style="fill:var(--accent)">PHASE 8</text>
+      <text x="535" y="479" text-anchor="middle" font-size="13" font-family="'Inter',sans-serif" style="fill:var(--text)">Verification</text>
+
+      <!-- Phase 5 → Phase 6 (FAIL/ESCALATE) -->
+      <line x1="210" y1="505" x2="210" y2="545" style="stroke:var(--danger);stroke-width:1.5" marker-end="url(#bfw-fail)"/>
+      <text x="225" y="527" text-anchor="start" font-size="10" font-family="'Inter',sans-serif" style="fill:var(--danger)">FAIL / ESCALATE</text>
+
+      <!-- Phase 6 — Remediation -->
+      <rect x="115" y="545" width="190" height="56" rx="6" style="fill:var(--surface);stroke:var(--border);stroke-width:1.5"/>
+      <text x="210" y="565" text-anchor="middle" font-size="11" font-weight="600" font-family="'Inter',sans-serif" style="fill:var(--accent)">PHASE 6</text>
+      <text x="210" y="582" text-anchor="middle" font-size="13" font-family="'Inter',sans-serif" style="fill:var(--text)">Remediation</text>
+
+      <!-- Phase 6 → Phase 7 (Oscillating?) -->
+      <line x1="210" y1="601" x2="210" y2="641" style="stroke:var(--warning);stroke-width:1.5" marker-end="url(#bfw-warn)"/>
+      <text x="225" y="623" text-anchor="start" font-size="10" font-family="'Inter',sans-serif" style="fill:var(--warning)">Oscillating?</text>
+
+      <!-- Phase 7 — Risk Acceptance -->
+      <rect x="115" y="641" width="190" height="56" rx="6" style="fill:var(--surface);stroke:var(--border);stroke-width:1.5"/>
+      <text x="210" y="661" text-anchor="middle" font-size="11" font-weight="600" font-family="'Inter',sans-serif" style="fill:var(--accent)">PHASE 7</text>
+      <text x="210" y="678" text-anchor="middle" font-size="13" font-family="'Inter',sans-serif" style="fill:var(--text)">Risk Acceptance</text>
+
+      <!-- Loop: Phase 7 → Phase 5 (re-run adversary) -->
+      <path d="M 115 669 L 50 669 L 50 470 L 115 470" fill="none"
+            style="stroke:var(--muted);stroke-width:1.5;stroke-dasharray:4 3"
+            marker-end="url(#bfw-loop)"/>
+      <text x="38" y="570" text-anchor="middle" font-size="10" font-family="'Inter',sans-serif"
+            style="fill:var(--muted)" transform="rotate(-90,38,570)">re-run adversary</text>
+    </svg>
 
 
     <h2>User Documentation: <code>/docs-markdown</code> and <code>/docs-html</code></h2>
