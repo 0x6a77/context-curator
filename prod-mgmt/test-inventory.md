@@ -1,6 +1,7 @@
 # Test Inventory — Context Curator
-**Adversary Run:** 2026-05-09 (LoD2) — updated 2026-05-09 with T-HOOK-POST-3 PASS, T-MKT-3 PASS, T-MON-5 PASS, T-MON-7 PASS, T-MON-13 PASS; verify-manifest.ts created; updated 2026-05-09 with T-DOC-1–6 PASS, T-MKT-2 PASS, T-MKT-4 PASS (static SKILL.md validation); updated 2026-05-09 with T-UDOC-1–8 PASS (static docs-markdown/docs-html SKILL.md validation)
-**PRD Version:** 20.1 (v21.0 per version history)
+**Adversary Run:** 2026-05-10 (LoD2) — added T-SPEC-5 PASS (task-check specialized task recognition); corrected T-UDOC-1 stale description (feature-section-map.md → docs-brief.md); updated PRD version to v21.2
+**Prior runs:** 2026-05-09 (LoD2) — T-HOOK-POST-3 PASS, T-MKT-3 PASS, T-MON-5 PASS, T-MON-7 PASS, T-MON-13 PASS; verify-manifest.ts created; T-DOC-1–6 PASS, T-MKT-2 PASS, T-MKT-4 PASS (static SKILL.md validation); T-UDOC-1–8 PASS (static docs-markdown/docs-html SKILL.md validation)
+**PRD Version:** 21.2
 **Risk Acceptances loaded:** RA-001 (ACCEPTED, expires 2026-09-12), RA-002 (ACCEPTED, expires v2.0-release)
 
 ---
@@ -100,6 +101,7 @@
 | F-SPEC | T-SPEC-2 | Runs `save-context` with the adversary task active; calls `findJsonlFiles` (recursive `readdirSync` walk) on both the personal adversary task directory and the golden adversary contexts directory; asserts both scans return empty arrays. | No `.jsonl` file is created at any path within the adversary task directories when `save-context` is called with the adversary task active | `findJsonlFiles` walks the full directory tree recursively. Any `.jsonl` at any filename or subdirectory depth within either adversary task directory tree would be detected. Both personal and golden trees are scanned. Satisfies the AC. | PASS |
 | F-SPEC | T-SPEC-3 | Calls `context-list` for the adversary task; asserts exit 0; asserts output matches `/strict.isolation|no contexts.*isolation|isolation.*no contexts/i`; asserts output does not match a UUID pattern. | `context-list` for the adversary task exits 0; output matches the strict-isolation pattern; output does not surface any UUID | All three requirements verified independently. UUID exclusion pattern is explicit. Satisfies the AC. | PASS |
 | F-SPEC | T-SPEC-4 | Calls `update-import adversary`; counts `@import` lines; asserts exactly one; extracts the import path; asserts path ends with `specialized/adversary/CLAUDE.md`; resolves path; asserts file exists and content contains "ADVERSARY". | `update-import adversary` writes exactly one `@import` line; the imported path resolves to a file whose content contains "ADVERSARY" | Import line count asserted. Path suffix verified. File resolved and existence asserted. Content verified. Satisfies the AC. | PASS |
+| F-SPEC | T-SPEC-5 | Plants specialized DNA only at `<personalBase>/context-curator/specialized/adversary/CLAUDE.md` — no golden or personal task of that name. Calls `task-check adversary`; asserts exit 0; asserts `stdout.trim() === 'exists:specialized'`. Second assertion: `stdout` does NOT contain `not-found`. | `task-check <task-id>` exits 0 and outputs `exists:specialized` when the task's CLAUDE.md exists only in the specialized directory; it does NOT output `not-found` when no golden or personal task of that name exists | Setup plants DNA at the exact path the AC specifies (`~/.claude/context-curator/specialized/<task-id>/CLAUDE.md`), with no golden or personal task present — the scenario that exposed the `getTaskInfo()` bug. Exit 0 and exact-string `exists:specialized` both asserted independently. Negative assertion (`not-found` absent) guards the pre-bug fallthrough path. Satisfies the AC. | PASS |
 | F-ADVERSARY | T-ADV-1 | Mirrors install.sh step 5 in an isolated temp HOME by copying `specialized/` via `cpSync`; asserts the installed path exists; asserts content contains both "ADVERSARY" and "STRICT". | After `./install.sh`, `~/.claude/context-curator/specialized/adversary/CLAUDE.md` exists and contains both "ADVERSARY" and "STRICT" | Unconditional — no `skipIf`. Runs on every machine. Mirrors the exact install.sh copy operation. Both required strings asserted independently. Satisfies the AC. | PASS |
 | F-ADVERSARY | T-ADV-2 | Calls `update-import adversary`; asserts exit 0; asserts exactly one `@import` line; asserts path ends with `specialized/adversary/CLAUDE.md`; resolves path; asserts file exists and contains "ADVERSARY". | `update-import adversary` writes exactly one `@import` ending in `specialized/adversary/CLAUDE.md`; the file at that path exists and contains "ADVERSARY" | Import suffix, file existence, and content all independently verified. Satisfies the AC. | PASS |
 | F-ADVERSARY | T-ADV-3 | Same test block as T-SPEC-1: reads isolated DNA; runs the three required user task operations; asserts byte-exact equality before and after. | Read adversary DNA before `task-create oauth-refactor`, `update-import oauth-refactor`, `save-context test-ctx --personal`; assert content is byte-for-byte identical after all three operations | Isolated path. All three operations performed. Byte equality asserted. Satisfies the AC. | PASS |
@@ -108,8 +110,8 @@
 | F-PRD | T-PRD-2 | Extracts only AC table rows from the PRD (not prose references); counts occurrences of each T-XXX code via a Map; reports any code appearing more than once. | Every T-XXX code in the PRD is unique | Counts only AC-table rows, preventing prose occurrences from inflating counts. Duplicate detection is exhaustive. Satisfies the AC. | PASS |
 | F-PRD | T-PRD-3 | Creates a temp project; calls `init-project`; asserts `prod-mgmt/risk-acceptances.md` contains "DISPOSITION", "EXPIRY", and "RA_ID". | `prod-mgmt/risk-acceptances.md` contains "DISPOSITION", "EXPIRY", and "RA_ID" after `task-init` | All three strings asserted. Runs through the implementation. Satisfies the AC. | PASS |
 | F-PRD | T-PRD-4 | Reads PRD T-XXX codes into a Set; reads inventory T-XXX codes; asserts no inventory code is absent from the PRD set; silently skips if inventory absent. | `prod-mgmt/test-inventory.md` (when it exists) references only T-XXX codes that appear in the current PRD | The `if (!existsSync) return` matches the AC's "when it exists" conditional. When present, orphan detection is exhaustive. Satisfies the AC. | PASS |
-| F-DOC | T-UDOC-1 | Reads `docs-markdown/SKILL.md`; asserts `feature-section-map.md`, `F-XXX`, prompt/Prompt, section, and `| F-XXX |` table format all present. | After `/docs-markdown` on a PRD with a new F-XXX feature, skill prompts for section assignment; `feature-section-map.md` updated | SKILL.md workflow step 2 explicitly names the prompt instruction and the feature-section-map.md update. Table format spec verifies the map row structure. Satisfies the structural AC. | PASS |
-| F-DOC | T-UDOC-2 | Reads `docs-markdown/SKILL.md`; asserts `toc.md` present and `/link.*section\|section.*link/i` matches. | `docs/markdown/toc.md` contains a link to every product section in `feature-section-map.md` | SKILL.md step 4 explicitly instructs regenerating toc.md with links to all sections. Satisfies the structural AC. | PASS |
+| F-DOC | T-UDOC-1 | Reads `docs-markdown/SKILL.md`; asserts `docs-brief.md`, `F-XXX`, `/[Pp]rompt/`, `/gate/i`, and `\| F-` Feature Routing table format all present. | `docs/markdown/SKILL.md` references `docs-brief.md`; the skill workflow specifies reading `docs-brief.md` before updating any page; the Feature Routing table format (`\| F-` pattern) appears in the SKILL.md | SKILL.md workflow step 1 explicitly requires reading `docs-brief.md` before updating any page. Workflow step 3 specifies the Feature Routing table update with `\| F-XXX \|` row format. The `/gate/i` assertion targets the gate-based routing system. `feature-section-map.md` is absent from SKILL.md entirely — the inventory description was stale prior to 2026-05-10 correction. Satisfies the structural AC. | PASS |
+| F-DOC | T-UDOC-2 | Reads `docs-markdown/SKILL.md`; asserts `toc.md` present, `docs-brief.md` present, and `/navigation|nav.*arch/i` matches. | `docs/markdown/toc.md` contains links to every page listed in the Navigation Architecture section of `docs/docs-brief.md`; any page in the Primary or Secondary nav without a TOC link is a FAIL | SKILL.md workflow step 5 explicitly instructs regenerating `toc.md` reflecting the navigation architecture defined in `docs/docs-brief.md`. Both `toc.md` and `docs-brief.md` references and navigation architecture instruction all asserted. Satisfies the structural AC. | PASS |
 | F-DOC | T-UDOC-3 | Reads `docs-markdown/SKILL.md`; asserts `glossary.md` and "Core Concepts" both present. | `docs/markdown/glossary.md` is non-empty after `/docs-markdown`; every Core Concepts term appears | SKILL.md step 5 explicitly instructs sourcing all Core Concepts terms from PRD for glossary.md. Satisfies the structural AC. | PASS |
 | F-DOC | T-UDOC-4 | Reads `docs-html/SKILL.md`; asserts `docs/index.html`, `introduction.md`, and `toc.md` all present. | After `/docs-html`, `docs/index.html` exists and contains text from `introduction.md` and `toc.md` | SKILL.md output files section names both source files as inputs to docs/index.html. Satisfies the structural AC. | PASS |
 | F-DOC | T-UDOC-5 | Reads `docs-html/SKILL.md`; asserts `<nav` present; asserts `/home.*index\.html\|index\.html.*home/i` matches; asserts `glossary` present. | All generated HTML pages contain a `<nav>` element with links to home and glossary | SKILL.md generation constraints explicitly require `<nav>` with home and glossary links on every page. Satisfies the structural AC. | PASS |
@@ -333,6 +335,7 @@
 | T-SPEC-2 | adversary.test.ts | ADEQUATE |
 | T-SPEC-3 | adversary.test.ts | ADEQUATE |
 | T-SPEC-4 | adversary.test.ts | ADEQUATE |
+| T-SPEC-5 | adversary.test.ts | ADEQUATE |
 
 ### F-ADVERSARY
 
@@ -356,7 +359,7 @@
 
 | Clause | Tests | Coverage |
 |--------|-------|----------|
-| T-UDOC-1 | doc-authoring.test.ts | ADEQUATE |
+| T-UDOC-1 | doc-authoring.test.ts | ADEQUATE — note: PRD AC references `docs/markdown/SKILL.md` (path does not exist); test correctly reads `src/skills/context-curator/authoring/docs-markdown/SKILL.md` (actual skill implementation). AC path is a PRD editorial defect; test intent and assertions are sound. |
 | T-UDOC-2 | doc-authoring.test.ts | ADEQUATE |
 | T-UDOC-3 | doc-authoring.test.ts | ADEQUATE |
 | T-UDOC-4 | doc-authoring.test.ts | ADEQUATE |
@@ -382,15 +385,15 @@
 
 | Verdict | Count |
 |---------|-------|
-| PASS | 113 |
+| PASS | 114 |
 | FAIL | 0 |
 | ESCALATE | 2 |
 | ACCEPTED | 1 |
-| **Total** | **116** |
+| **Total** | **117** |
 
-**Changes since prior run (latest):** Implemented static SKILL.md validation tests for T-UDOC-1–T-UDOC-8 via `docs-markdown/SKILL.md` and `docs-html/SKILL.md` (all ESCALATE→PASS). All F-DOC and F-DOC-SKILLS tests now covered.
+**Changes since prior run (2026-05-10):** T-SPEC-5 PASS (task-check recognizes specialized tasks; test existed in adversary.test.ts, not previously inventoried — added to cover PRD v21.1 addition). T-UDOC-1 description corrected: prior description incorrectly claimed the test asserted `feature-section-map.md`; actual test code asserts `docs-brief.md`; SKILL.md has zero references to `feature-section-map.md`. T-UDOC-2 description corrected to reflect PRD v21.2 AC (links to pages in Navigation Architecture of `docs-brief.md`). PRD version updated to v21.2.
 
-**Prior changes:** T-DOC-1–6 PASS (static prd/test-plan/dev-plan/test-inventory SKILL.md validation). T-MKT-2 PASS (cpSync + manifest parse). T-MKT-4 PASS (static JSON structure). T-MKT-3 mismatch PASS (verify-manifest.ts). T-HOOK-POST-3 PASS (DEP0205 filter). T-MON-5, T-MON-7, T-MON-13 PASS (DEP0205 filter + worker_threads).
+**Prior changes (2026-05-09):** T-UDOC-1–T-UDOC-8 PASS (static docs-markdown/docs-html SKILL.md validation). T-DOC-1–6 PASS (static prd/test-plan/dev-plan/test-inventory SKILL.md validation). T-MKT-2 PASS (cpSync + manifest parse). T-MKT-4 PASS (static JSON structure). T-MKT-3 mismatch PASS (verify-manifest.ts). T-HOOK-POST-3 PASS (DEP0205 filter). T-MON-5, T-MON-7, T-MON-13 PASS (DEP0205 filter + worker_threads).
 
 **0 confirmed FAILs.**
 
