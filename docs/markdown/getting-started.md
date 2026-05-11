@@ -132,57 +132,6 @@ This restores vanilla Claude behavior. Useful when you need to step outside your
 
 ---
 
-## Sandbox Configuration
-
-If you run Claude Code with sandbox mode enabled, you need one additional step. Context Curator writes to `~/.claude/projects/` (outside your project directory), which the sandbox blocks by default.
-
-Create `.claude/settings.json` in your project:
-
-```json
-{
-  "env": {
-    "INHERIT_FROM_SHELL": "true"
-  },
-  "sandbox": {
-    "enabled": true,
-    "excludedCommands": [
-      "node ~/.claude/context-curator/dist/scripts/"
-    ]
-  }
-}
-```
-
-The `excludedCommands` entry lets Context Curator write task and context data to `~/.claude/projects/` while keeping all other sandbox restrictions in place. Commit `settings.json` to git — all teammates need it.
-
-If you're not using sandbox mode, skip this step.
-
----
-
-## Optional Setup
-
-### Container-Use
-
-[container-use](https://github.com/dagger/container-use) runs Claude's file and shell operations inside isolated containers. To enable it alongside Context Curator, add to your global `~/.claude/CLAUDE.md`:
-
-```markdown
-## Container Use
-
-ALWAYS use ONLY Environments for ANY and ALL file, code, or shell operations.
-```
-
-### Consistent Commit Messages
-
-To get Claude to suggest a consistent commit message format on every session, add to your global `~/.claude/CLAUDE.md`:
-
-```markdown
-## Git Commits
-
-For every prompt, suggest a commit message: first line under 50 characters,
-followed by a blank line, followed by the prompt text.
-```
-
----
-
 ## Quick Example
 
 ```bash
@@ -209,8 +158,10 @@ cd ~/my-project
 
 ---
 
-## Next Steps
+You now have everything you need to use Context Curator solo.
 
-- [Managing Contexts](managing-contexts.md) — save, list, and share warmed-up sessions
-- [Context Monitoring](context-monitoring.md) — watch fill level and get warnings before quality drops
-- [Hooks and Automation](hooks-automation.md) — automatic protection so you never lose a session accidentally
+- [Managing Contexts](managing-contexts.md) — save, list, and restore warmed-up sessions
+- [Context Monitoring](context-monitoring.md) — know when to save before quality drops
+- [Hooks and Automation](hooks-automation.md) — automatic protection so you never lose a session
+
+When you're ready to bring in teammates: [For Teams](for-teams.md)

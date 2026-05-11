@@ -197,26 +197,21 @@ User-facing documentation pages organized around how users understand and work w
 
 PRD features are atomic engineering specifications. Product sections are user-coherent topics. A single product section may cover multiple features; a complex feature may warrant its own section.
 
-The mapping between features and product sections is maintained in a living document:
+Feature routing — including gate assignment, page, and nav tier — is maintained in a living document:
 
-**`docs/feature-section-map.md`**
+**`docs/docs-brief.md`**
+
+This document captures more than routing. It is a full documentation design brief containing: the core message that anchors every page, reader journey gates (1–4) that define what readers learn and what is hidden at each stage, navigation architecture (primary / secondary / separate / footer tiers), and editorial rules. The Feature Routing table at the bottom derives from the gate assignments.
 
 ```markdown
-# Feature → Product Section Mapping
-
-| PRD Feature | Feature Description | Product Section | Notes |
-|-------------|---------------------|-----------------|-------|
-| F-INIT      | Project initialization | Getting Started | Combined with F-TASK |
-| F-TASK      | Task creation/switching | Getting Started | |
-| F-CTX-SAVE  | Context save/restore | Managing Contexts | |
-| F-CTX-MONITOR | Context monitoring | Managing Contexts | Sub-features combined |
-| F-SPEC      | Specialized tasks | Advanced Usage | |
-| F-ADVERSARY | Adversary task | Boss-Fight Workflow | |
-| F-PRD       | PRD-driven development | Boss-Fight Workflow | |
-| F-DOC-SKILLS | Documentation skills | Boss-Fight Workflow | |
+| Feature       | Gate | Page              | Nav Tier  |
+|---------------|------|-------------------|-----------|
+| F-INIT        | 1    | Getting Started   | Primary   |
+| F-TASK-CREATE | 1–2  | Getting Started   | Primary   |
+| F-ADVERSARY   | 4    | Boss-Fight        | Separate  |
 ```
 
-**The mapping is established by the designer-developer, not by the documentation process.** When updating documentation after a PRD change, the `/docs-markdown` skill asks: "Which product section should [F-XXX] be documented in? (Existing sections: [list]. Or enter a new section name.)" This prompt is deliberate — forcing a decision about where the feature lives from the user's perspective, not just the engineer's.
+**Gate assignment is established by the designer-developer, not by the documentation process.** When updating documentation after a PRD change, the `/docs-markdown` skill asks: "Assign [F-XXX] to a gate (1–4) and page." This forces a decision about who needs this feature and when — not just where it goes in the navigation.
 
 ### Linking Conventions
 
@@ -284,13 +279,13 @@ Two skills implement the documentation workflow:
 
 **What it does:**
 1. Reads the current PRD and identifies changed or new features
-2. Reads `docs/feature-section-map.md` to understand current section assignments
+2. Reads `docs/docs-brief.md` to understand gate assignments, navigation architecture, and editorial rules
 3. For new features: asks the designer-developer which product section they belong in
 4. Updates the affected product section pages
 5. Updates `toc.md` if sections were added or renamed
 6. Updates `glossary.md` with any new terms
 7. Regenerates `permuted-index.md` from the full term set
-8. Updates `docs/feature-section-map.md` with any new feature-to-section assignments
+8. Updates the Feature Routing table in `docs/docs-brief.md` with any new gate/page assignments
 9. Reports what changed
 
 **What it asks:**
@@ -1088,7 +1083,7 @@ RA_ID / SCOPE / FINDING / SEVERITY / DISPOSITION / RATIONALE / APPROVED_BY / APP
 - [ ] Run `/docs-markdown` — confirm feature-to-section mapping is correct
 - [ ] Run `/docs-html` — address any a11y warnings
 - [ ] Share updated `docs/index.html` with users
-- [ ] Update `docs/feature-section-map.md` if sections changed
+- [ ] Update Feature Routing table in `docs/docs-brief.md` if sections or gates changed
 - [ ] Confirm glossary covers all new terms introduced
 
 ---
@@ -1097,7 +1092,7 @@ RA_ID / SCOPE / FINDING / SEVERITY / DISPOSITION / RATIONALE / APPROVED_BY / APP
 
 The documentation process described above can be extended in several directions. These are not current commitments — they are directions worth considering:
 
-**1. Documentation coverage as an adversary check.** Extend the adversary task to verify that every F-XXX feature is covered by at least one product section page. A PRD feature with no documentation coverage is a gap that the current adversary does not flag. An additional structural check — "does `feature-section-map.md` contain an entry for every F-XXX code in the PRD?" — closes this loop.
+**1. Documentation coverage as an adversary check.** Extend the adversary task to verify that every F-XXX feature is covered by at least one product section page. A PRD feature with no documentation coverage is a gap that the current adversary does not flag. An additional structural check — "does the Feature Routing table in `docs/docs-brief.md` contain an entry for every F-XXX code in the PRD?" — closes this loop.
 
 **2. Versioned documentation snapshots.** Because documentation is updated early and often (Phase 1a runs after every PRD update), the git history of `docs/markdown/` becomes a record of how the product's user-facing description evolved. Tagging documentation snapshots alongside PRD version bumps would allow a team to reconstruct "what did the documentation say at PRD v14.0?" — useful for understanding why certain design decisions were made.
 
@@ -1223,7 +1218,7 @@ Context Curator preserves the human + AI knowledge that goes into authoring good
 
 **Artifact Triad:** The three human-authored documents that define a feature: PRD (what), dev plan (how to build), test plan (how to verify).
 
-**Feature-to-Section Mapping:** The living document (`docs/feature-section-map.md`) that records how PRD F-XXX features are grouped into user-facing product sections in the documentation.
+**Documentation Brief:** The living document (`docs/docs-brief.md`) that records the core message, reader journey gates, navigation architecture, editorial rules, and feature routing for the documentation system. Replaces the earlier `feature-section-map.md`.
 
 **Product Section:** A user-coherent documentation page covering one aspect of the system as users experience it. May cover multiple PRD features. Named and organized around user workflows, not engineering taxonomy.
 

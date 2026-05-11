@@ -1,6 +1,6 @@
 # Managing Contexts
 
-A [context](glossary.md#context) is a named snapshot of a Claude Code session. This page covers saving, listing, promoting, and cleaning up contexts.
+A [context](glossary.md#context) is a named snapshot of a Claude Code session. Save one when Claude has genuinely warmed up; restore it later — Claude picks up at the same depth of understanding.
 
 ## Saving a Context
 
@@ -8,28 +8,16 @@ A [context](glossary.md#context) is a named snapshot of a Claude Code session. T
 /context-save deep-understanding
 ```
 
-This saves your current session as a [personal context](glossary.md#personal-context) — stored in your home directory, never committed to git, visible only to you.
+Saves your current session as a [personal context](glossary.md#personal-context) — stored in your home directory, never committed to git, visible only to you.
 
 Context names must be alphanumeric with hyphens or underscores: `morning-progress`, `found_the_bug`, `auth-v2`.
 
 **What gets saved:**
-- The full conversation history (all messages)
-- An AI-generated summary of key topics, decisions, and accomplishments
+- Full conversation history
+- An AI-generated summary of what the session covered
 - Metadata: message count, timestamp, task association
 
-**Overwrite protection:** If a context with that name already exists, Context Curator creates a `.backup-` copy of the original before overwriting. You won't lose prior work.
-
-### Saving a Golden (Team-Shared) Context
-
-```bash
-/context-save team-baseline --golden
-```
-
-[Golden contexts](glossary.md#golden-context) are saved inside the project directory at `.claude/tasks/<task>/contexts/` and committed to git. Any teammate who pulls gets access.
-
-Before saving a golden context, Context Curator scans for secrets. If it finds anything — API keys, tokens, passwords, private keys — it reports them. Secrets block golden promotion; redact or remove them first.
-
-**Size limit:** Sessions over 100KB cannot be promoted to golden. For large sessions, trim or summarize before promoting.
+**Overwrite protection:** If that name already exists, Context Curator backs up the original before overwriting.
 
 ---
 
@@ -39,103 +27,65 @@ Before saving a golden context, Context Curator scans for secrets. If it finds a
 /context-list
 ```
 
-Lists all contexts for the current task, personal first then golden:
+Lists all contexts for the current task:
 
 ```
 auth-refactor — contexts
 
 Personal:
-  1. deep-understanding (47 msgs, 2026-05-09) — Mapped token refresh flow, found session race condition
+  1. deep-understanding (47 msgs, 2026-05-09) — Mapped token refresh flow, found race condition
   2. morning-progress (23 msgs, 2026-05-08) — Initial exploration of OAuth middleware
-
-Golden (shared):
-  ⭐ 3. team-baseline (61 msgs, jsmith, 2026-05-07) — Full auth subsystem, all edge cases documented
 ```
 
-To list contexts for a different task:
+Each entry shows the AI-generated summary so you know which session to restore before loading it.
+
+To list contexts for a specific task:
 
 ```bash
 /context-list payment-v2
 ```
 
-Each context shows:
-- Name and message count
-- Save date and (for golden) author
-- AI-generated summary — enough to know which session to resume
-
 ---
 
 ## AI-Generated Summaries
 
-Every saved context gets an automatic summary — a 2–3 sentence description of what was accomplished, what was decided, and what the session covered. The summary is generated in a separate forked session that doesn't pollute your current conversation.
+Every saved context gets an automatic 2–3 sentence description: what was accomplished, what was decided, what the session covered. Generated in a forked session — your current conversation is unaffected.
 
-Summaries are what make `/context-list` useful: you see what's in each context before resuming it, without loading it. The summary is stored in a `.meta.json` file alongside the `.jsonl` session file.
-
----
-
-## Promoting a Context to Golden
-
-If you have a personal context that would be valuable to share with your team:
-
-```bash
-/context-promote deep-understanding
-```
-
-This:
-1. Scans the context for secrets (blocks if found)
-2. Checks the size (blocks if over 100KB)
-3. Asks for confirmation
-4. Copies from your personal storage to the project's `.claude/tasks/<task>/contexts/`
-
-Your personal original is preserved. The golden copy is committed to git when you next push.
+The summary is stored in a `.meta.json` file alongside the `.jsonl` session file and shown by `/context-list`.
 
 ---
 
 ## Managing Your Context Library
 
-Over time, contexts accumulate. `/context-manage` gives you tools to keep things tidy.
+Over time contexts accumulate. `/context-manage` helps keep things tidy.
 
-### List All Contexts Across Tasks
-
+**List everything across all tasks:**
 ```bash
 /context-manage
 ```
+Highlights stale contexts (not accessed in 30+ days) and duplicates (byte-for-byte identical files).
 
-Shows all contexts across all tasks in the current project. Highlights:
-- **Stale contexts** — not accessed in 30+ days
-- **Duplicate contexts** — byte-for-byte identical files (accidental double-saves)
-
-### Dry Run Before Deleting
-
+**Dry run before deleting:**
 ```bash
 /context-manage delete auth-refactor morning-progress --dry-run
 ```
+Shows exactly what would be deleted. Always use `--dry-run` first.
 
-Shows exactly what would be deleted without doing it. Always run with `--dry-run` first.
-
-### Renaming a Context
-
+**Rename:**
 ```bash
 /context-manage rename auth-refactor old-name new-name
 ```
 
-Renames in place. The file moves; the content is unchanged.
-
-### Archiving a Context
-
+**Archive** (moves to `contexts/archives/`, out of the active list):
 ```bash
 /context-manage archive auth-refactor old-exploration
 ```
 
-Moves the context to `contexts/archives/` within the task directory. Keeps the file but removes it from the active context list.
-
-### Deleting a Context
-
+**Delete:**
 ```bash
 /context-manage delete auth-refactor old-exploration --force
 ```
-
-Deletes the context file. Irreversible. The `--force` flag is required for golden contexts to prevent accidental team knowledge loss.
+`--force` is required to prevent accidental deletion.
 
 ---
 
@@ -144,15 +94,15 @@ Deletes the context file. Irreversible. The `--force` flag is required for golde
 | Context Type | Location | Committed to Git |
 |-------------|----------|-----------------|
 | Personal | `~/.claude/projects/<project>/tasks/<task>/contexts/` | No |
-| Golden | `./.claude/tasks/<task>/contexts/` | Yes |
-| Auto-save (pre-compaction) | `~/.claude/projects/<project>/auto-saves/` | No |
+| Golden (shared) | `./.claude/tasks/<task>/contexts/` | Yes |
+| Auto-save | `~/.claude/projects/<project>/auto-saves/` | No |
 
-Personal contexts live in your home directory and are completely private. Golden contexts travel with the repo.
+Personal contexts are private to your machine. Golden contexts travel with the repo. Auto-saves are the pre-compaction backups created by hooks — you don't manage these directly.
 
 ---
 
-## Next Steps
+You now have everything you need to save, restore, and manage contexts solo.
 
-- [Security](security.md) — how secret scanning works before saves and promotions
-- [Context Monitoring](context-monitoring.md) — when to save (before quality drops)
-- [Hooks and Automation](hooks-automation.md) — auto-save before compaction so you never lose a session
+- [Context Monitoring](context-monitoring.md) — know when to save before quality drops
+- [Hooks and Automation](hooks-automation.md) — automatic saves so you never lose a session
+- [For Teams](for-teams.md) — share warmed-up contexts with teammates

@@ -1,44 +1,63 @@
 # Context Curator
 
-Context Curator is a task-based context management system for Claude Code. It solves a specific, expensive problem: losing hard-won Claude understanding when the session compacts.
+Working with AI feels fast but stays expensive. Every session starts cold —
+Claude doesn't know your codebase, your constraints, your reasoning from last
+week. You spend the first hour rebuilding understanding you already had. Then
+the session compacts and you start over.
 
-## The Problem
+Context Curator changes one thing: accumulated understanding doesn't have to
+be disposable. You save it, name it, restore it, give it to a teammate. The
+session that took two hours to warm up becomes the starting point for every
+session after it.
 
-Working on a large codebase takes hours before Claude really understands the subsystem you're in — the quirky auth flow, the three places state gets stored, the reason the retry logic is unusual. Then auto-compact fires and you start over.
+## The Four Commands
 
-Even with large context windows, this is real. Context quality degrades well before the token ceiling — multi-needle recall drops, suggestions become generic, the "sweet spot" is gone. Developers call this [context rot](glossary.md#context-rot).
+```bash
+/task-init          # set up a project (once)
+/task <name>        # switch to a focused task environment
+/context-save <name>  # bottle the current session's understanding
+/resume <uuid>      # restore it — Claude picks up at peak understanding
+```
 
-## What Context Curator Does
+That's the whole tool. Everything else is depth on top of these four.
 
-Context Curator gives you five things:
+→ [Getting Started](getting-started.md) — install, first task, first save
 
-**Tasks** — Focused work environments, each with their own instructions for Claude. Switch between them instantly; Claude loads the right context for the work.
+---
 
-**Contexts** — Named snapshots of warmed-up sessions. Save before compaction, restore on demand — Claude resumes at peak understanding without the warm-up cost.
+## Why This Matters
 
-**Personal by default** — Your contexts stay in your home directory, never committed to git, never visible to teammates.
+*For readers who want the larger context.*
 
-**Golden contexts** — When a session is genuinely valuable to share, promote it. Golden contexts live in the project repo; any teammate can restore them.
+We are at the beginning of a transition. Code generation is no longer the
+bottleneck in software development — AI handles most of it. The new
+bottlenecks are harder to see:
 
-**Hooks** — Automatic protection. A pre-compaction hook saves your session before anything is lost. A post-compaction hook re-injects your task context so work continues without interruption.
+**Accumulated understanding.** A codebase's complexity lives in the subtle
+things — the quirky auth flow, the three places state gets stored, the reason
+the retry logic is unusual. That understanding takes time to build. When AI
+builds it, the session is the only place it lives. When the session ends, it's
+gone.
 
-## Who This Is For
+**Quality without a reviewer.** Standard code review catches bugs. It misses
+coverage gaps — the cases the AI didn't think to test because it doesn't know
+what it doesn't know about its own output. You need a reviewer who genuinely
+doesn't share your blind spots.
 
-Context Curator is for developers who use Claude Code on complex, multi-session projects. It works best when:
+**Knowledge transfer.** When one developer has a deeply warmed-up session and
+another starts cold, they're not working from the same understanding. There's
+no good way to share what AI has learned with the rest of the team.
 
-- You return to the same codebase areas repeatedly
-- Warm-up time is measurable (30 minutes or more before Claude is productive)
-- You want to share warmed-up understanding with teammates
-- You want structure around how you use Claude on a project
+Context Curator is infrastructure for the world that's coming: AI
+understanding that persists, transfers across a team, and is governed by a
+review process that doesn't share the constructor's blind spots.
 
-## What's in This Documentation
+- **Tasks and contexts** solve accumulated understanding — save warmth, share
+  it, restore it on demand
+- **Hooks and monitoring** solve continuity — automatic protection before
+  compaction fires, status line shows when quality is degrading
+- **Boss-Fight Coding** solves quality without a reviewer — structural
+  adversarial review borrowed from financial services governance
 
-- [Getting Started](getting-started.md) — install, initialize a project, create your first task
-- [Managing Contexts](managing-contexts.md) — save, list, promote, and clean up contexts
-- [Context Monitoring](context-monitoring.md) — status line, zone warnings, burn rate
-- [Security](security.md) — secret scanning before every save, git footprint
-- [Hooks and Automation](hooks-automation.md) — automatic pre- and post-compaction protection
-- [Skill Marketplace](skill-marketplace.md) — install individual bundles, team manifests
-- [Boss-Fight Workflow](boss-fight-workflow.md) — PRD-driven development, adversarial review, process sequencing
-- [Reference](reference.md) — CLAUDE.md system internals, cross-platform notes, error handling
-- [Glossary](glossary.md) — all terms defined
+You don't need all of this on day one. [Getting Started](getting-started.md)
+covers what you need for the first week.

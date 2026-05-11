@@ -1,6 +1,6 @@
 # Product Requirements Document: Claude Code Context Curator
 
-**Version:** 21.1
+**Version:** 21.2
 **Last Updated:** May 10, 2026
 **Status:** Ready for Implementation
 
@@ -207,7 +207,7 @@ my-project/
 │
 ├── docs/                              # ← User documentation (committed)
 │   ├── index.html                     # ← Entry point; built from toc + intro
-│   ├── feature-section-map.md         # ← Feature → product section mapping
+│   ├── docs-brief.md                  # ← Design brief: core message, gates, nav arch, feature routing
 │   ├── markdown/                      # ← Source of truth; always updated first
 │   │   ├── toc.md
 │   │   ├── introduction.md
@@ -1222,7 +1222,7 @@ Establishes a markdown-first, HTML-derived documentation workflow that runs imme
 
 **Product sections vs. features:**
 
-PRD features are atomic engineering specifications. Product sections are user-coherent topics. A single product section may cover multiple features; a complex feature may warrant its own section. The mapping is maintained in `docs/feature-section-map.md` and updated interactively by the `/docs-markdown` skill when new features are added.
+PRD features are atomic engineering specifications. Product sections are user-coherent topics. A single product section may cover multiple features; a complex feature may warrant its own section. Feature routing — including gate assignment, page, and nav tier — is maintained in `docs/docs-brief.md` and updated interactively by the `/docs-markdown` skill when new features are added.
 
 **Linking conventions:**
 
@@ -1248,14 +1248,14 @@ A human-editable style guide that governs HTML generation. Specifies typeface ch
 - All generated HTML pages include consistent navigation linking to all product sections and glossary
 - Navigation is keyboard-accessible and works on mobile viewports
 - If `style.md` is absent, `/docs-html` writes defaults and notifies the designer-developer
-- `docs/feature-section-map.md` is updated by the skill when new feature-to-section assignments are made
+- `docs/docs-brief.md` Feature Routing table is updated by the skill when new feature gate/page assignments are made
 
 **Acceptance Criteria:**
 
 | Test ID | Criterion |
 |---------|-----------|
-| T-UDOC-1 | After `/docs-markdown` runs on a PRD with a new F-XXX feature not yet in `feature-section-map.md`, the skill prompts for a product section assignment; after assignment, `feature-section-map.md` contains a row for that F-XXX code |
-| T-UDOC-2 | `docs/markdown/toc.md` contains a link to every product section page listed in `feature-section-map.md`; any section page without a TOC link is a FAIL |
+| T-UDOC-1 | `docs/markdown/SKILL.md` references `docs-brief.md`; the skill workflow specifies reading `docs-brief.md` before updating any page; the Feature Routing table format (`\| F-` pattern) appears in the SKILL.md |
+| T-UDOC-2 | `docs/markdown/toc.md` contains links to every page listed in the Navigation Architecture section of `docs/docs-brief.md`; any page in the Primary or Secondary nav without a TOC link is a FAIL |
 | T-UDOC-3 | `docs/markdown/glossary.md` is non-empty after `/docs-markdown` runs on a PRD with defined Core Concepts; every term defined in Core Concepts appears in the glossary |
 | T-UDOC-4 | After `/docs-html` runs, `docs/index.html` exists and its content contains the text of `introduction.md` and `toc.md`; file must not be empty |
 | T-UDOC-5 | All generated HTML pages contain at least one `<nav>` element; `<nav>` contains links to at least the home page and glossary |
@@ -1527,6 +1527,7 @@ oauth-flow.v3.jsonl  # After mobile app integration
 
 ## Version History
 
+- **v21.2** (2026-05-10): `docs/feature-section-map.md` replaced by `docs/docs-brief.md` — documentation steering document now captures core message, reader journey gates (1–4), navigation architecture, and editorial rules in addition to feature routing; T-UDOC-1/T-UDOC-2 ACs updated accordingly
 - **v21.1** (2026-05-10): T-SPEC-5 added — `task-check` must recognize specialized tasks and return `exists:specialized`; `getTaskInfo()` bug fix: specialized directory was not checked, causing `/task adversary` to fall through to the "create new task" prompt
 - **v21.0** (2026-05-09): Process sequencing skill added
     - **F-PROCESS (new):** `/prd-process` skill detects current phase via artifact presence and mtime heuristics; adversary-staleness check warns when `prd.md` is newer than `test-inventory.md`; resists out-of-order implementation requests; `--force` bypass available for intentional exceptions; T-PROC-1 through T-PROC-6 added

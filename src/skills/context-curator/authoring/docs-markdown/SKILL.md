@@ -1,9 +1,10 @@
 ---
 name: docs-markdown
 description: >
-  Update the markdown documentation base after a PRD change. Identifies new or changed
-  features, prompts for product section assignments, updates affected pages,
-  regenerates glossary and permuted index.
+  Update the markdown documentation base after a PRD change. Reads
+  docs/docs-brief.md for gate assignments, navigation architecture, and
+  editorial rules. Prompts for gate and page assignment on new F-XXX features.
+  Updates affected pages, regenerates glossary and permuted index.
 invocation: explicit
 ---
 
@@ -21,28 +22,45 @@ The dev process (Phase 9) must complete before running /docs-markdown.
 
 ## Workflow
 
-1. Read PRD to identify features added or changed since last docs run
-2. For each new F-XXX feature not yet in `docs/feature-section-map.md`:
-   - Prompt: "Assign F-XXX to a product section (or create new):"
-   - Update `feature-section-map.md` with the assignment
-3. For each affected product section, update `docs/markdown/[section].md`
-4. Regenerate `docs/markdown/toc.md` (link to all sections)
-5. Update `docs/markdown/glossary.md` (all Core Concepts terms from PRD)
-6. Regenerate `docs/markdown/permuted-index.md`
+1. Read `docs/docs-brief.md` — load the core message, reader journey gates,
+   navigation architecture, and editorial rules before touching any page
+2. Read PRD to identify features added or changed since last docs run
+3. For each new F-XXX feature not yet in the Feature Routing table in
+   `docs/docs-brief.md`:
+   - Prompt: "Assign F-XXX to a gate (1–4) and page:"
+   - Update the Feature Routing table in `docs/docs-brief.md` with the
+     assignment (gate, page, nav tier)
+4. For each affected page, update `docs/markdown/[page].md` applying the
+   editorial rules and gate-appropriate depth from `docs/docs-brief.md`
+5. Regenerate `docs/markdown/toc.md` reflecting the navigation architecture
+   defined in `docs/docs-brief.md` (primary / secondary / separate / footer)
+6. Update `docs/markdown/glossary.md` (all Core Concepts terms from PRD)
+7. Regenerate `docs/markdown/permuted-index.md`
 
-## Linking Conventions
-
-- Every product section name: linked on first mention in each page
-- Every glossary term: linked on first mention per page only
-- Internal links: relative paths (no absolute URLs)
-
-## feature-section-map.md Format
+## docs-brief.md Feature Routing Table Format
 
 ```markdown
-| F-XXX | Feature Name | Section | Page file |
-|-------|--------------|---------|-----------|
-| F-INIT | Project Initialization | Getting Started | getting-started.md |
+| Feature       | Gate | Page              | Nav Tier  |
+|---------------|------|-------------------|-----------|
+| F-INIT        | 1    | Getting Started   | Primary   |
 ```
+
+- **Gate:** 1–4 per reader journey definition in docs-brief.md; `ref` for
+  reference-only content with no gate progression
+- **Nav Tier:** Primary / Secondary / Separate / Footer
+- When a new feature is added, assign gate first; page and nav tier follow
+  from the gate definition in docs-brief.md
+
+## Editorial Rules Summary
+
+The full editorial rules are in `docs/docs-brief.md`. Key constraints:
+
+- Never mention Boss-Fight Workflow or the adversary task in primary-tier
+  pages (Gates 1–2)
+- Lead with the problem before the solution on every page
+- End Gate 1–2 pages with "you now have everything you need" + next-gate links
+- Progressive disclosure: if removing something helps first-time readers
+  without harming experienced readers, move it to a "Going deeper" section
 
 ## After Completing
 

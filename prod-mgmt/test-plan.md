@@ -4230,8 +4230,8 @@ def test_state_file_write_atomic():
 
 | AC ID | Criterion |
 |-------|-----------|
-| T-UDOC-1 | After `/docs-markdown` runs on a PRD with a new F-XXX feature not yet in `feature-section-map.md`, the skill prompts for a product section assignment; after assignment, `feature-section-map.md` contains a row for that F-XXX code |
-| T-UDOC-2 | `docs/markdown/toc.md` contains a link to every product section page listed in `feature-section-map.md`; any section page without a TOC link is a FAIL |
+| T-UDOC-1 | `docs/markdown/SKILL.md` references `docs-brief.md`; the skill workflow specifies reading `docs-brief.md` before updating any page; the Feature Routing table format (`\| F-` pattern) appears in the SKILL.md |
+| T-UDOC-2 | `docs/markdown/toc.md` contains links to every page listed in the Navigation Architecture section of `docs/docs-brief.md`; any page in the Primary or Secondary nav without a TOC link is a FAIL |
 | T-UDOC-3 | `docs/markdown/glossary.md` is non-empty after `/docs-markdown` runs on a PRD with defined Core Concepts; every term defined in Core Concepts appears in the glossary |
 | T-UDOC-4 | After `/docs-html` runs, `docs/index.html` exists and its content contains the text of `introduction.md` and `toc.md`; file must not be empty |
 | T-UDOC-5 | All generated HTML pages contain at least one `<nav>` element; `<nav>` contains links to at least the home page and glossary |
@@ -4239,49 +4239,42 @@ def test_state_file_write_atomic():
 | T-UDOC-7 | When `docs/html/style.md` is absent at invocation time, `/docs-html` writes the file with non-empty content before generating any HTML; the written file contains the strings "color" and "typeface" or "font" |
 | T-UDOC-8 | All `<img>` elements in generated HTML have a non-empty `alt` attribute |
 
-### Test 22.1: New Feature Prompts for Section Assignment (T-UDOC-1)
+### Test 22.1: docs-markdown SKILL.md References docs-brief.md and Specifies Gate-Based Routing (T-UDOC-1)
 
-**Validation:**
-```python
-def test_docs_markdown_new_feature_prompts():
-    # PRD has F-NEWFEATURE not yet in feature-section-map.md
-    prd_with_new = build_prd_with_feature("F-NEWFEATURE", "New capability")
-    Path("prod-mgmt/prd.md").write_text(prd_with_new)
-    # feature-section-map.md does not contain F-NEWFEATURE
-    ensure_feature_not_in_map("F-NEWFEATURE")
+**Static artifact validation (automatable without Claude session):**
 
-    result = run_command_interactive("/docs-markdown", responses=["Installation"])
-    assert "F-NEWFEATURE" in result["stdout"] or "section" in result["stdout"].lower()
+Read `src/skills/context-curator/authoring/docs-markdown/SKILL.md`. Assert:
+1. `docs-brief.md` appears in the file
+2. An `F-XXX` code reference exists (Feature Routing table format)
+3. The word "Prompt" or "prompt" appears (skill instructs Claude to ask the user for gate/page assignment)
+4. The table format `| F-` appears in the Feature Routing table specification
+5. The word "gate" appears (skill uses gate-based routing, not flat section assignment)
 
-    map_content = Path("docs/feature-section-map.md").read_text()
-    assert "F-NEWFEATURE" in map_content
-```
-
-**Static artifact validation (automatable without Claude session):** Read `src/skills/context-curator/authoring/docs-markdown/SKILL.md`. Assert: (1) `feature-section-map.md` appears in the file; (2) an `F-XXX` code reference exists; (3) the word "Prompt" or "prompt" appears (skill instructs Claude to ask the user); (4) the table format `| F-XXX |` appears in the feature-section-map.md format specification. This validates that the skill instruction specifies the section-assignment prompt and map-update behavior.
+This validates that the skill instruction specifies the docs-brief.md-driven gate assignment prompt and routing behavior.
 
 ---
 
-### Test 22.2: TOC Links to Every Mapped Product Section (T-UDOC-2)
+### Test 22.2: TOC Links to Every Page in docs-brief.md Navigation Architecture (T-UDOC-2)
 
 **Validation:**
 ```python
-def test_toc_links_all_sections():
-    run_command("/docs-markdown")
-
+def test_toc_links_all_nav_pages():
     toc = Path("docs/markdown/toc.md").read_text()
-    section_map = Path("docs/feature-section-map.md").read_text()
+    brief = Path("docs/docs-brief.md").read_text()
 
-    # Extract unique section names from the map
-    sections = re.findall(r'\|\s*\S+\s*\|\s*(\S+)\s*\|', section_map)
-    sections = set(sections) - {"Section", "---"}
+    # Extract pages from Navigation Architecture section of docs-brief.md
+    # Primary and Secondary nav pages must all appear in toc.md
+    nav_pages = re.findall(r'\d+\.\s+(\w[\w\s&]+?)(?:\s+\*\(.*?\)\*)?$',
+                           brief, re.MULTILINE)
 
-    for section in sections:
-        assert section.lower() in toc.lower() or \
-               f"{section}.md" in toc, \
-            f"TOC missing link to section: {section}"
+    for page in nav_pages:
+        page_lower = page.strip().lower()
+        assert page_lower in toc.lower() or \
+               page_lower.replace(" ", "-") + ".md" in toc.lower(), \
+            f"TOC missing link to nav page: {page}"
 ```
 
-**Static artifact validation (automatable without Claude session):** Read `src/skills/context-curator/authoring/docs-markdown/SKILL.md`. Assert: (1) `toc.md` appears in the file; (2) a phrase matching `/link.*section|section.*link/i` exists, verifying the skill instruction specifies generating section links in toc.md.
+**Static artifact validation (automatable without Claude session):** Read `src/skills/context-curator/authoring/docs-markdown/SKILL.md`. Assert: (1) `toc.md` appears in the file; (2) `docs-brief.md` appears in the file; (3) a phrase matching `/navigation|nav.*arch/i` exists, verifying the skill reads the navigation architecture from docs-brief.md when generating toc.md.
 
 ---
 

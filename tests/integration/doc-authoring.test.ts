@@ -130,26 +130,27 @@ describe('T-DOC-6: test-inventory/SKILL.md has adversary-task guard and error me
 // docs-html/SKILL.md and assert they specify the required behaviors.
 // ---------------------------------------------------------------------------
 
-describe('T-UDOC-1: docs-markdown/SKILL.md specifies F-XXX section assignment and feature-section-map.md update', () => {
-  it('SKILL.md workflow prompts for section assignment on new F-XXX and specifies updating feature-section-map.md', () => {
+describe('T-UDOC-1: docs-markdown/SKILL.md references docs-brief.md and specifies gate-based routing', () => {
+  it('SKILL.md references docs-brief.md, specifies reading it first, and contains Feature Routing table format', () => {
     const skillPath = join(REPO_ROOT, 'src/skills/context-curator/authoring/docs-markdown/SKILL.md');
     expect(existsSync(skillPath)).toBe(true);
     const skill = readFileSync(skillPath, 'utf-8');
-    expect(skill).toContain('feature-section-map.md');
+    expect(skill).toContain('docs-brief.md');
     expect(skill).toMatch(/F-XXX/);
     expect(skill).toMatch(/[Pp]rompt/);
-    expect(skill).toMatch(/section/i);
-    expect(skill).toMatch(/\| F-XXX \|/);
+    expect(skill).toMatch(/gate/i);
+    expect(skill).toMatch(/\| F-/);
   });
 });
 
-describe('T-UDOC-2: docs-markdown/SKILL.md specifies toc.md links to all mapped sections', () => {
-  it('SKILL.md workflow step regenerates toc.md with links to all sections', () => {
+describe('T-UDOC-2: docs-markdown/SKILL.md specifies toc.md links to all pages in docs-brief.md nav architecture', () => {
+  it('SKILL.md workflow step regenerates toc.md from navigation architecture in docs-brief.md', () => {
     const skillPath = join(REPO_ROOT, 'src/skills/context-curator/authoring/docs-markdown/SKILL.md');
     expect(existsSync(skillPath)).toBe(true);
     const skill = readFileSync(skillPath, 'utf-8');
     expect(skill).toContain('toc.md');
-    expect(skill).toMatch(/link.*section|section.*link/i);
+    expect(skill).toContain('docs-brief.md');
+    expect(skill).toMatch(/navigation|nav.*arch/i);
   });
 });
 
