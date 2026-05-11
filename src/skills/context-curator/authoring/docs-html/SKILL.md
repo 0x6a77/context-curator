@@ -22,6 +22,8 @@ Generates the HTML documentation set from `docs/markdown/`. Produces a shared CS
 - Heading hierarchy must not skip levels (no h3 without h2, no h2 without h1)
 - All `<img>` elements: non-empty `alt` attribute
 - Never inline styles or scripts in individual pages — all pages link to shared assets
+- Never emit `<hr>` elements — heading hierarchy provides all visual section separation
+- Horizontal borders (`border-top`, `border-bottom`) are forbidden everywhere — content elements, nav dividers, and page footer alike; vertical borders (`border-left`, `border-right`) and box borders on contained UI widgets (inputs, code blocks, buttons, tables) are fine
 
 ## Output Files
 

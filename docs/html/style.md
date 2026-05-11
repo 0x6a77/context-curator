@@ -165,6 +165,10 @@ Every HTML page follows this template:
 
 The `index.html` (home page) combines `introduction.md` and `toc.md` into a single page. All other pages map 1:1 to their markdown source file.
 
+**Never emit `<hr>` elements.** Heading hierarchy provides all visual section separation. Markdown `---` dividers must not be converted to `<hr>` tags — they are removed during generation.
+
+**Border direction rule:** Vertical borders (`border-left`, `border-right`) are permitted for structural chrome — sidebar separator, right-TOC separator, nav active indicator, callout accent stripe. Horizontal borders (`border-top`, `border-bottom`) must not be applied anywhere — not to content elements, not to nav dividers, not to the page footer. Box borders (`border` shorthand on all four sides) are permitted only on contained UI widgets: inputs, code blocks, tables, buttons, dropdowns. Nav dividers (`.nav-divider`) provide spacing only — no visible line.
+
 ---
 
 ## SVG Diagrams
