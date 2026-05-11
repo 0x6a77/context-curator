@@ -2,13 +2,9 @@
 
 ## Context Curator Documentation
 
----
-
 ### [Introduction](introduction.md)
 
 The core idea and why it matters in the AI era.
-
----
 
 ## Getting Started
 
@@ -23,8 +19,6 @@ Install Context Curator, initialize a project, and save your first context.
 - Saving a context with `/context-save`
 - Restoring with `/resume`
 
----
-
 ## Using Context Curator
 
 ### [Managing Contexts](managing-contexts.md)
@@ -37,8 +31,6 @@ Save named snapshots of warmed-up sessions, restore them on demand, and keep you
 - Managing your context library (rename, archive, delete)
 - Storage locations
 
----
-
 ### [Context Monitoring](context-monitoring.md)
 
 Track session health in real time and know when to save before compaction hits.
@@ -49,8 +41,6 @@ Track session health in real time and know when to save before compaction hits.
 - Zone warnings
 - Burn rate and cost estimation
 
----
-
 ### [Hooks and Automation](hooks-automation.md)
 
 Automatic session protection that fires before and after every compaction event.
@@ -58,8 +48,6 @@ Automatic session protection that fires before and after every compaction event.
 - PreCompact auto-save hook
 - PostCompact task re-injection hook
 - Hook registration
-
----
 
 ## Going Deeper
 
@@ -73,8 +61,6 @@ Share warmed-up contexts with teammates, set up project-scope install, and publi
 - Team manifests
 - Sandbox configuration
 
----
-
 ### [Security](security.md)
 
 Secret detection before every golden save, and a git footprint that never creates merge conflicts.
@@ -84,8 +70,6 @@ Secret detection before every golden save, and a git footprint that never create
 - Redaction workflow
 - What commits vs. what stays local
 
----
-
 ### [Reference](reference.md)
 
 The CLAUDE.md two-file system, cross-platform notes, and error handling.
@@ -94,8 +78,6 @@ The CLAUDE.md two-file system, cross-platform notes, and error handling.
 - Cross-platform compatibility (macOS, Linux, WSL2)
 - Error handling behavior
 - Complete directory reference
-
----
 
 ## PRD-Driven Development
 
@@ -110,13 +92,9 @@ AI-generated software. Code generation is the last step, not the first.
 - Process sequencing with `/prd-process`
 - Risk acceptances
 
----
-
 ### [Glossary](glossary.md)
 
 Definitions for every significant term.
-
----
 
 ### [Permuted Index](permuted-index.md)
 

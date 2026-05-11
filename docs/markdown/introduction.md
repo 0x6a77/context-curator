@@ -23,8 +23,6 @@ That's the whole tool. Everything else is depth on top of these four.
 
 → [Getting Started](getting-started.md) — install, first task, first save
 
----
-
 ## Why This Matters
 
 *For readers who want the larger context.*

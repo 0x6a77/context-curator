@@ -206,6 +206,7 @@ with usage pages. Footer links appear on every page but not in the nav.
 ### Always
 
 - Lead with the problem before the solution on every page
+- Let heading hierarchy create visual separation — never use `---` horizontal rule dividers between sections
 - Show the command before explaining what it does
 - End every Gate 1–2 page with a "you now have everything you need for [X]"
   sentence and links to the next gate — not links to every other page

@@ -31,8 +31,6 @@ cd ~/my-project
 
 This copies the skills into `.claude/skills/context-curator/` in your project. Commit that directory to git and teammates get the full command set automatically.
 
----
-
 ## Initialize a Project
 
 Before using Context Curator in a project, run:
@@ -63,8 +61,6 @@ prod-mgmt/
 
 Your root `CLAUDE.md` is never modified.
 
----
-
 ## Creating a Task
 
 A [task](glossary.md#task) is a focused work environment with its own instructions for Claude. Create one with:
@@ -91,8 +87,6 @@ Run that, and Claude loads the task — instructions already loaded, ready to wo
 
 **Task ID rules:** Lowercase letters, numbers, and hyphens only. No uppercase, no spaces. Examples: `auth-refactor`, `payment-v2`, `legacy-migration-2026`.
 
----
-
 ## Switching Between Tasks
 
 To switch to a task that already exists:
@@ -118,8 +112,6 @@ Start fresh (no context)
 
 Select a context or start fresh. Then run `/resume <uuid>` and Claude picks up exactly where that session left off.
 
----
-
 ## Deleting a Task
 
 To remove a task and all its contexts:
@@ -143,8 +135,6 @@ git rm -r .claude/tasks/auth-refactor/
 git commit -m "Remove auth-refactor task"
 ```
 
----
-
 ## The Default Task
 
 Every project has a `default` task. It uses your root `CLAUDE.md` with no task-specific additions — plain Claude with no special focus. Switch to it any time:
@@ -154,8 +144,6 @@ Every project has a `default` task. It uses your root `CLAUDE.md` with no task-s
 ```
 
 This restores vanilla Claude behavior. Useful when you need to step outside your current task focus.
-
----
 
 ## Quick Example
 
@@ -181,8 +169,6 @@ cd ~/my-project
 # Claude is back at peak understanding instantly
 ```
 
----
-
 ## Native Claude Code Commands
 
 These built-in commands complement Context Curator. They work in any task.
@@ -196,8 +182,6 @@ These built-in commands complement Context Curator. They work in any task.
 | `/context` | Show current token usage and context window fill level |
 
 **Note on `/compact`:** Context Curator's PreCompact hook fires before `/compact`, so your session is saved before any compaction runs — including manual compaction.
-
----
 
 You now have everything you need to use Context Curator solo.
 

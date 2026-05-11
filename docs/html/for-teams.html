@@ -70,7 +70,6 @@ Golden (shared):
     <pre><code>/context-save team-baseline --golden</code></pre>
     <p>Saves directly to the project. Useful when you're confident the session is worth sharing and don't want a personal copy first.</p>
 
-    <hr>
 
     <h2>Project-Scope Install</h2>
     <p>By default, Context Curator installs globally — it's available on your machine but not automatically to teammates.</p>
@@ -94,7 +93,6 @@ Golden (shared):
         ...</code></pre>
     <p>Commit this directory. Teammates don't need to run <code>install.sh</code>.</p>
 
-    <hr>
 
     <h2>Selective Bundle Install</h2>
     <p>Teams don't have to install everything. Context Curator ships in bundles:</p>
@@ -117,7 +115,6 @@ Golden (shared):
 /plugin marketplace add context-curator/full</code></pre>
     <p>When skills exist at both user scope (<code>~/.claude/skills/</code>) and project scope (<code>.claude/skills/</code>), project scope takes precedence. Teams can pin a specific bundle version without affecting other projects.</p>
 
-    <hr>
 
     <h2>Team Manifests</h2>
     <p>Teams can publish their own skill bundles alongside Context Curator's — custom skills, internal tools, or curated subsets. Commit a manifest to the project:</p>
@@ -131,14 +128,12 @@ Golden (shared):
 }</code></pre>
     <p>Save as <code>.claude/context-curator-manifest.json</code> and any developer who runs <code>/plugin marketplace list</code> will see the custom bundle.</p>
 
-    <hr>
 
     <h2>Version Verification</h2>
     <p>The installed manifest version must match <code>dist/version.json</code>. To check:</p>
     <pre><code>npx tsx scripts/verify-manifest.ts</code></pre>
     <p>Exits non-zero and names the conflict if there's a mismatch. Re-run <code>install.sh</code> to repair.</p>
 
-    <hr>
 
     <h2>Sandbox Configuration</h2>
     <p>If your project runs Claude Code with sandbox mode enabled, add to <code>.claude/settings.json</code>:</p>
@@ -152,7 +147,6 @@ Golden (shared):
 }</code></pre>
     <p>This lets Context Curator write to <code>~/.claude/projects/</code> (outside the project directory) while keeping all other sandbox restrictions. Commit <code>settings.json</code> — all teammates need it.</p>
 
-    <hr>
 
     <ul>
       <li><a href="security.html">Security</a> — what the secret scan catches before every golden save</li>

@@ -2,8 +2,6 @@
 
 Boss-Fight Coding is a PRD-driven development process built around a structurally adversarial review phase — the "boss fight" you must pass to advance. This page covers the full process: document authoring skills, the adversary task, process sequencing, and user documentation.
 
----
-
 ## The Core Idea
 
 Most development process failures happen because requirements are vague, tests are weak, or the team evaluates their own work. Boss-Fight Coding addresses all three:
@@ -13,8 +11,6 @@ Most development process failures happen because requirements are vague, tests a
 3. **Adversarial review** — an isolated reviewer with no knowledge of your intent evaluates whether your tests actually cover your requirements
 
 The adversary is the boss fight. You can only advance by genuinely defeating it — not by tweaking your tests until the adversary is satisfied, but by having tests that actually verify what the PRD requires.
-
----
 
 ## Document Authoring Skills
 
@@ -50,8 +46,6 @@ Loads when you work on a `*dev-plan*.md` file. Enforces phase structure, design 
 
 Only available when the adversary task is active. Loads the output schema so the adversary produces consistent inventory structure. Running `/test-inventory` outside the adversary task is an error by design.
 
----
-
 ## The Full Process Flow
 
 ```
@@ -86,8 +80,6 @@ Phase 7: Risk Acceptance
   Document and accept specific findings → re-run adversary
 ```
 
----
-
 ## User Documentation: `/docs-markdown` and `/docs-html`
 
 Documentation is generated immediately after every PRD update that introduces or changes user-facing behavior — before code is written. The reason: user documentation is the cheapest possible way to find out whether you've specified the right thing. A user who reads your documentation and says "I'd never do it that way" costs a PRD revision. The same user encountering your released product costs a feature rewrite.
@@ -118,8 +110,6 @@ Generates the navigable HTML documentation from the markdown base:
 **Style guide:** `docs/html/style.md` governs the look of the generated HTML. Edit it to set typeface, colors, language register, and layout. If the file is absent, `/docs-html` writes sensible accessible defaults and reports them for your review.
 
 **Invariant:** Markdown is always updated first. HTML files are never hand-edited — they're regenerated from markdown. This makes documentation diffs reviewable the same way code diffs are.
-
----
 
 ## The Adversary Task
 
@@ -166,8 +156,6 @@ EXPIRY:        v2.0-release
 
 Re-run the adversary after adding an acceptance. The finding will be marked ACCEPTED rather than FAIL.
 
----
-
 ## Process Sequencing: `/prd-process`
 
 The most common process failure is updating the PRD and starting to implement without re-running the adversary. The adversary's test inventory is now stale — covering the old feature set, not the current one.
@@ -202,15 +190,11 @@ When the adversary is stale and you try to do implementation work, `/prd-process
 | 4 — Implementation | test files exist in `tests/` |
 | 5 — Adversarial Review | `prod-mgmt/test-inventory.md` exists and is newer than `prd.md` |
 
----
-
 ## The Specialized Task Framework
 
 The adversary is built on a specialized task framework that provides STRICT context isolation — no context restoration, no context saving, every invocation starts fresh. Isolation is enforced by hooks, not just instructions: a PreCompact hook blocks compaction saves and a SessionStart hook validates that no prior context was loaded.
 
 STRICT isolation is the load-bearing element. If the adversary shares session context with your development sessions, it has been captured — it's a collaborator with a different label, not an adversary. Hook enforcement means this can't happen accidentally.
-
----
 
 ## Next Steps
 

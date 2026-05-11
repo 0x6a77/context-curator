@@ -14,8 +14,6 @@ Based on observed Claude Code behavior, the monitor uses three zones:
 
 These thresholds are configurable in `~/.claude/context-curator/monitor-config.json`.
 
----
-
 ## Status Line
 
 After every tool call, a status line appears in the terminal showing your current session state:
@@ -41,8 +39,6 @@ The "+Nk since warm-up" field measures from your last saved [checkpoint](glossar
 
 If you haven't saved a checkpoint yet in the current session, the monitor counts from session start.
 
----
-
 ## Zone Warnings
 
 When your session crosses into a new zone, a one-time warning appears:
@@ -62,8 +58,6 @@ When your session crosses into a new zone, a one-time warning appears:
 ```
 
 Warnings fire **before** Claude's next response — you see the warning while there's still time to act. Each warning fires exactly once per zone entry. After compaction resets the fill level, zone sentinels clear and warnings fire again if you re-enter the zone.
-
----
 
 ## Burn Rate and Cost Estimation
 
@@ -98,8 +92,6 @@ Rates are editable without reinstalling — update `monitor-config.json` when mo
 }
 ```
 
----
-
 ## How the Monitor Works
 
 The design constraint is strict: **the monitor must not meaningfully consume the context it is measuring.**
@@ -107,8 +99,6 @@ The design constraint is strict: **the monitor must not meaningfully consume the
 All monitoring runs as local scripts and hooks. No model calls during a live session. One asynchronous `PostToolUse` hook parses the session JSONL and writes a state file after each tool call. The status line display hook and threshold warning hook read that state file — they never parse JSONL themselves. One parse per tool call, results shared by all consumers.
 
 The state file lives at `~/.claude/context-curator/monitor-state.json` and is updated atomically (write to temp, rename) to prevent partial reads.
-
----
 
 ## When to Save a Checkpoint
 
@@ -119,8 +109,6 @@ The monitor tells you when — but here's the general rule:
 - The 🔴 warning means compaction is close — save now, then plan to start a fresh session
 
 The [pre-compaction hook](hooks-automation.md) saves automatically before compaction, but that's a safety net, not a substitute for intentional checkpoints. Named checkpoints are searchable; auto-saves are timestamped blobs.
-
----
 
 ## Next Steps
 

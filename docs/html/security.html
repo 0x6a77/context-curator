@@ -78,7 +78,6 @@
 # → "Found AWS key in message 34. Redact? (y/n)"</code></pre>
     <p>Redaction masks the secret in place and re-scans. The redacted context is what gets promoted — your personal original is unchanged.</p>
 
-    <hr>
 
     <h2>Git Footprint</h2>
     <p>Context Curator is designed to add nothing to <code>git status</code> that you don't want there.</p>
@@ -101,14 +100,12 @@
     <h3>No Git Conflicts</h3>
     <p>Two developers on the same project can both use Context Curator and switch tasks independently without ever creating a merge conflict. The file they each modify (<code>.claude/CLAUDE.md</code>) is git-ignored; the files they share (task <code>CLAUDE.md</code> files and golden contexts) are read-only for this purpose — they're committed once and consumed by everyone.</p>
 
-    <hr>
 
     <h2>Checking the Git Footprint</h2>
     <p>After a full workflow, verify nothing leaked into the working tree:</p>
     <pre><code>git status --porcelain</code></pre>
     <p>No Context Curator files should appear except items you explicitly committed (golden contexts, task CLAUDE.md files). If you see <code>.claude/CLAUDE.md</code> in the output, the <code>.gitignore</code> entry is missing — re-run <code>/task-init</code>.</p>
 
-    <hr>
 
     <ul>
       <li><a href="managing-contexts.html">Managing Contexts</a> — save, list, and promote contexts</li>

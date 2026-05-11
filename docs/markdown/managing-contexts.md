@@ -19,8 +19,6 @@ Context names must be alphanumeric with hyphens or underscores: `morning-progres
 
 **Overwrite protection:** If that name already exists, Context Curator backs up the original before overwriting.
 
----
-
 ## Listing Contexts
 
 ```bash
@@ -45,15 +43,11 @@ To list contexts for a specific task:
 /context-list payment-v2
 ```
 
----
-
 ## AI-Generated Summaries
 
 Every saved context gets an automatic 2–3 sentence description: what was accomplished, what was decided, what the session covered. Generated in a forked session — your current conversation is unaffected.
 
 The summary is stored in a `.meta.json` file alongside the `.jsonl` session file and shown by `/context-list`.
-
----
 
 ## Managing Your Context Library
 
@@ -87,8 +81,6 @@ Shows exactly what would be deleted. Always use `--dry-run` first.
 ```
 `--force` is required to prevent accidental deletion.
 
----
-
 ## Handling Interruptions
 
 Save your context before switching tasks. When you return, Claude picks up exactly where you left off.
@@ -108,8 +100,6 @@ Save your context before switching tasks. When you return, Claude picks up exact
 
 This pattern works for end-of-day breaks too: save before closing the laptop, resume the next morning.
 
----
-
 ## Storage Locations
 
 | Context Type | Location | Committed to Git |
@@ -119,8 +109,6 @@ This pattern works for end-of-day breaks too: save before closing the laptop, re
 | Auto-save | `~/.claude/projects/<project>/auto-saves/` | No |
 
 Personal contexts are private to your machine. Golden contexts travel with the repo. Auto-saves are the pre-compaction backups created by hooks — you don't manage these directly.
-
----
 
 You now have everything you need to save, restore, and manage contexts solo.
 

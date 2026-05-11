@@ -55,7 +55,6 @@
     <h3>Accessing Auto-Saves</h3>
     <p>Auto-saves live in <code>~/.claude/projects/&lt;project&gt;/auto-saves/</code>. You can browse them by timestamp to find the most recent one before a compaction event, then manually restore from it if needed.</p>
 
-    <hr>
 
     <h2>PostCompact Task Re-Injection Hook</h2>
     <p>After every compaction, a hook re-injects your current task context into the session.</p>
@@ -70,21 +69,18 @@
     </ul>
     <p>The hook fires for both automatic and manual compaction. It runs synchronously via a <code>PostCompact</code> hook so the injection happens before Claude's next response.</p>
 
-    <hr>
 
     <h2>Hook Registration</h2>
     <p>Both hooks are registered globally in <code>~/.claude/settings.json</code> by the installer. You can verify they're registered:</p>
     <pre><code>cat ~/.claude/settings.json | grep -A5 hooks</code></pre>
     <p>The hooks run local TypeScript scripts via <code>npx tsx</code>. No network calls, no model invocations. They read from and write to local files only.</p>
 
-    <hr>
 
     <h2>When Hooks Are and Aren't Enough</h2>
     <p><strong>Hooks handle:</strong> Unplanned compaction events (auto-compact fires mid-session), manual compaction, session continuity after any compaction.</p>
     <p><strong>Hooks don't handle:</strong> Intentional session breaks where you want to return days later at peak understanding. For those, save a named context with <code>/context-save</code> before ending the session. Named contexts have summaries, are searchable, and are usable by teammates (if golden).</p>
     <p>Think of hooks as your auto-save in a video game — they save your progress constantly so you don't lose much if something goes wrong. Named contexts are your manual saves — intentional, named, and available to load later.</p>
 
-    <hr>
 
     <ul>
       <li><a href="managing-contexts.html">Managing Contexts</a> — intentional named saves alongside auto-saves</li>

@@ -28,8 +28,6 @@ When you run `/task payment-v2`, Context Curator replaces the `@import` line. Wh
 
 Each task has its own `CLAUDE.md` at `.claude/tasks/<task-id>/CLAUDE.md`. These files are committed. They travel with the repo and carry the task-specific instructions that any developer can load via `/task <id>`.
 
----
-
 ## How `/resume` Re-Reads CLAUDE.md
 
 When you run `/resume <uuid>`, Claude Code:
@@ -44,8 +42,6 @@ This is the key mechanism behind task switching. The import points to the right 
 
 > **Note:** This re-read-on-resume behavior is not officially documented by Anthropic. It's an observed behavior that is central to Context Curator's task switching. If a future Claude Code update changes it, task switching will break. Mitigation: after any major Claude Code update, verify that a known string from your task CLAUDE.md appears in Claude's context after a `/resume`.
 
----
-
 ## Cross-Platform Compatibility
 
 Context Curator supports macOS and Linux. Windows native is out of scope; Windows users should use WSL2.
@@ -53,8 +49,6 @@ Context Curator supports macOS and Linux. Windows native is out of scope; Window
 **Path handling:** All path operations use POSIX conventions. Project directories with spaces in their names are supported — all scripts quote paths correctly.
 
 **Shell requirement:** Bash or zsh. The installer and all hook scripts use POSIX-compatible shell constructs.
-
----
 
 ## Error Handling
 
@@ -65,8 +59,6 @@ Context Curator scripts produce clear, actionable error messages without exposin
 **Malformed context files:** If a `.jsonl` context file is corrupted or malformed, `scan-secrets` and other read operations exit non-zero with a message that names the corruption. The error message describes what was wrong, not just that something failed.
 
 **The general pattern:** If something goes wrong, Context Curator tells you what happened and what to do next, in plain language.
-
----
 
 ## Directory Reference
 

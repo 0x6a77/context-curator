@@ -43,8 +43,6 @@ Golden (shared):
 Saves directly to the project. Useful when you're confident the session is
 worth sharing and don't want a personal copy first.
 
----
-
 ## Project-Scope Install
 
 By default, Context Curator installs globally — it's available on your
@@ -82,8 +80,6 @@ automatically when they pull.
 
 Commit this directory. Teammates don't need to run `install.sh`.
 
----
-
 ## Selective Bundle Install
 
 Teams don't have to install everything. Context Curator ships in bundles:
@@ -108,8 +104,6 @@ When skills exist at both user scope (`~/.claude/skills/`) and project scope
 (`.claude/skills/`), project scope takes precedence. Teams can pin a specific
 bundle version without affecting other projects.
 
----
-
 ## Team Manifests
 
 Teams can publish their own skill bundles alongside Context Curator's —
@@ -130,8 +124,6 @@ project:
 Save as `.claude/context-curator-manifest.json` and any developer who runs
 `/plugin marketplace list` will see the custom bundle.
 
----
-
 ## Version Verification
 
 The installed manifest version must match `dist/version.json`. To check:
@@ -142,8 +134,6 @@ npx tsx scripts/verify-manifest.ts
 
 Exits non-zero and names the conflict if there's a mismatch. Re-run
 `install.sh` to repair.
-
----
 
 ## Sandbox Configuration
 
@@ -164,8 +154,6 @@ If your project runs Claude Code with sandbox mode enabled, add to
 This lets Context Curator write to `~/.claude/projects/` (outside the
 project directory) while keeping all other sandbox restrictions. Commit
 `settings.json` — all teammates need it.
-
----
 
 - [Security](security.md) — what the secret scan catches before every golden save
 - [Reference](reference.md) — skill directory layout, CLAUDE.md internals

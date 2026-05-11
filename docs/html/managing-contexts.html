@@ -58,7 +58,6 @@
     </ul>
     <p><strong>Overwrite protection:</strong> If that name already exists, Context Curator backs up the original before overwriting.</p>
 
-    <hr>
 
     <h2>Listing Contexts</h2>
     <pre><code>/context-list</code></pre>
@@ -72,13 +71,11 @@ Personal:
     <p>To list contexts for a specific task:</p>
     <pre><code>/context-list payment-v2</code></pre>
 
-    <hr>
 
     <h2>AI-Generated Summaries</h2>
     <p>Every saved context gets an automatic 2–3 sentence description: what was accomplished, what was decided, what the session covered. Generated in a forked session — your current conversation is unaffected.</p>
     <p>The summary is stored in a <code>.meta.json</code> file alongside the <code>.jsonl</code> session file and shown by <code>/context-list</code>.</p>
 
-    <hr>
 
     <h2>Managing Your Context Library</h2>
     <p>Over time contexts accumulate. <code>/context-manage</code> helps keep things tidy.</p>
@@ -96,7 +93,6 @@ Personal:
     <pre><code>/context-manage delete auth-refactor old-exploration --force</code></pre>
     <p><code>--force</code> is required to prevent accidental deletion.</p>
 
-    <hr>
 
     <h2>Handling Interruptions</h2>
     <p>Save your context before switching tasks. When you return, Claude picks up exactly where you left off.</p>
@@ -112,7 +108,6 @@ Personal:
 # Full context restored, no re-warm needed</code></pre>
     <p>This pattern works for end-of-day breaks too: save before closing the laptop, resume the next morning.</p>
 
-    <hr>
 
     <h2>Storage Locations</h2>
     <table>
@@ -127,7 +122,6 @@ Personal:
     </table>
     <p>Personal contexts are private to your machine. Golden contexts travel with the repo. Auto-saves are the pre-compaction backups created by hooks — you don't manage these directly.</p>
 
-    <hr>
 
     <p>You now have everything you need to save, restore, and manage contexts solo.</p>
     <ul>

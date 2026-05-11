@@ -67,7 +67,6 @@ cd context-curator
 ./install.sh --project-install</code></pre>
     <p>This copies the skills into <code>.claude/skills/context-curator/</code> in your project. Commit that directory and teammates get the full command set automatically.</p>
 
-    <hr>
 
     <h2>Initialize a Project</h2>
     <p>Before using Context Curator in a project, run:</p>
@@ -91,7 +90,6 @@ prod-mgmt/
 
     <p>Your root <code>CLAUDE.md</code> is never modified.</p>
 
-    <hr>
 
     <h2>Creating a Task</h2>
     <p>A <a href="glossary.html#task">task</a> is a focused work environment with its own instructions for Claude. Create one with:</p>
@@ -109,7 +107,6 @@ prod-mgmt/
 
     <p><strong>Task ID rules:</strong> Lowercase letters, numbers, and hyphens only. No uppercase, no spaces. Examples: <code>auth-refactor</code>, <code>payment-v2</code>, <code>legacy-migration-2026</code>.</p>
 
-    <hr>
 
     <h2>Switching Between Tasks</h2>
     <p>To switch to a task that already exists:</p>
@@ -129,7 +126,6 @@ Start fresh (no context)</code></pre>
 
     <p>Select a context or start fresh. Then run <code>/resume &lt;uuid&gt;</code> and Claude picks up exactly where that session left off.</p>
 
-    <hr>
 
     <h2>Deleting a Task</h2>
     <p>To remove a task and all its contexts:</p>
@@ -141,14 +137,12 @@ Start fresh (no context)</code></pre>
     <pre><code>git rm -r .claude/tasks/auth-refactor/
 git commit -m "Remove auth-refactor task"</code></pre>
 
-    <hr>
 
     <h2>The Default Task</h2>
     <p>Every project has a <code>default</code> task. It uses your root <code>CLAUDE.md</code> with no task-specific additions — plain Claude with no special focus. Switch to it any time:</p>
     <pre><code>/task default</code></pre>
     <p>This restores vanilla Claude behavior. Useful when you need to step outside your current task focus.</p>
 
-    <hr>
 
     <h2>Quick Example</h2>
     <pre><code># Initialize (first time only)
@@ -171,7 +165,6 @@ cd ~/my-project
 /resume &lt;uuid&gt;
 # Claude is back at peak understanding instantly</code></pre>
 
-    <hr>
 
     <h2>Native Claude Code Commands</h2>
     <p>These built-in commands complement Context Curator. They work in any task.</p>
@@ -191,7 +184,6 @@ cd ~/my-project
 
     <p><strong>Note on <code>/compact</code>:</strong> Context Curator's PreCompact hook fires before <code>/compact</code>, so your session is saved before any compaction runs — including manual compaction.</p>
 
-    <hr>
 
     <p>You now have everything you need to use Context Curator solo.</p>
     <ul>

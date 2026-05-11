@@ -37,8 +37,6 @@ If secrets are detected, you can redact them before promoting:
 
 Redaction masks the secret in place and re-scans. The redacted context is what gets promoted — your personal original is unchanged.
 
----
-
 ## Git Footprint
 
 Context Curator is designed to add nothing to `git status` that you don't want there.
@@ -61,8 +59,6 @@ The key mechanism is `.claude/.gitignore`, which contains an entry for `CLAUDE.m
 
 Two developers on the same project can both use Context Curator and switch tasks independently without ever creating a merge conflict. The file they each modify (`.claude/CLAUDE.md`) is git-ignored; the files they share (task `CLAUDE.md` files and golden contexts) are read-only for this purpose — they're committed once and consumed by everyone.
 
----
-
 ## Checking the Git Footprint
 
 After a full workflow, verify nothing leaked into the working tree:
@@ -72,8 +68,6 @@ git status --porcelain
 ```
 
 No Context Curator files should appear except items you explicitly committed (golden contexts, task CLAUDE.md files). If you see `.claude/CLAUDE.md` in the output, the `.gitignore` entry is missing — re-run `/task-init`.
-
----
 
 ## Next Steps
 

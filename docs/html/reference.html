@@ -61,7 +61,6 @@
     <h3>Task CLAUDE.md Files</h3>
     <p>Each task has its own <code>CLAUDE.md</code> at <code>.claude/tasks/&lt;task-id&gt;/CLAUDE.md</code>. These files are committed. They travel with the repo and carry the task-specific instructions that any developer can load via <code>/task &lt;id&gt;</code>.</p>
 
-    <hr>
 
     <h2>How <code>/resume</code> Re-Reads CLAUDE.md</h2>
     <p>When you run <code>/resume &lt;uuid&gt;</code>, Claude Code:</p>
@@ -77,14 +76,12 @@
       <p><strong>Note:</strong> This re-read-on-resume behavior is not officially documented by Anthropic. It's an observed behavior that is central to Context Curator's task switching. If a future Claude Code update changes it, task switching will break. Mitigation: after any major Claude Code update, verify that a known string from your task CLAUDE.md appears in Claude's context after a <code>/resume</code>.</p>
     </blockquote>
 
-    <hr>
 
     <h2>Cross-Platform Compatibility</h2>
     <p>Context Curator supports macOS and Linux. Windows native is out of scope; Windows users should use WSL2.</p>
     <p><strong>Path handling:</strong> All path operations use POSIX conventions. Project directories with spaces in their names are supported — all scripts quote paths correctly.</p>
     <p><strong>Shell requirement:</strong> Bash or zsh. The installer and all hook scripts use POSIX-compatible shell constructs.</p>
 
-    <hr>
 
     <h2>Error Handling</h2>
     <p>Context Curator scripts produce clear, actionable error messages without exposing stack traces.</p>
@@ -92,7 +89,6 @@
     <p><strong>Malformed context files:</strong> If a <code>.jsonl</code> context file is corrupted or malformed, <code>scan-secrets</code> and other read operations exit non-zero with a message that names the corruption. The error message describes what was wrong, not just that something failed.</p>
     <p><strong>The general pattern:</strong> If something goes wrong, Context Curator tells you what happened and what to do next, in plain language.</p>
 
-    <hr>
 
     <h2>Directory Reference</h2>
     <table>

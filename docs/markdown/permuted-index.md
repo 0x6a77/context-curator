@@ -2,8 +2,6 @@
 
 Each significant term appears rotated to the front. Use this index to find topics when you know any word in the phrase.
 
----
-
 ## A
 
 **acceptance, risk** → [Risk acceptances](boss-fight-workflow.md#risk-acceptances) | [Glossary: risk acceptance](glossary.md#risk-acceptance)
@@ -19,8 +17,6 @@ Each significant term appears rotated to the front. Use this index to find topic
 **authoring bundle** → [For Teams: selective bundle install](for-teams.md#selective-bundle-install)
 
 **auto-save** → [Hooks and Automation: PreCompact auto-save hook](hooks-automation.md#precompact-auto-save-hook) | [Glossary: auto-save](glossary.md#auto-save)
-
----
 
 ## B
 
@@ -43,8 +39,6 @@ Each significant term appears rotated to the front. Use this index to find topic
 **bundle, session** → [For Teams: selective bundle install](for-teams.md#selective-bundle-install)
 
 **burn rate** → [Context Monitoring: burn rate and cost estimation](context-monitoring.md#burn-rate-and-cost-estimation) | [Glossary: monitor](glossary.md#monitor)
-
----
 
 ## C
 
@@ -110,8 +104,6 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **Critical zone** → [Context Monitoring: the three zones](context-monitoring.md#the-three-degradation-zones)
 
----
-
 ## D
 
 **default task** → [Getting Started: the default task](getting-started.md) | [Glossary: default task](glossary.md#default-task)
@@ -138,15 +130,11 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **documentation, user (Phase 1a)** → [PRD-Driven Development: user documentation](boss-fight-workflow.md#user-documentation-docs-markdown-and-docs-html)
 
----
-
 ## E
 
 **error handling** → [Reference: error handling](reference.md#error-handling)
 
 **ESCALATE verdict** → [PRD-Driven Development: the adversary task](boss-fight-workflow.md#the-adversary-task)
-
----
 
 ## F
 
@@ -159,8 +147,6 @@ Each significant term appears rotated to the front. Use this index to find topic
 **force, --force flag (prd-process)** → [PRD-Driven Development: /prd-process](boss-fight-workflow.md#process-sequencing-prd-process)
 
 **fork, /fork** → [Getting Started: native Claude Code commands](getting-started.md#native-claude-code-commands)
-
----
 
 ## G
 
@@ -178,8 +164,6 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **golden context, sharing** → [For Teams: golden contexts](for-teams.md#golden-contexts)
 
----
-
 ## H
 
 **Healthy zone** → [Context Monitoring: the three zones](context-monitoring.md#the-three-degradation-zones)
@@ -191,8 +175,6 @@ Each significant term appears rotated to the front. Use this index to find topic
 **hook, PreCompact** → [Hooks and Automation: PreCompact auto-save hook](hooks-automation.md#precompact-auto-save-hook) | [Glossary: hook](glossary.md#hook)
 
 **hook registration** → [Hooks and Automation: hook registration](hooks-automation.md#hook-registration)
-
----
 
 ## I
 
@@ -208,13 +190,9 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **isolation, context (adversary)** → [PRD-Driven Development: the specialized task framework](boss-fight-workflow.md#the-specialized-task-framework)
 
----
-
 ## J
 
 **journey, reader** → [PRD-Driven Development: /docs-markdown](boss-fight-workflow.md#docs-markdown) | [Glossary: gate](glossary.md#gate)
-
----
 
 ## K
 
@@ -226,15 +204,11 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **keys, Stripe** → [Security: what gets detected](security.md#what-gets-detected)
 
----
-
 ## L
 
 **Linux support** → [Reference: cross-platform compatibility](reference.md#cross-platform-compatibility)
 
 **list, context** → [Managing Contexts: listing contexts](managing-contexts.md)
-
----
 
 ## M
 
@@ -254,8 +228,6 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **monitor-config.json** → [Context Monitoring: configuration file](context-monitoring.md)
 
----
-
 ## N
 
 **nav element** → [PRD-Driven Development: /docs-html](boss-fight-workflow.md#docs-html)
@@ -265,8 +237,6 @@ Each significant term appears rotated to the front. Use this index to find topic
 **new, /test-plan new** → [PRD-Driven Development: /test-plan](boss-fight-workflow.md#test-plan--test-plan-authoring)
 
 **new-feature, /prd new-feature** → [PRD-Driven Development: /prd](boss-fight-workflow.md#prd--prd-authoring)
-
----
 
 ## P
 
@@ -302,8 +272,6 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **promote, /context-promote** → [For Teams: promoting a context](for-teams.md#promoting-a-context)
 
----
-
 ## R
 
 **re-injection, post-compaction** → [Hooks and Automation: PostCompact task re-injection hook](hooks-automation.md#postcompact-task-re-injection-hook) | [Glossary: re-injection](glossary.md#re-injection)
@@ -325,8 +293,6 @@ Each significant term appears rotated to the front. Use this index to find topic
 **risk acceptance** → [PRD-Driven Development: risk acceptances](boss-fight-workflow.md#risk-acceptances) | [Glossary: risk acceptance](glossary.md#risk-acceptance)
 
 **rot, context** → [Introduction](introduction.md) | [Glossary: context rot](glossary.md#context-rot)
-
----
 
 ## S
 
@@ -364,8 +330,6 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **switching tasks** → [Getting Started: switching between tasks](getting-started.md)
 
----
-
 ## T
 
 **T-XXX acceptance criteria code** → [PRD-Driven Development: PRD authoring](boss-fight-workflow.md#prd--prd-authoring)
@@ -396,13 +360,9 @@ Each significant term appears rotated to the front. Use this index to find topic
 
 **toc.md** → [Table of Contents](toc.md)
 
----
-
 ## U
 
 **user-scope skills** → [For Teams: project-scope install](for-teams.md#project-scope-install)
-
----
 
 ## V
 
@@ -411,8 +371,6 @@ Each significant term appears rotated to the front. Use this index to find topic
 **verify-manifest.ts** → [For Teams: version verification](for-teams.md#version-verification)
 
 **version verification (manifest)** → [For Teams: version verification](for-teams.md#version-verification)
-
----
 
 ## W
 
@@ -423,8 +381,6 @@ Each significant term appears rotated to the front. Use this index to find topic
 **warnings, zone** → [Context Monitoring: zone warnings](context-monitoring.md)
 
 **Windows (WSL2)** → [Reference: cross-platform compatibility](reference.md#cross-platform-compatibility)
-
----
 
 ## Z
 

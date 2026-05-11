@@ -46,7 +46,6 @@
     <h1>PRD-Driven Development</h1>
     <p>Boss-Fight Coding is a PRD-driven development process built around a structurally adversarial review phase — the "boss fight" you must pass to advance. This page covers the full process: document authoring skills, the adversary task, process sequencing, and user documentation.</p>
 
-    <hr>
 
     <h2>The Core Idea</h2>
     <p>Most development process failures happen because requirements are vague, tests are weak, or the team evaluates their own work. Boss-Fight Coding addresses all three:</p>
@@ -57,7 +56,6 @@
     </ol>
     <p>The adversary is the boss fight. You can only advance by genuinely defeating it — not by tweaking your tests until the adversary is satisfied, but by having tests that actually verify what the PRD requires.</p>
 
-    <hr>
 
     <h2>Document Authoring Skills</h2>
     <p>Four skills enforce idiomatic format when writing process artifacts. They're auto-invocable — Claude loads the right skill automatically when you open a PRD, test plan, or dev plan file.</p>
@@ -89,7 +87,6 @@
     <h3><code>/test-inventory</code> — Adversary Output Format</h3>
     <p>Only available when the adversary task is active. Loads the output schema so the adversary produces consistent inventory structure. Running <code>/test-inventory</code> outside the adversary task is an error by design.</p>
 
-    <hr>
 
     <h2>The Full Process Flow</h2>
 
@@ -123,7 +120,6 @@ Phase 6: Remediation     Phase 8: Verification
 Phase 7: Risk Acceptance
   Document and accept specific findings → re-run adversary</code></pre>
 
-    <hr>
 
     <h2>User Documentation: <code>/docs-markdown</code> and <code>/docs-html</code></h2>
     <p>Documentation is generated immediately after every PRD update that introduces or changes user-facing behavior — before code is written. The reason: user documentation is the cheapest possible way to find out whether you've specified the right thing. A user who reads your documentation and says "I'd never do it that way" costs a PRD revision. The same user encountering your released product costs a feature rewrite.</p>
@@ -152,7 +148,6 @@ Phase 7: Risk Acceptance
     <p><strong>Style guide:</strong> <code>docs/html/style.md</code> governs the look of the generated HTML. Edit it to set typeface, colors, language register, and layout. If the file is absent, <code>/docs-html</code> writes sensible accessible defaults and reports them for your review.</p>
     <p><strong>Invariant:</strong> Markdown is always updated first. HTML files are never hand-edited — they're regenerated from markdown. This makes documentation diffs reviewable the same way code diffs are.</p>
 
-    <hr>
 
     <h2>The Adversary Task</h2>
     <p>The adversary is your LoD2 — the second line of defence in a three-lines-of-defence model:</p>
@@ -189,7 +184,6 @@ APPROVED_DATE: 2026-05-09
 EXPIRY:        v2.0-release</code></pre>
     <p>Re-run the adversary after adding an acceptance. The finding will be marked ACCEPTED rather than FAIL.</p>
 
-    <hr>
 
     <h2>Process Sequencing: <code>/prd-process</code></h2>
     <p>The most common process failure is updating the PRD and starting to implement without re-running the adversary. The adversary's test inventory is now stale — covering the old feature set, not the current one.</p>
@@ -220,13 +214,11 @@ EXPIRY:        v2.0-release</code></pre>
       </tbody>
     </table>
 
-    <hr>
 
     <h2>The Specialized Task Framework</h2>
     <p>The adversary is built on a specialized task framework that provides STRICT context isolation — no context restoration, no context saving, every invocation starts fresh. Isolation is enforced by hooks, not just instructions: a PreCompact hook blocks compaction saves and a SessionStart hook validates that no prior context was loaded.</p>
     <p>STRICT isolation is the load-bearing element. If the adversary shares session context with your development sessions, it has been captured — it's a collaborator with a different label, not an adversary. Hook enforcement means this can't happen accidentally.</p>
 
-    <hr>
 
     <ul>
       <li><a href="for-teams.html">For Teams</a> — install just the authoring bundle, or share the full stack with your team</li>

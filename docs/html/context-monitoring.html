@@ -62,7 +62,6 @@
 
     <p>These thresholds are configurable in <code>~/.claude/context-curator/monitor-config.json</code>.</p>
 
-    <hr>
 
     <h2>Status Line</h2>
     <p>After every tool call, a status line appears in the terminal showing your current session state:</p>
@@ -81,7 +80,6 @@
     <p>The "+Nk since warm-up" field measures from your last saved <a href="glossary.html#context">checkpoint</a>. When you save a context with <code>/context-save</code>, the current token count is recorded as the baseline. Everything after that is "since warm-up."</p>
     <p>If you haven't saved a checkpoint yet in the current session, the monitor counts from session start.</p>
 
-    <hr>
 
     <h2>Zone Warnings</h2>
     <p>When your session crosses into a new zone, a one-time warning appears:</p>
@@ -95,7 +93,6 @@
     (This warning will not repeat in this zone.)</code></pre>
     <p>Warnings fire <strong>before</strong> Claude's next response — you see the warning while there's still time to act. Each warning fires exactly once per zone entry. After compaction resets the fill level, zone sentinels clear and warnings fire again if you re-enter the zone.</p>
 
-    <hr>
 
     <h2>Burn Rate and Cost Estimation</h2>
     <p>The monitor tracks how fast you're consuming context:</p>
@@ -125,14 +122,12 @@
   }
 }</code></pre>
 
-    <hr>
 
     <h2>How the Monitor Works</h2>
     <p>The design constraint is strict: <strong>the monitor must not meaningfully consume the context it is measuring.</strong></p>
     <p>All monitoring runs as local scripts and hooks. No model calls during a live session. One asynchronous <code>PostToolUse</code> hook parses the session JSONL and writes a state file after each tool call. The status line display hook and threshold warning hook read that state file — they never parse JSONL themselves. One parse per tool call, results shared by all consumers.</p>
     <p>The state file lives at <code>~/.claude/context-curator/monitor-state.json</code> and is updated atomically (write to temp, rename) to prevent partial reads.</p>
 
-    <hr>
 
     <h2>When to Save a Checkpoint</h2>
     <p>The monitor tells you when — but here's the general rule:</p>
@@ -143,7 +138,6 @@
     </ul>
     <p>The <a href="hooks-automation.html">pre-compaction hook</a> saves automatically before compaction, but that's a safety net, not a substitute for intentional checkpoints. Named checkpoints are searchable; auto-saves are timestamped blobs.</p>
 
-    <hr>
 
     <ul>
       <li><a href="managing-contexts.html">Managing Contexts</a> — how to save, name, and restore checkpoints</li>
