@@ -27,7 +27,7 @@ async function hashFile(filePath: string): Promise<string> {
 
 interface TaskWithContexts {
   id: string;
-  location: 'golden' | 'personal';
+  location: 'golden' | 'personal' | 'specialized';
   isCurrent: boolean;
   contexts: {
     name: string;
