@@ -1,50 +1,6 @@
 # PRD-Driven Development
 
-Boss-Fight Coding is a PRD-driven development process built around a structurally adversarial review phase — the "boss fight" you must pass to advance. This page covers the full process: document authoring skills, the adversary task, process sequencing, and user documentation.
-
-## The Core Idea
-
-Most development process failures happen because requirements are vague, tests are weak, or the team evaluates their own work. Boss-Fight Coding addresses all three:
-
-1. **PRD first** — write acceptance criteria that are falsifiable before any code
-2. **Documentation second** — generate user docs from the PRD and share them; find mismatches before you've built anything
-3. **Adversarial review** — an isolated reviewer with no knowledge of your intent evaluates whether your tests actually cover your requirements
-
-The adversary is the boss fight. You can only advance by genuinely defeating it — not by tweaking your tests until the adversary is satisfied, but by having tests that actually verify what the PRD requires.
-
-## Document Authoring Skills
-
-Four skills enforce idiomatic format when writing process artifacts. They're auto-invocable — Claude loads the right skill automatically when you open a PRD, test plan, or dev plan file.
-
-### `/prd` — PRD Authoring
-
-Loads when you work on a `*prd*.md` file. Enforces the F-XXX/T-XXX code system, falsifiable acceptance criteria, and the required feature section format.
-
-**Commands:**
-- `/prd new-feature` — scaffolds a complete feature section with placeholder F-XXX code, Expected Behaviors, Test Scenarios, and an Acceptance Criteria table
-- `/prd check-ac` — reviews every AC clause in the PRD and flags anything vague, circular, or not independently testable
-
-**What "vague" means:** An acceptance criterion like "the system handles errors gracefully" is vague — there's no test you can write that would fail for a wrong implementation. A strong criterion is specific and falsifiable: "saving a context over 100KB exits non-zero with output containing '100KB' or 'too large'."
-
-### `/test-plan` — Test Plan Authoring
-
-Loads when you work on a `*test-plan*.md` file. Enforces mandatory sections, banned test patterns, and fix priority tiers.
-
-**Commands:**
-- `/test-plan new` — scaffolds a complete test plan with all mandatory sections: testing philosophy, banned patterns list (minimum 6), fix priority tiers, environment setup, feature test groups, and summary
-
-**The banned patterns are load-bearing.** Vacuous OR fallbacks, conditional file-existence guards, placeholder assertions, self-fulfilling setup — these are the patterns that make tests pass vacuously while the implementation is wrong. The adversary checks for all of them.
-
-### `/dev-plan` — Dev Plan Authoring
-
-Loads when you work on a `*dev-plan*.md` file. Enforces phase structure, design decision format, and PRD version reference.
-
-**Commands:**
-- `/dev-plan new` — scaffolds a complete dev plan: PRD version reference, executive summary, architecture overview, implementation phases, file structure table, key design decisions, and troubleshooting
-
-### `/test-inventory` — Adversary Output Format
-
-Only available when the adversary task is active. Loads the output schema so the adversary produces consistent inventory structure. Running `/test-inventory` outside the adversary task is an error by design.
+PRD-driven development is a methodology built on a principle with decades of evidence behind it: high-quality upstream artifacts — requirements, acceptance criteria, user documentation — produce dramatically better outcomes than starting from code. The cost of a change scales with how late you make it. This methodology front-loads the human judgment that matters most, then uses automation to enforce everything after.
 
 ## The Full Process Flow
 
@@ -79,6 +35,76 @@ Phase 6: Remediation     Phase 8: Verification
 Phase 7: Risk Acceptance
   Document and accept specific findings → re-run adversary
 ```
+
+## Design First
+
+Before anything is written down, the human does the design work — iteratively, until the product is right.
+
+**Simulation sessions** — Using a conversational tool like Claude chat, explore features and user experience as if the product already exists. Try different flows. Stress-test edge cases. Apply the rule of dozens: if you haven't tried at least a dozen variations of a design decision — different command names, different interaction flows, different error messages — you haven't explored the space. The first version of an idea is almost never the right one. The right one usually only becomes visible after you've articulated and rejected enough wrong ones to understand the shape of the problem.
+
+**Write the PRD** — Once the design is settled, capture it with F-XXX feature codes and T-XXX acceptance criteria. Every AC clause must be falsifiable: there's a concrete test that would fail for a wrong implementation. The `/prd` skill enforces this format.
+
+**Read with a pen** — Before moving on, print the PRD and read it slowly, pen in hand. Tim Parks described the posture well: "There is something predatory, cruel even, about a pen suspended over a text. Like a hawk over a field, it is on the lookout for something vulnerable." That predatory quality is exactly what you need when reviewing your own PRD. Mark anything vague, circular, or that could be interpreted two ways — in the margin, immediately, in your own handwriting. Do not make a mental note. The markup is the process improvement. Commit the edits. The next cycle starts from the corrected document.
+
+## Documentation Before Code
+
+After the PRD is validated, generate user documentation — before any code is written.
+
+The documentation is much easier for users to understand than a PRD. Sharing it early finds mismatches while they're cheap. A user who reads your docs and says "I'd never do it that way" costs a PRD revision. The same user encountering your released product costs a feature rewrite.
+
+## The Evidence
+
+The case for documentation-first is not intuitive — it has to be argued. The evidence comes from several independent research traditions:
+
+**Requirements errors are the most expensive class of defect.** Barry Boehm's foundational studies, extended by NASA and IBM's Systems Sciences Institute, established that errors found during requirements and design cost roughly 1x to fix; the same error found after release costs 50–100x. While modern tooling has compressed this gradient somewhat, the directional truth is not seriously contested. Documentation shared with users during requirements discovery is requirements testing at the 1x cost point.
+
+**Only users can evaluate understanding and discoverability.** Donald Norman's foundational work in *The Design of Everyday Things* (1988, rev. 2013) establishes that understanding and discoverability are the two most critical properties of a usable system — and both are properties that only users can evaluate. The designer always has the system's conceptual model loaded; users encounter it cold. Documentation is the mechanism that bridges the gap between the designer's model and the user's model. There is no other mechanism that works as cheaply.
+
+**The value of early releases is the learning, not the artifact.** Eric Raymond (*The Cathedral and the Bazaar*) and the Lean Startup methodology (Ries, 2011) established that frequent early releases produce fast feedback loops. Fred Brooks affirmed that Harlan Mills proposed the same concept as early as 1971: deliver something to users as soon as possible and really start getting feedback from the field. Documentation, unlike code, has zero deployment cost. It is the purest possible early-release artifact.
+
+**Fast feedback loops require something concrete to respond to.** Research on market-driven requirements engineering (Carreno & Winbladh, 2013; Iacob & Harrison, 2013) confirms that users are highly effective at identifying problems — but only when they have something concrete to respond to. A verbal description produces abstract feedback. A two-page plain-language doc with a workflow example produces actionable feedback: "I'd never do it that way," "what happens when X," "this assumes I already have Y." That is the feedback that prevents building the wrong thing.
+
+**Writing documentation is a pressure test of the PRD.** When you sit down to write user documentation for a feature, you are forced to explain it in terms of what the user does and what the system does in response. This exercise regularly surfaces ambiguities that survived the PRD because they never had to be explained in non-technical terms. A feature that is internally consistent as an engineering spec may be confusing or incomplete as a user workflow. Writing the documentation exposes this before code exists.
+
+## Automation for Everything After
+
+Once the PRD is right and the docs are published, the remaining phases run through Claude skills that enforce correct sequencing and embedded strategies — test plan, dev plan, implementation, adversarial review. You don't have to remember the order or the rules; the skills carry that knowledge.
+
+The adversarial review — the "boss fight" — is the integrity check at the end of this pipeline. An isolated reviewer with no knowledge of your intent evaluates whether your tests actually cover your requirements. You can only advance by genuinely passing it, not by adjusting tests until the adversary is satisfied.
+
+## Document Authoring Skills
+
+Four skills enforce idiomatic format when writing process artifacts. They're auto-invocable — Claude loads the right skill automatically when you open a PRD, test plan, or dev plan file.
+
+### `/prd` — PRD Authoring
+
+Loads when you work on a `*prd*.md` file. Enforces the F-XXX/T-XXX code system, falsifiable acceptance criteria, and the required feature section format.
+
+**Commands:**
+- `/prd new-feature` — scaffolds a complete feature section with placeholder F-XXX code, Expected Behaviors, Test Scenarios, and an Acceptance Criteria table
+- `/prd check-ac` — reviews every AC clause in the PRD and flags anything vague, circular, or not independently testable
+
+**What "vague" means:** An acceptance criterion like "the system handles errors gracefully" is vague — there's no test you can write that would fail for a wrong implementation. A strong criterion is specific and falsifiable: "saving a context over 100KB exits non-zero with output containing '100KB' or 'too large'."
+
+### `/test-plan` — Test Plan Authoring
+
+Loads when you work on a `*test-plan*.md` file. Enforces mandatory sections, banned test patterns, and fix priority tiers.
+
+**Commands:**
+- `/test-plan new` — scaffolds a complete test plan with all mandatory sections: testing philosophy, banned patterns list (minimum 6), fix priority tiers, environment setup, feature test groups, and summary
+
+**The banned patterns are load-bearing.** Vacuous OR fallbacks, conditional file-existence guards, placeholder assertions, self-fulfilling setup — these are the patterns that make tests pass vacuously while the implementation is wrong. The adversary checks for all of them.
+
+### `/dev-plan` — Dev Plan Authoring
+
+Loads when you work on a `*dev-plan*.md` file. Enforces phase structure, design decision format, and PRD version reference.
+
+**Commands:**
+- `/dev-plan new` — scaffolds a complete dev plan: PRD version reference, executive summary, architecture overview, implementation phases, file structure table, key design decisions, and troubleshooting
+
+### `/test-inventory` — Adversary Output Format
+
+Only available when the adversary task is active. Loads the output schema so the adversary produces consistent inventory structure. Running `/test-inventory` outside the adversary task is an error by design.
 
 ## User Documentation: `/docs-markdown` and `/docs-html`
 

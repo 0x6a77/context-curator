@@ -238,6 +238,28 @@ want it will find it; readers who don't won't be slowed by it.
 
 ---
 
+## Source Materials
+
+Some documentation pages have a richer source than the markdown alone. When regenerating these pages, read the referenced source file and surface the specified content.
+
+### PRD-Driven Development (`boss-fight-workflow.md`)
+
+**Source:** `prod-mgmt/prd-driven-development.md`
+
+Read this file before generating or updating the PRD-Driven Development page. Surface the following content in the page:
+
+- **"Design First" section** — draw from "Pressure-Test Ideas Before You Build Them": the rule of dozens (at least a dozen variations before settling a decision), and Tim Parks's "predatory" reading posture from "Read with a Pen" (the exact quote is load-bearing; include it).
+- **"Documentation Before Code" section** — draw from "Why Early User Documentation Is the Most Powerful Upstream Investment" → "The Evidence". Surface all five evidence points with their named sources:
+  - Boehm/NASA/IBM: requirements errors at 1x cost to fix; same error post-release at 50–100x
+  - Norman, *The Design of Everyday Things*: only users can evaluate understanding and discoverability; documentation bridges designer model to user model
+  - Raymond/*Cathedral and the Bazaar* + Lean Startup (Ries, 2011) + Brooks/Mills (1971): value of early releases is the learning; documentation has zero deployment cost
+  - Carreno & Winbladh (2013), Iacob & Harrison (2013): users identify problems only when they have something concrete to respond to
+  - Documentation as PRD pressure test: writing it forces you to explain in user terms, surfacing ambiguities invisible in spec language
+
+These citations should appear as a "### The Evidence" subsection within "Documentation Before Code". Cite sources by author name and year/title — do not use footnotes or endnotes.
+
+---
+
 ## Diagrams and Visual Elements
 
 The following pages include a structured code block that `/docs-html` converts to an inline SVG. The markdown source preserves a plain-text representation; the HTML generator replaces the code block with the SVG.
