@@ -204,12 +204,12 @@
     <h3><code>/docs-html</code></h3>
     <p>Generates the navigable HTML documentation from the markdown base:</p>
     <ol>
-      <li>Reads <code>docs/html/style.md</code> for typeface, color, and layout conventions</li>
+      <li>Reads <code>docs/style.md</code> for typeface, color, and layout conventions</li>
       <li>Converts all markdown files to HTML with consistent navigation</li>
       <li>Validates accessibility (WCAG 2.1 AA): heading hierarchy, alt text, contrast</li>
       <li>Writes <code>docs/index.html</code> (introduction + TOC combined) as the shareable entry point</li>
     </ol>
-    <p><strong>Style guide:</strong> <code>docs/html/style.md</code> governs the look of the generated HTML. Edit it to set typeface, colors, language register, and layout. If the file is absent, <code>/docs-html</code> writes sensible accessible defaults and reports them for your review.</p>
+    <p><strong>Style guide:</strong> <code>docs/style.md</code> governs the look of the generated HTML. Edit it to set typeface, colors, language register, and layout. If the file is absent, <code>/docs-html</code> writes sensible accessible defaults and reports them for your review.</p>
     <p><strong>Invariant:</strong> Markdown is always updated first. HTML files are never hand-edited — they're regenerated from markdown. This makes documentation diffs reviewable the same way code diffs are.</p>
 
 
@@ -270,7 +270,7 @@ EXPIRY:        v2.0-release</code></pre>
       </thead>
       <tbody>
         <tr><td>1 — PRD Authoring</td><td><code>prod-mgmt/prd.md</code> exists with at least one <code>### F-</code> section</td></tr>
-        <tr><td>1a — Documentation</td><td><code>docs/html/</code> exists with files newer than <code>prd.md</code></td></tr>
+        <tr><td>1a — Documentation</td><td><code>docs/</code> HTML files exist and are newer than <code>prd.md</code></td></tr>
         <tr><td>2 — Test Plan</td><td><code>prod-mgmt/test-plan.md</code> exists</td></tr>
         <tr><td>3 — Dev Plan</td><td><code>prod-mgmt/dev-plan.md</code> exists</td></tr>
         <tr><td>4 — Implementation</td><td>test files exist in <code>tests/</code></td></tr>

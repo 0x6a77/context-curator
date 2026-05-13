@@ -2,7 +2,7 @@
 name: docs-html
 description: >
   Generate HTML documentation from the markdown base.
-  Reads docs/html/style.md for the design system. Bootstraps style.md if absent.
+  Reads docs/style.md for the design system. Bootstraps style.md if absent.
   Validates WCAG 2.1 AA compliance. Always run after /docs-markdown.
 invocation: explicit
 ---
@@ -13,7 +13,7 @@ Generates the HTML documentation set from `docs/markdown/`. Produces a shared CS
 
 ## Generation Constraints
 
-- Read `docs/html/style.md` first; if absent, bootstrap sensible accessible defaults,
+- Read `docs/style.md` first; if absent, bootstrap sensible accessible defaults,
   write them to `style.md`, and tell the user to review before the next run
 - `style.md` defaults must include entries for color palette and typeface/font
 - All output HTML: WCAG 2.1 AA compliant
@@ -28,7 +28,7 @@ Generates the HTML documentation set from `docs/markdown/`. Produces a shared CS
 ## Output Files
 
 ```
-docs/html/
+docs/
   assets/
     style.css            ← all styles derived from style.md
     main.js              ← copy buttons, anchors, mobile nav, theme toggle,
@@ -48,14 +48,14 @@ docs/html/
   sitemap.xml            ← all active page URLs for search indexing
 ```
 
-The file at `docs/html/index.html` is the entry point (`docs/index.html` in the site root).
+The file at `docs/index.html` is the GitHub Pages entry point (served from `main / /docs`).
 
 ## Workflow
 
-1. Read `docs/html/style.md` (bootstrap with accessible defaults if missing)
-2. Generate `docs/html/assets/style.css` from the style spec — including light mode vars, search, page TOC, prev/next, repo link, and edit link styles
-3. Generate `docs/html/assets/main.js` — theme toggle, copy buttons, heading anchors, mobile nav, page TOC, prev/next nav, edit link, search
-4. Generate `docs/html/assets/search-index.json` — one entry per page with `{url, title, headings[], content}`
+1. Read `docs/style.md` (bootstrap with accessible defaults if missing)
+2. Generate `docs/assets/style.css` from the style spec — including light mode vars, search, page TOC, prev/next, repo link, and edit link styles
+3. Generate `docs/assets/main.js` — theme toggle, copy buttons, heading anchors, mobile nav, page TOC, prev/next nav, edit link, search
+4. Generate `docs/assets/search-index.json` — one entry per page with `{url, title, headings[], content}`
 5. For each markdown file in `docs/markdown/`:
    - Convert to HTML applying the style.md design system
    - Set `<html lang="en" data-theme="dark">`
@@ -64,9 +64,9 @@ The file at `docs/html/index.html` is the entry point (`docs/index.html` in the 
    - Add `<div class="page-footer"></div>` as the last child of `<main>`
    - Render ASCII flow diagrams as inline SVG where possible
    - Validate heading hierarchy before writing
-6. Write `docs/html/index.html` combining `introduction.md` and `toc.md`
+6. Write `docs/index.html` combining `introduction.md` and `toc.md`
 7. Write all section pages
-8. Write `docs/html/sitemap.xml`
+8. Write `docs/sitemap.xml`
 
 ## SVG Diagrams
 
@@ -97,21 +97,20 @@ discard it and generate the SVG instead:
 
 ## Invariant
 
-Never hand-edit files in `docs/html/`. They are always regenerated from `docs/markdown/`.
+Never hand-edit files in `docs/` (HTML output files). They are always regenerated from `docs/markdown/`.
 Run `/docs-markdown` first, then `/docs-html`.
 
 ## Deployment
 
-`docs/html/` is plain HTML — no build step needed to serve it.
+`docs/` is plain HTML — no build step needed to serve it.
 
-- **Local review:** open `docs/html/index.html` in a browser
-- **GitHub Pages:** configure Pages to serve from the `docs/html/` folder on `main`,
-  or copy `docs/html/` contents to the `gh-pages` branch root
+- **Local review:** open `docs/index.html` in a browser
+- **GitHub Pages:** configure Pages to serve from `main / /docs` — every push to main publishes automatically
 
 ## Bootstrap Message
 
 If `style.md` was absent and had to be created:
 ```
-style.md was not found. Created defaults at docs/html/style.md.
+style.md was not found. Created defaults at docs/style.md.
 Review and edit before the next /docs-html run if you want a custom look.
 ```

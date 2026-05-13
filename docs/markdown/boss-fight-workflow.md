@@ -102,12 +102,12 @@ Run after every meaningful PRD update.
 
 Generates the navigable HTML documentation from the markdown base:
 
-1. Reads `docs/html/style.md` for typeface, color, and layout conventions
+1. Reads `docs/style.md` for typeface, color, and layout conventions
 2. Converts all markdown files to HTML with consistent navigation
 3. Validates accessibility (WCAG 2.1 AA): heading hierarchy, alt text, contrast
 4. Writes `docs/index.html` (introduction + TOC combined) as the shareable entry point
 
-**Style guide:** `docs/html/style.md` governs the look of the generated HTML. Edit it to set typeface, colors, language register, and layout. If the file is absent, `/docs-html` writes sensible accessible defaults and reports them for your review.
+**Style guide:** `docs/style.md` governs the look of the generated HTML. Edit it to set typeface, colors, language register, and layout. If the file is absent, `/docs-html` writes sensible accessible defaults and reports them for your review.
 
 **Invariant:** Markdown is always updated first. HTML files are never hand-edited — they're regenerated from markdown. This makes documentation diffs reviewable the same way code diffs are.
 
@@ -184,7 +184,7 @@ When the adversary is stale and you try to do implementation work, `/prd-process
 | Phase | Complete When |
 |-------|---------------|
 | 1 — PRD Authoring | `prod-mgmt/prd.md` exists with at least one `### F-` section |
-| 1a — Documentation | `docs/html/` exists with files newer than `prd.md` |
+| 1a — Documentation | `docs/` HTML files exist and are newer than `prd.md` |
 | 2 — Test Plan | `prod-mgmt/test-plan.md` exists |
 | 3 — Dev Plan | `prod-mgmt/dev-plan.md` exists |
 | 4 — Implementation | test files exist in `tests/` |
