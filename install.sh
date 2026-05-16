@@ -68,6 +68,22 @@ for cmd in commands/task/*.md; do
   fi
 done
 
+# 5b. Install explicit skills from authoring and monitor bundles as user-invocable commands
+echo "📋 Installing explicit authoring and monitor commands..."
+for bundle in authoring monitor; do
+  bundle_dir="$SCRIPT_DIR/src/skills/context-curator/$bundle"
+  if [ ! -d "$bundle_dir" ]; then continue; fi
+  mkdir -p "$HOME/.claude/commands/$bundle"
+  for skill_dir in "$bundle_dir"/*/; do
+    skill_name=$(basename "$skill_dir")
+    skill_md="$skill_dir/SKILL.md"
+    if [ -f "$skill_md" ] && grep -q "invocation: explicit" "$skill_md"; then
+      cp "$skill_md" "$HOME/.claude/commands/$bundle/$skill_name.md"
+      echo "   ✓ Installed $bundle/$skill_name"
+    fi
+  done
+done
+
 # 6. Install specialized tasks (immutable DNA — never modified by user operations)
 echo "📋 Installing specialized tasks..."
 if [ -d "$SCRIPT_DIR/specialized" ]; then
@@ -130,7 +146,38 @@ cat > "$HOME/.claude/context-curator-manifest.json" << EOF
 EOF
 echo "   ✓ Created context-curator-manifest.json"
 
-# 9. Project-scope install (optional — copies skills into .claude/skills/ in the current project)
+# 9. Register Claude Code hooks in ~/.claude/settings.json
+echo "📋 Registering Claude Code hooks..."
+node << 'NODEOF'
+const fs = require('fs');
+const path = require('path');
+const settingsPath = path.join(process.env.HOME, '.claude', 'settings.json');
+
+let settings = {};
+try { settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8')); } catch {}
+settings.hooks = settings.hooks || {};
+
+const addHook = (event, cmd) => {
+  settings.hooks[event] = settings.hooks[event] || [];
+  if (!settings.hooks[event].some(h => h.command === cmd)) {
+    settings.hooks[event].push({ type: 'command', command: cmd });
+  }
+};
+
+const base = 'node ' + process.env.HOME + '/.claude/context-curator/dist/scripts/';
+addHook('PostToolUse',  base + 'update-monitor-state.js');
+addHook('Stop',         base + 'status-line.js');
+addHook('SessionStart', base + 'session-start-hook.js');
+
+const tmp = settingsPath + '.tmp.' + process.pid;
+fs.writeFileSync(tmp, JSON.stringify(settings, null, 2) + '\n');
+fs.renameSync(tmp, settingsPath);
+console.log('   ✓ Registered PostToolUse hook (update-monitor-state)');
+console.log('   ✓ Registered Stop hook (status-line)');
+console.log('   ✓ Registered SessionStart hook (session-start-hook)');
+NODEOF
+
+# 10. Project-scope install (optional — copies skills into .claude/skills/ in the current project)
 if [ "$PROJECT_INSTALL" = true ]; then
   PROJECT_DIR="$(pwd)"
   PROJECT_SKILLS_DIR="$PROJECT_DIR/.claude/skills/context-curator"
