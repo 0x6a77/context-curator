@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 
 /**
- * status-line.ts - Read monitor state and print one-line status to stderr
+ * status-line.ts - Read monitor state and print one-line status to stdout
  *
  * Output: [🟢 47% | +31k since warm-up | ~$0.18 | 2.1k tok/msg]
  *
@@ -43,7 +43,8 @@ async function main() {
   const burnK = `${((burnRatePerMessage ?? 0) / 1000).toFixed(1)}k tok/msg`;
 
   // Math.floor: fillPct 47.5 → "47%", matching T-MON-2 expectation
-  process.stderr.write(`[${zoneEmoji} ${Math.floor(fillPct ?? 0)}% | ${sinceK} since warm-up | ${costStr} | ${burnK}]\n`);
+  const line = `[${zoneEmoji} ${Math.floor(fillPct ?? 0)}% | ${sinceK} since warm-up | ${costStr} | ${burnK}]`;
+  process.stdout.write(JSON.stringify({ systemMessage: line }) + '\n');
 }
 
 main().catch((err) => {
