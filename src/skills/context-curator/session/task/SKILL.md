@@ -1,145 +1,118 @@
 ---
 name: task
 description: >
-  Switch to a task environment. Creates a new task if it doesn't exist, or lists
-  saved contexts for an existing task. Use /task <task-id> to switch context,
-  warm up from a saved context, and update the @import in .claude/CLAUDE.md.
+  Switch to a task environment. Creates a new task if it doesn't exist (requires inline
+  description), or lists saved contexts for an existing task.
+  Usage: /task <task-id> [<description>]
 invocation: explicit
 allowed-tools: Bash, Read, Write
 ---
 
 # /task
 
-**Usage:** `/task <task-id>`
+**Usage:**
+- Switch to existing task: `/task <task-id>`
+- Create new task: `/task <task-id> <description>`
 
-Switch to a task environment. Creates the task if it doesn't exist.
+## Step 1: Parse Input
 
-## Step 1: Validate Input
+Extract the task ID (first word) and description (everything after the task ID) from the full command text.
 
-The task ID must be provided and use only lowercase letters, numbers, and hyphens.
+If no task ID is provided:
+```
+❌ Usage: /task <task-id> [<description>]
+
+Examples:
+  /task oauth-refactor
+  /task vscode-integration Integrate Hubris RTOS into VS Code with thread/breakpoint support
+```
+Stop here.
+
+If the task ID contains anything other than lowercase letters, numbers, and hyphens:
+```
+❌ Invalid task ID — use lowercase letters, numbers, and hyphens only
+```
+Stop here.
+
+## Step 2: Initialize Project
+
+Run init (idempotent — safe to run every time):
 
 ```bash
-TASK_ID="$1"
-
-if [ -z "$TASK_ID" ]; then
-  echo "Usage: /task <task-id>"
-  echo ""
-  echo "Examples:"
-  echo "  /task oauth-refactor"
-  echo "  /task payment-integration"
-  echo "  /task bug-fixes"
-  exit 1
-fi
-
-if ! echo "$TASK_ID" | grep -qE '^[a-z0-9-]+$'; then
-  echo "❌ Invalid task ID"
-  echo "   Use lowercase letters, numbers, and hyphens only"
-  exit 1
-fi
+node ~/.claude/context-curator/dist/scripts/init-project.js 2>/dev/null || true
 ```
 
-## Step 2: Check if Project is Initialized
-
-Check if `.claude/tasks/default/CLAUDE.md` exists. If not, initialize the project first:
+Then ensure `.claude/CLAUDE.md` exists. If it doesn't, create it with a default import:
 
 ```bash
-node ~/.claude/context-curator/dist/scripts/init-project.js
+if [ ! -f ".claude/CLAUDE.md" ]; then
+  DEFAULT_IMPORT="$(pwd)/.claude/tasks/default/CLAUDE.md"
+  printf '@import %s\n' "$DEFAULT_IMPORT" > .claude/CLAUDE.md
+fi
 ```
 
 ## Step 3: Check if Task Exists
-
-Run the task-check script to see if the task exists:
 
 ```bash
 node ~/.claude/context-curator/dist/scripts/task-check.js "$TASK_ID"
 ```
 
-This script outputs:
-- `exists:golden` - Task exists in project (golden)
-- `exists:personal` - Task exists in personal storage
-- `not-found` - Task doesn't exist
+Outputs: `exists:golden`, `exists:personal`, or `not-found`.
 
-## Step 4a: If Task Doesn't Exist — Create It
+## Step 4a: Task Not Found — Create It
 
-Ask the user: **"What should this task focus on?"**
-
-Wait for their response describing the task's purpose, guidelines, and focus areas.
-
-Based on their answer, create the task's CLAUDE.md with this structure:
-
-```markdown
-# Task: <task-id>
-
-## Focus
-[User's description]
-
-## Key Areas
-[Relevant subsystems based on description]
-
-## Guidelines
-[Task-specific best practices]
-
-## Common Pitfalls
-[Document these as you discover them]
-
-## Reference Files
-[Key files for this task]
+If no description was provided in Step 1:
 ```
+❌ Task '<task-id>' doesn't exist. Provide a description to create it:
 
-Create in personal storage by default:
+  /task <task-id> <description>
+
+Example:
+  /task vscode-integration Integrate Hubris RTOS into VS Code with thread/breakpoint support
+```
+Stop here.
+
+If a description was provided, create the task:
+
 ```bash
-echo "<claude-md-content>" | node ~/.claude/context-curator/dist/scripts/task-create.js "$TASK_ID"
+node ~/.claude/context-curator/dist/scripts/task-create.js "$TASK_ID" "$DESCRIPTION"
 ```
 
-Then continue to Step 5.
+Then skip to Step 6 (task-create already sets the @import).
 
-## Step 4b: If Task Exists — List Contexts
-
-Run the context listing script in JSON mode:
+## Step 4b: Task Exists — List Contexts
 
 ```bash
 node ~/.claude/context-curator/dist/scripts/context-list.js "$TASK_ID" --json
 ```
 
-Parse the JSON output. It has two distinct fields — **do not confuse them**:
-- `sessions` — active UUID session files from `~/.claude/projects/<project-id>/`. These are raw Claude Code sessions, NOT named saved contexts. **Never present these as context options.**
-- `contexts` — named saved contexts for this specific task (personal or golden). These are what the user selects from.
+Parse the JSON. It has two fields:
+- `sessions` — raw Claude Code session files. **Never show these to the user.**
+- `contexts` — named saved contexts. These are what the user selects from.
 
-Each entry in `contexts` has: `name`, `location` ("personal" or "golden"), `messages`, `tokens`, `lastModified`.
+Each context has: `name`, `location` ("personal" or "golden"), `messages`, `tokens`, `lastModified`.
 
-**If `contexts` is empty** (no named contexts saved yet):
-
-Tell the user and proceed to a fresh start — do NOT show sessions as a substitute:
-
+**If `contexts` is empty:**
 ```
-No saved contexts for task '<task-id>' yet.
-
-Starting fresh.
+No saved contexts for '<task-id>' yet. Starting fresh.
 ```
+Skip the selection prompt.
 
-Skip ahead; no context will be loaded.
-
-**If `contexts` is not empty:**
-
-Filter by `location` and present them numbered — personal first, then golden:
-
+**If `contexts` is not empty**, present them numbered — personal first, then golden:
 ```
 Which context to load?
 
-Personal contexts:
-1. my-progress        15 msgs - 2 days ago
+Personal:
+1. my-progress        15 msgs · 2 days ago
 
-Golden contexts (team shared):
-2. oauth-deep-dive    47 msgs - 5 days ago ⭐
+Golden (team shared):
+2. oauth-deep-dive    47 msgs · 5 days ago ⭐
 
 Enter number, or press Enter for fresh start:
 ```
+Wait for response. Record the selected context `name`, or proceed fresh if Enter is pressed.
 
-Wait for the user's response. If the user enters a number, record the `name` field of that context. If the user presses Enter or says "fresh", proceed with no context.
-
-## Step 5: Update @import
-
-Update the @import line in `.claude/CLAUDE.md`:
+## Step 5: Update @import (existing task only)
 
 ```bash
 node ~/.claude/context-curator/dist/scripts/update-import.js "$TASK_ID"
@@ -147,88 +120,76 @@ node ~/.claude/context-curator/dist/scripts/update-import.js "$TASK_ID"
 
 ## Step 6: Prepare Session
 
-If a context was selected, prepare it:
-
+If a context was selected:
 ```bash
 SESSION_ID=$(node ~/.claude/context-curator/dist/scripts/prepare-context.js "$TASK_ID" "$CONTEXT_NAME")
 ```
 
-If no context (fresh start), just get a new session ID:
-
+If fresh start:
 ```bash
 SESSION_ID=$(node ~/.claude/context-curator/dist/scripts/prepare-context.js "$TASK_ID")
 ```
 
-## Step 7: Display Results
+## Step 7: Display Result
 
-Read the task's CLAUDE.md to show focus.
-
-Use the **Read tool** to read the task's CLAUDE.md file and extract the Focus section.
-
-Display to the user:
+Use the **Read tool** to read the task CLAUDE.md and extract the Focus section.
 
 ```
 ✓ Task: <task-id>
-✓ Context: <context-name> (N msgs) [or "fresh start"]
+✓ Context: <context-name> (N msgs)  [or "fresh start"]
 
 Run: /resume <session-id>
 
 Your focus:
-  [Extract Focus section from task CLAUDE.md]
+  [Focus section from task CLAUDE.md]
 ```
 
-## Important Notes
+## Notes
 
-- Tasks are created in **personal storage** by default
-- Use `/context-promote` to make a context golden (shared)
-- Golden tasks (in `.claude/tasks/`) take precedence over personal
-- The @import in `.claude/CLAUDE.md` is what Claude Code reads
-- User must run `/resume <session-id>` to activate the new context
+- Tasks are created golden (project-shared) by default
+- Use `/context-promote` to share a personal context with the team
+- The `@import` in `.claude/CLAUDE.md` is what Claude Code reads for task instructions
+- You must run `/resume <session-id>` to activate the new context
 
-## Example Interactions
+## Examples
 
-### Creating a new task:
-
+### Create new task (single turn):
 ```
-User: /task oauth-refactor
+User: /task vscode-integration Integrate Hubris RTOS into VS Code with thread/breakpoint support
 
-Claude: Task 'oauth-refactor' doesn't exist yet.
+Claude: ✓ Task: vscode-integration
+        ✓ Context: fresh start
 
-What should this task focus on? Describe the goal, key areas, and any guidelines.
+        Run: /resume 8e14f625-bd1a-4e79-a382-2d6c0649df97
 
-User: Refactoring the legacy OAuth implementation in src/auth/. Focus on the token validation flow, session management, and the three places auth state is stored.
-
-Claude: ✓ Created task: oauth-refactor
-✓ Location: personal storage
-
-Run: /resume 8e14f625-bd1a-4e79-a382-2d6c0649df97
-
-Your focus:
-  Refactoring the legacy OAuth implementation in src/auth/
+        Your focus:
+          Integrate Hubris RTOS into VS Code with thread/breakpoint support
 ```
 
-### Switching to existing task with contexts:
+### Missing description (error immediately):
+```
+User: /task vscode-integration
 
+Claude: ❌ Task 'vscode-integration' doesn't exist. Provide a description to create it:
+
+          /task vscode-integration <description>
+```
+
+### Switch to existing task:
 ```
 User: /task oauth-refactor
 
 Claude: Which context to load?
 
-Personal contexts:
-1. my-progress (15 msgs) - 2 days ago
+        Personal:
+        1. my-progress  15 msgs · 2 days ago
 
-Golden contexts (team shared):
-2. oauth-deep-dive (47 msgs) - 5 days ago ⭐
+        Enter number, or press Enter for fresh start:
 
-Enter number, or press Enter for fresh start:
-
-User: 2
+User: 1
 
 Claude: ✓ Task: oauth-refactor
-✓ Context: oauth-deep-dive (47 msgs)
+        ✓ Context: my-progress (15 msgs)
 
-Run: /resume a3f2c891-57bd-4e12-b8a6-1d9c0e5f7320
-
-Your focus:
-  Refactoring the legacy OAuth implementation in src/auth/
+        Run: /resume a3f2c891-57bd-4e12-b8a6-1d9c0e5f7320
 ```
