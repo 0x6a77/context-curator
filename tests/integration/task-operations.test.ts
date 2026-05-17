@@ -437,8 +437,18 @@ describe('Task Deletion Tests (Group 3a)', () => {
     expect(fileExists(personalDir)).toBe(false);
   });
 
-  // T-TASK-DEL-2: delete-task exits non-zero for "default" and removes nothing
-  it('T-TASK-DEL-2: rejects deletion of default task', async () => {
+  // T-TASK-DEL-2: delete-task exits non-zero for "default" and removes nothing.
+  // Fix: the original test only verified that "default" still existed after the failed
+  // deletion. An impl that rejected the delete-default call but corrupted the rest of
+  // the tasks tree would have passed. Now we also create another task and assert
+  // it is preserved.
+  it('T-TASK-DEL-2: rejects deletion of default task and preserves other tasks', async () => {
+    // Create a sibling task that must remain untouched by the failed delete attempt.
+    const siblingCreate = await runScript('task-create', ['sibling-task', 'A sibling'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    expect(siblingCreate.exitCode).toBe(0);
+    const siblingDir = join(ctx.projectDir, '.claude', 'tasks', 'sibling-task');
+    expect(fileExists(siblingDir)).toBe(true);
+
     const defaultDir = join(ctx.projectDir, '.claude', 'tasks', 'default');
 
     const result = await runScript('delete-task', ['default'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
@@ -446,16 +456,36 @@ describe('Task Deletion Tests (Group 3a)', () => {
     expect(result.exitCode).not.toBe(0);
     const output = (result.stdout + result.stderr).toLowerCase();
     expect(output).toMatch(/cannot delete|default/);
+
+    // Default must still exist.
     expect(fileExists(defaultDir)).toBe(true);
+
+    // Sibling task must NOT have been deleted by the failed delete-default call.
+    expect(fileExists(siblingDir)).toBe(true);
+    expect(fileExists(join(siblingDir, 'CLAUDE.md'))).toBe(true);
   });
 
-  // T-TASK-DEL-3: delete-task exits non-zero for a task that does not exist
-  it('T-TASK-DEL-3: exits non-zero for non-existent task', async () => {
+  // T-TASK-DEL-3: delete-task exits non-zero for a task that does not exist.
+  // Fix: the original test only checked the exit code. An impl that errored on the
+  // missing task while wiping unrelated task directories would have passed. Now we
+  // pre-create a real task and assert it remains intact after the invalid attempt.
+  it('T-TASK-DEL-3: exits non-zero for non-existent task and leaves real tasks untouched', async () => {
+    const realCreate = await runScript('task-create', ['real-task', 'A real one'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+    expect(realCreate.exitCode).toBe(0);
+    const realDir = join(ctx.projectDir, '.claude', 'tasks', 'real-task');
+    const realClaudeMd = join(realDir, 'CLAUDE.md');
+    expect(fileExists(realDir)).toBe(true);
+    expect(fileExists(realClaudeMd)).toBe(true);
+
     const result = await runScript('delete-task', ['does-not-exist'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
     expect(result.exitCode).not.toBe(0);
     const output = (result.stdout + result.stderr).toLowerCase();
     expect(output).toMatch(/not found|does-not-exist/);
+
+    // Real task must remain on disk and its CLAUDE.md untouched.
+    expect(fileExists(realDir)).toBe(true);
+    expect(fileExists(realClaudeMd)).toBe(true);
   });
 });
 
@@ -623,38 +653,51 @@ describe('Test 2.6: /task Without Description Errors with Usage Example (T-TASK-
     expect(fileExists(join(ctx.projectDir, '.claude', 'tasks', 'no-desc-task'))).toBe(false);
   });
 
-  it('T-TASK-6: SKILL.md contains /task <task-id> <description> usage example and stop instruction', () => {
-    const repoRoot = resolve(__dirname, '..', '..');
-    const skillMd = readFileSync(
-      resolve(repoRoot, 'src', 'skills', 'context-curator', 'session', 'task', 'SKILL.md'),
-      'utf-8',
-    );
-    expect(skillMd).toMatch(/\/task <task-id> <description>|\/task <id> <description>/);
-    expect(skillMd).toMatch(/Stop here|does NOT create/);
+  it('T-TASK-6: task-create with no description argument prints a usage example to stdout/stderr', async () => {
+    // T-TASK-6 fix: previously this validated the static SKILL.md doc string. The AC
+    // requires that the actual command output contain the usage example when invoked
+    // without a description — exercise the real script.
+    const result = await runScript('task-create', ['no-desc-task'], ctx.projectDir, {
+      CLAUDE_HOME: ctx.personalBase,
+    });
+
+    // Must exit non-zero (rejecting the malformed invocation) and surface a usage
+    // example that includes the command token and the <description> placeholder.
+    expect(result.exitCode).not.toBe(0);
+    const output = result.stdout + result.stderr;
+    // Accept either the /task slash-form or the task-create script form — both name
+    // the command and show <description> as the missing positional argument.
+    expect(output).toMatch(/(\/task|task-create)\s+<[^>]+>\s+<description>/i);
   });
 });
 
 describe('Test 2.7: Uninitialized Project Auto-Inits Before Task Creation (T-TASK-7)', () => {
-  it('T-TASK-7: init-project then task-create succeeds on a project with no .claude/ directory', async () => {
+  // T-TASK-7 fix: AC requires that task-create completes successfully on an uninitialized
+  // project by auto-initializing. The previous test pre-invoked init-project explicitly,
+  // which would silently mask a regression where task-create no longer auto-inits.
+  // Now we invoke task-create directly on a fresh project (no .claude/) and assert it
+  // both exits 0 AND produces the expected files (including .claude/ scaffolding).
+  it('T-TASK-7: task-create on a project with no .claude/ directory exits 0 and produces the expected files', async () => {
     const freshCtx = createTestEnvironment('task7');
     try {
+      // Pre-condition: project has no .claude/ directory.
       expect(fileExists(join(freshCtx.projectDir, '.claude'))).toBe(false);
 
-      const initResult = await runScript('init-project', [], freshCtx.projectDir, {
-        CLAUDE_HOME: freshCtx.personalBase,
-      });
-      expect(initResult.exitCode).toBe(0);
-
+      // Invoke task-create directly — no init-project call beforehand.
       const createResult = await runScript(
         'task-create',
         ['fresh-task', 'Work in a fresh project'],
         freshCtx.projectDir,
         { CLAUDE_HOME: freshCtx.personalBase },
       );
+
+      // Must exit 0 — auto-initialization is part of the AC.
       expect(createResult.exitCode).toBe(0);
 
-      expect(fileExists(join(freshCtx.projectDir, '.claude', 'tasks', 'fresh-task', 'CLAUDE.md'))).toBe(true);
+      // Auto-init must have produced the standard scaffolding plus the task.
+      expect(fileExists(join(freshCtx.projectDir, '.claude'))).toBe(true);
       expect(fileExists(join(freshCtx.projectDir, '.claude', 'CLAUDE.md'))).toBe(true);
+      expect(fileExists(join(freshCtx.projectDir, '.claude', 'tasks', 'fresh-task', 'CLAUDE.md'))).toBe(true);
     } finally {
       freshCtx.cleanup();
     }

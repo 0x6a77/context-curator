@@ -406,31 +406,90 @@ describe('Project Initialization Tests', () => {
 // the source artifact structure without requiring a full install.sh run.
 
 describe('T-INIT-7: project-scope install creates namespaced skill directories', () => {
-  let tempProject: string;
+  let tempHome: string;
+  let tempRepo: string;
+  let installStatus: number | null = null;
 
   beforeAll(() => {
-    tempProject = realpathSync(mkdtempSync(join(tmpdir(), 'cc-init7-')));
+    // T-INIT-7 fix: actually invoke install.sh --project-install in an isolated repo
+    // copy + temp HOME so a regression in the script's flag handling (wrong
+    // destination, missing copies, etc.) is caught.
+    //
+    // install.sh internally `cd "$SCRIPT_DIR"`s before reading $(pwd) for PROJECT_DIR,
+    // so the project-scope install always writes into the same directory as install.sh.
+    // We therefore stage a temp copy of the source tree (install.sh + src/skills/ +
+    // dist + package.json + specialized/ + commands/) and run install.sh from there.
+    // This is what really happens for users who clone the repo and run --project-install
+    // inside the clone — and it catches any regression in install.sh's step that builds
+    // the project skills tree.
     const repoRoot = resolve(__dirname, '../..');
-    const srcBase = join(repoRoot, 'src', 'skills', 'context-curator');
-    const destBase = join(tempProject, '.claude', 'skills', 'context-curator');
+    tempHome = realpathSync(mkdtempSync(join(tmpdir(), 'cc-init7-home-')));
+    tempRepo = realpathSync(mkdtempSync(join(tmpdir(), 'cc-init7-repo-')));
 
-    // Mirror install.sh step 9: copy each bundle from src/skills/ to the project .claude/skills/
-    for (const bundle of ['session', 'authoring', 'monitor']) {
-      const src = join(srcBase, bundle);
-      if (existsSync(src)) {
-        const dest = join(destBase, bundle);
-        mkdirSync(dest, { recursive: true });
-        cpSync(src, dest, { recursive: true });
-      }
+    // Stage the minimal subset of the repo install.sh needs.
+    cpSync(join(repoRoot, 'install.sh'), join(tempRepo, 'install.sh'));
+    cpSync(join(repoRoot, 'package.json'), join(tempRepo, 'package.json'));
+    cpSync(join(repoRoot, 'tsconfig.json'), join(tempRepo, 'tsconfig.json'));
+    cpSync(join(repoRoot, 'src'), join(tempRepo, 'src'), { recursive: true });
+    cpSync(join(repoRoot, 'scripts'), join(tempRepo, 'scripts'), { recursive: true });
+    cpSync(join(repoRoot, 'commands'), join(tempRepo, 'commands'), { recursive: true });
+    cpSync(join(repoRoot, 'specialized'), join(tempRepo, 'specialized'), { recursive: true });
+    // Reuse the already-built dist so install.sh's "npm run build" can skip rebuilding
+    // a clean tree (faster) — install.sh still re-runs build, but a cached node_modules
+    // would speed it up. We avoid copying node_modules to keep the staging small.
+    if (existsSync(join(repoRoot, 'dist'))) {
+      cpSync(join(repoRoot, 'dist'), join(tempRepo, 'dist'), { recursive: true });
     }
-  });
+
+    // install.sh --project-install requires .claude/tasks/default/CLAUDE.md in the
+    // PROJECT_DIR (== tempRepo). Use the existing init-project.ts.
+    writeFileSync(join(tempRepo, 'CLAUDE.md'), '# T-INIT-7 fixture\n');
+    const initRes = spawnSync(
+      'npx',
+      ['tsx', join(tempRepo, 'scripts', 'init-project.ts')],
+      {
+        env: { ...process.env, HOME: tempHome, CLAUDE_HOME: join(tempHome, '.claude') },
+        cwd: tempRepo,
+        timeout: INSTALL_TIMEOUT_MS,
+        encoding: 'utf-8',
+      },
+    );
+    if (initRes.status !== 0) {
+      throw new Error(
+        `init-project failed in T-INIT-7 setup (status=${initRes.status}): ${initRes.stderr}`,
+      );
+    }
+
+    mkdirSync(join(tempHome, '.claude'), { recursive: true });
+    writeFileSync(join(tempHome, '.claude', 'settings.json'), JSON.stringify({ theme: 'light' }));
+
+    const r = spawnSync(
+      'bash',
+      [join(tempRepo, 'install.sh'), '--project-install'],
+      {
+        env: { ...process.env, HOME: tempHome },
+        cwd: tempRepo,
+        timeout: INSTALL_TIMEOUT_MS,
+        encoding: 'utf-8',
+      },
+    );
+    installStatus = r.status;
+    if (r.status !== 0) {
+      // Surface stderr so the failure mode is visible in CI rather than a downstream
+      // file-missing assertion.
+      // eslint-disable-next-line no-console
+      console.error('install.sh --project-install failed:', r.stderr);
+    }
+  }, INSTALL_TIMEOUT_MS + 60_000);
 
   afterAll(() => {
-    try { rmSync(tempProject, { recursive: true, force: true }); } catch {}
+    try { rmSync(tempRepo, { recursive: true, force: true }); } catch {}
+    try { rmSync(tempHome, { recursive: true, force: true }); } catch {}
   });
 
-  it('creates all five required session skill directories each with SKILL.md and scripts/', () => {
-    const skillsRoot = join(tempProject, '.claude', 'skills', 'context-curator', 'session');
+  it('install.sh --project-install creates .claude/skills/context-curator/session/<skill>/ with SKILL.md and scripts/ for each session skill', () => {
+    expect(installStatus).toBe(0);
+    const skillsRoot = join(tempRepo, '.claude', 'skills', 'context-curator', 'session');
     const required = ['task', 'context-save', 'context-list', 'context-manage', 'context-promote'];
     for (const skill of required) {
       const skillDir = join(skillsRoot, skill);
@@ -484,19 +543,29 @@ describe('T-INST-1/2/3: install.sh registers PostToolUse, Stop, and SessionStart
   it('T-INST-1: PostToolUse hook contains exactly one entry ending with update-monitor-state.js', () => {
     expect(installStatus).toBe(0);
     const cmds: string[] = (settings().hooks?.PostToolUse ?? []).map((h: any) => h.command ?? '');
-    expect(cmds.some(c => c.endsWith('update-monitor-state.js'))).toBe(true);
+    // T-INST-1 enforces uniqueness in isolation — must be exactly one matching entry,
+    // not just at-least-one. A duplicated hook entry would otherwise pass.
+    const matching = cmds.filter(c => c.endsWith('update-monitor-state.js'));
+    expect(matching.length).toBe(1);
+    expect(matching[0].endsWith('update-monitor-state.js')).toBe(true);
   });
 
   it('T-INST-2: Stop hook contains exactly one entry ending with status-line.js', () => {
     expect(installStatus).toBe(0);
     const cmds: string[] = (settings().hooks?.Stop ?? []).map((h: any) => h.command ?? '');
-    expect(cmds.some(c => c.endsWith('status-line.js'))).toBe(true);
+    // T-INST-2 enforces uniqueness in isolation — must be exactly one matching entry.
+    const matching = cmds.filter(c => c.endsWith('status-line.js'));
+    expect(matching.length).toBe(1);
+    expect(matching[0].endsWith('status-line.js')).toBe(true);
   });
 
   it('T-INST-3: SessionStart hook contains exactly one entry ending with session-start-hook.js', () => {
     expect(installStatus).toBe(0);
     const cmds: string[] = (settings().hooks?.SessionStart ?? []).map((h: any) => h.command ?? '');
-    expect(cmds.some(c => c.endsWith('session-start-hook.js'))).toBe(true);
+    // T-INST-3 enforces uniqueness in isolation — must be exactly one matching entry.
+    const matching = cmds.filter(c => c.endsWith('session-start-hook.js'));
+    expect(matching.length).toBe(1);
+    expect(matching[0].endsWith('session-start-hook.js')).toBe(true);
   });
 });
 
@@ -568,7 +637,10 @@ describe('T-INST-5/6: explicit-invocation skills installed; session skills absen
   it('T-INST-6: no session bundle skill name appears under ~/.claude/commands/', () => {
     expect(installStatus).toBe(0);
     const commandsDir = join(tmpHome, '.claude', 'commands');
-    if (!existsSync(commandsDir)) return;
+    // Non-vacuous precondition: commandsDir must exist after install.sh runs.
+    // Without this, an install.sh that fails to create commands/ at all would let
+    // the "no session-bundle skill" assertion pass with an empty walk.
+    expect(existsSync(commandsDir)).toBe(true);
 
     function walkDir(dir: string): string[] {
       const out: string[] = [];

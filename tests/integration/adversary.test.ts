@@ -9,9 +9,10 @@
  * - T-SPEC-3: context-list returns isolation message when adversary is active
  */
 
-import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { join, resolve } from 'path';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, readFileSync, readdirSync, statSync, writeFileSync, cpSync, realpathSync } from 'fs';
+import { spawnSync } from 'child_process';
 import { homedir, tmpdir } from 'os';
 import {
   createTestEnvironment,
@@ -77,31 +78,38 @@ function setupSpecializedAdversaryTask(personalBase: string): void {
 // ---------------------------------------------------------------------------
 
 describe('T-ADV-1: Adversary DNA installed at specialized path', () => {
-  // T-ADV-1 must be unconditional — the previous it.skipIf(!existsSync(SPECIALIZED_DNA_PATH))
-  // made the assertion circular: it only ran on systems where install.sh had already succeeded,
-  // so it could never catch install.sh failures.
-  //
-  // Fix: replicate install.sh step 5 (the specialized-directory copy) in an isolated temp HOME.
-  // This tests the artifact install.sh produces without running the full build pipeline,
-  // and the assertion runs unconditionally on every CI/dev machine.
+  // T-ADV-1 fix: previously this replicated install.sh's cpSync step in isolation,
+  // which would NOT catch a regression in install.sh's step 5 (wrong destination,
+  // missing chmod, ordering bug, etc.). Now we actually invoke ./install.sh in a
+  // temp HOME — same pattern as T-INST-1..6 — and verify the resulting artifact.
   let tempHome: string;
+  let installStatus: number | null = null;
+  const INSTALL_TIMEOUT_MS = 180_000;
 
   beforeAll(() => {
     tempHome = realpathSync(mkdtempSync(join(tmpdir(), 'cc-adv1-')));
-    const installDir = join(tempHome, '.claude', 'context-curator');
-    mkdirSync(installDir, { recursive: true });
+    // Pre-seed settings.json so install.sh's hook-registration step has a file to
+    // update (matches the T-INST-* setup pattern).
+    mkdirSync(join(tempHome, '.claude'), { recursive: true });
+    writeFileSync(join(tempHome, '.claude', 'settings.json'), JSON.stringify({ theme: 'light' }));
+
     const repoRoot = resolve(__dirname, '../..');
-    // Mirror install.sh step 5: cp -r specialized/ "$INSTALL_DIR/specialized/"
-    cpSync(join(repoRoot, 'specialized'), join(installDir, 'specialized'), { recursive: true });
-  });
+    const r = spawnSync('bash', [join(repoRoot, 'install.sh')], {
+      env: { ...process.env, HOME: tempHome },
+      cwd: repoRoot,
+      timeout: INSTALL_TIMEOUT_MS,
+      encoding: 'utf-8',
+    });
+    installStatus = r.status;
+  }, INSTALL_TIMEOUT_MS + 5000);
 
   afterAll(() => {
     try { rmSync(tempHome, { recursive: true, force: true }); } catch {}
   });
 
-  it('should exist at ~/.claude/context-curator/specialized/adversary/CLAUDE.md and contain ADVERSARY and STRICT', () => {
+  it('should exist at ~/.claude/context-curator/specialized/adversary/CLAUDE.md and contain ADVERSARY and STRICT after install.sh', () => {
+    expect(installStatus).toBe(0);
     const installedPath = join(tempHome, '.claude/context-curator/specialized/adversary/CLAUDE.md');
-    // Unconditional — no skipIf. Runs on every machine, catches any install.sh regression.
     expect(existsSync(installedPath)).toBe(true);
     const content = readFileSync(installedPath, 'utf-8');
     expect(content).toContain('ADVERSARY');
