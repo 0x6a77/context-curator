@@ -1532,6 +1532,73 @@ oauth-flow.v2.jsonl  # After finding rate limit bug
 oauth-flow.v3.jsonl  # After mobile app integration
 ```
 
+
+### F-INSTALL · Installer Hook Registration and Skill Deployment
+
+**Expected Behaviors:**
+- \`install.sh\` registers all three Claude Code lifecycle hooks (PostToolUse, Stop, SessionStart) in \`~/.claude/settings.json\` automatically — no manual settings edit required
+- Hook registration is idempotent: re-running install does not add duplicate entries
+- Skills with \`invocation: explicit\` in the authoring and monitor bundles are copied to \`~/.claude/commands/<bundle>/\` so users can invoke them as slash commands
+- Session bundle skills (\`task\`, \`context-save\`, etc.) are plugin-loaded and are NOT copied to commands
+
+**Test Scenarios:**
+1. Run \`install.sh\` on a machine with no prior \`~/.claude/settings.json\`; verify all three hooks present
+2. Run \`install.sh\` twice; verify no duplicate hook entries
+3. Verify explicit-invocation skills land in commands; verify session skills do not
+
+**Acceptance Criteria:**
+
+| T-INST-1 | After \`install.sh\`, \`~/.claude/settings.json\` \`.hooks.PostToolUse\` contains exactly one entry whose \`command\` ends with \`update-monitor-state.js\` |
+| T-INST-2 | After \`install.sh\`, \`~/.claude/settings.json\` \`.hooks.Stop\` contains exactly one entry whose \`command\` ends with \`status-line.js\` |
+| T-INST-3 | After \`install.sh\`, \`~/.claude/settings.json\` \`.hooks.SessionStart\` contains exactly one entry whose \`command\` ends with \`session-start-hook.js\` |
+| T-INST-4 | Running \`install.sh\` a second time produces no duplicate hook entries; each hook array has exactly one entry after two runs |
+| T-INST-5 | After \`install.sh\`, every SKILL.md in the authoring and monitor bundles with \`invocation: explicit\` exists at \`~/.claude/commands/<bundle>/<skill-name>.md\` |
+| T-INST-6 | After \`install.sh\`, no file exists under \`~/.claude/commands/\` whose path contains any of: \`task\`, \`context-save\`, \`context-list\`, \`context-manage\`, \`context-promote\` |
+
+---
+
+### F-TASK-CREATE extended (v21.3) · Inline Description and Fast-Fail
+
+**Expected Behaviors:**
+- \`/task <id> <description>\` creates a new task in a single turn without prompting the user for a description
+- \`/task <id>\` (no description) for a non-existent task fails immediately with a usage error; no task directory is created
+- On an uninitialized project (no \`.claude/\` directory), the skill auto-initializes before creating the task
+
+**Test Scenarios:**
+1. \`/task new-id This is my description\` — task created, no second prompt
+2. \`/task new-id\` with no description — immediate error, no directory created
+3. \`/task new-id <desc>\` in a project with no \`.claude/\` — auto-init then create
+
+**Acceptance Criteria:**
+
+| T-TASK-5 | \`/task <id> <description>\` creates \`<id>/CLAUDE.md\` with the description under \`## Focus\` and updates \`.claude/CLAUDE.md\` without any intermediate prompt to the user |
+| T-TASK-6 | \`/task <id>\` (no description) for a non-existent task ID produces output containing \`/task <id> <description>\` as a usage example and does NOT create a task directory |
+| T-TASK-7 | On a project with no \`.claude/\` directory, \`/task <id> <description>\` completes successfully; \`.claude/CLAUDE.md\` and \`<id>/CLAUDE.md\` both exist after the call |
+
+---
+
+### F-CTX-MONITOR extended (v21.3) · Stop Hook Visibility and Accurate fillPct
+
+**Expected Behaviors:**
+- The Stop hook \`status-line.js\` outputs JSON with a \`systemMessage\` field to stdout; Claude Code displays this to the user after each response
+- \`fillPct\` is computed from the actual token counts in the most recent assistant message, not from char-count estimation across all session history
+- Prompt-cache partitions (non-cached, cache-write, cache-read) are all counted; \`fillPct\` never exceeds 100 in a valid session
+
+**Test Scenarios:**
+1. Status line output parses as JSON with a \`systemMessage\` string matching the expected format
+2. A session with 500k accumulated chars but 100k last-turn input tokens produces \`fillPct ≤ 100\`
+3. A known usage object produces the exact expected \`fillPct\`
+
+**Acceptance Criteria:**
+
+| T-MON-14 | \`status-line.js\` (with a valid state file) writes to stdout only; the output is valid JSON with a \`systemMessage\` string field; stderr is empty |
+| T-MON-15 | The \`systemMessage\` value matches \`^\[.+ \d+% \| \+\d+k since warm-up \| ~\$[\d.]+ \| [\d.]+k tok\/msg\]$\` |
+| T-MON-16 | \`update-monitor-state\` reads \`currentTokens\` as \`input_tokens + cache_creation_input_tokens + cache_read_input_tokens\` from the last message entry with a \`message.usage\` field; no char-count arithmetic is performed |
+| T-MON-17 | Given a session JSONL whose last assistant entry has \`message.usage: {input_tokens: 80000, cache_creation_input_tokens: 10000, cache_read_input_tokens: 50000}\` and \`contextWindowSize: 200000\`, the written state has \`fillPct\` equal to 70.0 (±0.1) |
+| T-MON-18 | A session JSONL with historical content totalling >200k char-estimated tokens but whose last assistant usage shows 100k total input tokens produces a state file with \`fillPct ≤ 100\` and \`currentTokens ≤ 200000\` |
+
+---
+
 ---
 
 ## Appendix: Command Summary
@@ -1550,6 +1617,10 @@ oauth-flow.v3.jsonl  # After mobile app integration
 
 ## Version History
 
+- **v21.3** (2026-05-17): Bug fixes and UX improvements — hooks, task creation, monitor accuracy
+    - **F-INSTALL (new):** `install.sh` now auto-registers all three lifecycle hooks (PostToolUse → `update-monitor-state.js`, Stop → `status-line.js`, SessionStart → `session-start-hook.js`) in `~/.claude/settings.json` and copies `invocation: explicit` skills to `~/.claude/commands/`; previously required manual steps; T-INST-1 through T-INST-6 added
+    - **F-TASK-CREATE extended:** `/task <id> <description>` accepts description inline — no second prompt; `/task <id>` (no description) for a non-existent task errors immediately with usage guidance; uninitialized projects auto-init; T-TASK-5/6/7 added
+    - **F-CTX-MONITOR extended:** `status-line.js` Stop hook outputs `{"systemMessage": "..."}` JSON to stdout (was: plain text to stderr) — Claude Code Stop hooks require stdout JSON to display; `update-monitor-state.js` uses actual API `input_tokens + cache_creation_input_tokens + cache_read_input_tokens` instead of char-count, fixing >100% `fillPct` in long sessions; T-MON-14 through T-MON-18 added
 - **v21.2** (2026-05-10): `docs/feature-section-map.md` replaced by `docs/docs-brief.md` — documentation steering document now captures core message, reader journey gates (1–4), navigation architecture, and editorial rules in addition to feature routing; T-UDOC-1/T-UDOC-2 ACs updated accordingly
 - **v21.1** (2026-05-10): T-SPEC-5 added — `task-check` must recognize specialized tasks and return `exists:specialized`; `getTaskInfo()` bug fix: specialized directory was not checked, causing `/task adversary` to fall through to the "create new task" prompt
 - **v21.0** (2026-05-09): Process sequencing skill added
