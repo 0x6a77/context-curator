@@ -14,6 +14,39 @@ import fs from 'fs/promises';
 import path from 'path';
 import { getPersonalTasksDir, getGoldenTasksDir, ensureDir, validateName, fileExists } from '../src/utils.js';
 
+async function autoInit(cwd: string): Promise<void> {
+  const claudeDir = path.join(cwd, '.claude');
+  const defaultTaskDir = path.join(claudeDir, 'tasks', 'default');
+
+  await fs.mkdir(defaultTaskDir, { recursive: true });
+  await fs.mkdir(path.join(defaultTaskDir, 'contexts'), { recursive: true });
+
+  const gitignoreContent = `# Auto-generated file (each developer has their own)
+CLAUDE.md
+
+# Re-allow task CLAUDE.md files (they should be tracked by git)
+!tasks/**/CLAUDE.md
+
+# Personal data files
+*.local.json
+`;
+  await fs.writeFile(path.join(claudeDir, '.gitignore'), gitignoreContent);
+
+  let rootContent = '';
+  try {
+    rootContent = await fs.readFile(path.join(cwd, 'CLAUDE.md'), 'utf-8');
+  } catch { /* no root CLAUDE.md — that's fine */ }
+
+  const defaultTaskMd = rootContent || `# Default Task\n\nGeneral development work for this project.\n`;
+  await fs.writeFile(path.join(defaultTaskDir, 'CLAUDE.md'), defaultTaskMd);
+
+  const projectName = path.basename(cwd);
+  const generatedClaudeMd = `# Project: ${projectName}\n\n## Task-Specific Context\n\n@import .claude/tasks/default/CLAUDE.md\n`;
+  await fs.writeFile(path.join(claudeDir, 'CLAUDE.md'), generatedClaudeMd);
+
+  console.log('✓ Auto-initialized project (no .claude/ found)');
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const isPersonal = args.includes('--personal');
@@ -29,11 +62,10 @@ async function main() {
     process.exit(1);
   }
 
-  // Require .claude/ to exist (project must be initialized first)
+  // Auto-initialize project if .claude/ doesn't exist yet
   const claudeDir = path.join(cwd, '.claude');
   if (!await fileExists(claudeDir)) {
-    console.error('❌ Not initialized. Run init-project first.');
-    process.exit(1);
+    await autoInit(cwd);
   }
 
   // Validate task ID
