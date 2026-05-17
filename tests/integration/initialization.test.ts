@@ -14,6 +14,7 @@
 import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
 import { join, resolve } from 'path';
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, mkdtempSync, rmSync, realpathSync, statSync, cpSync } from 'fs';
+import { spawnSync } from 'child_process';
 import { tmpdir } from 'os';
 import {
   createTestEnvironment,
@@ -436,6 +437,159 @@ describe('T-INIT-7: project-scope install creates namespaced skill directories',
       expect(existsSync(skillDir)).toBe(true);
       expect(existsSync(join(skillDir, 'SKILL.md'))).toBe(true);
       expect(statSync(join(skillDir, 'scripts')).isDirectory()).toBe(true);
+    }
+  });
+});
+
+// ==========================================================================
+// T-INST-1–6: install.sh hook registration and skill deployment
+// ==========================================================================
+
+
+// Run install.sh once per describe block with a temp HOME to avoid touching real system files.
+// install.sh runs npm install + npm run build; allow up to 3 minutes per run.
+const INSTALL_TIMEOUT_MS = 180_000;
+
+function runInstall(tmpHome: string): { status: number | null } {
+  const repoRoot = resolve(__dirname, '../..');
+  mkdirSync(join(tmpHome, '.claude'), { recursive: true });
+  writeFileSync(join(tmpHome, '.claude', 'settings.json'), JSON.stringify({ theme: 'light' }));
+  const r = spawnSync('bash', [join(repoRoot, 'install.sh')], {
+    env: { ...process.env, HOME: tmpHome },
+    cwd: repoRoot,
+    timeout: INSTALL_TIMEOUT_MS,
+    encoding: 'utf-8',
+  });
+  return { status: r.status };
+}
+
+describe('T-INST-1/2/3: install.sh registers PostToolUse, Stop, and SessionStart hooks', () => {
+  let tmpHome: string;
+  let installStatus: number | null = null;
+
+  beforeAll(() => {
+    tmpHome = mkdtempSync(join(tmpdir(), 'cc-inst123-'));
+    const r = runInstall(tmpHome);
+    installStatus = r.status;
+  }, INSTALL_TIMEOUT_MS + 5000);
+
+  afterAll(() => {
+    try { rmSync(tmpHome, { recursive: true, force: true }); } catch {}
+  });
+
+  function settings(): any {
+    return JSON.parse(readFileSync(join(tmpHome, '.claude', 'settings.json'), 'utf-8'));
+  }
+
+  it('T-INST-1: PostToolUse hook contains exactly one entry ending with update-monitor-state.js', () => {
+    expect(installStatus).toBe(0);
+    const cmds: string[] = (settings().hooks?.PostToolUse ?? []).map((h: any) => h.command ?? '');
+    expect(cmds.some(c => c.endsWith('update-monitor-state.js'))).toBe(true);
+  });
+
+  it('T-INST-2: Stop hook contains exactly one entry ending with status-line.js', () => {
+    expect(installStatus).toBe(0);
+    const cmds: string[] = (settings().hooks?.Stop ?? []).map((h: any) => h.command ?? '');
+    expect(cmds.some(c => c.endsWith('status-line.js'))).toBe(true);
+  });
+
+  it('T-INST-3: SessionStart hook contains exactly one entry ending with session-start-hook.js', () => {
+    expect(installStatus).toBe(0);
+    const cmds: string[] = (settings().hooks?.SessionStart ?? []).map((h: any) => h.command ?? '');
+    expect(cmds.some(c => c.endsWith('session-start-hook.js'))).toBe(true);
+  });
+});
+
+describe('T-INST-4: install.sh hook registration is idempotent (no duplicates after two runs)', () => {
+  let tmpHome: string;
+  let secondStatus: number | null = null;
+
+  beforeAll(() => {
+    tmpHome = mkdtempSync(join(tmpdir(), 'cc-inst4-'));
+    const repoRoot = resolve(__dirname, '../..');
+    mkdirSync(join(tmpHome, '.claude'), { recursive: true });
+    writeFileSync(join(tmpHome, '.claude', 'settings.json'), JSON.stringify({ theme: 'light' }));
+    const opts = {
+      env: { ...process.env, HOME: tmpHome },
+      cwd: repoRoot,
+      timeout: INSTALL_TIMEOUT_MS,
+      encoding: 'utf-8' as const,
+    };
+    spawnSync('bash', [join(repoRoot, 'install.sh')], opts);
+    const r2 = spawnSync('bash', [join(repoRoot, 'install.sh')], opts);
+    secondStatus = r2.status;
+  }, (INSTALL_TIMEOUT_MS * 2) + 5000);
+
+  afterAll(() => {
+    try { rmSync(tmpHome, { recursive: true, force: true }); } catch {}
+  });
+
+  it('T-INST-4: each hook array has exactly one entry after two installs', () => {
+    expect(secondStatus).toBe(0);
+    const s = JSON.parse(readFileSync(join(tmpHome, '.claude', 'settings.json'), 'utf-8'));
+    expect((s.hooks?.PostToolUse ?? []).length).toBe(1);
+    expect((s.hooks?.Stop ?? []).length).toBe(1);
+    expect((s.hooks?.SessionStart ?? []).length).toBe(1);
+  });
+});
+
+describe('T-INST-5/6: explicit-invocation skills installed; session skills absent from commands/', () => {
+  let tmpHome: string;
+  let installStatus: number | null = null;
+
+  beforeAll(() => {
+    tmpHome = mkdtempSync(join(tmpdir(), 'cc-inst56-'));
+    const r = runInstall(tmpHome);
+    installStatus = r.status;
+  }, INSTALL_TIMEOUT_MS + 5000);
+
+  afterAll(() => {
+    try { rmSync(tmpHome, { recursive: true, force: true }); } catch {}
+  });
+
+  it('T-INST-5: every authoring/monitor SKILL.md with invocation: explicit exists under ~/.claude/commands/<bundle>/', () => {
+    expect(installStatus).toBe(0);
+    const repoRoot = resolve(__dirname, '../..');
+    const commandsDir = join(tmpHome, '.claude', 'commands');
+
+    for (const bundle of ['authoring', 'monitor']) {
+      const bundleDir = join(repoRoot, 'src', 'skills', 'context-curator', bundle);
+      if (!existsSync(bundleDir)) continue;
+      for (const skillName of readdirSync(bundleDir)) {
+        const skillMd = join(bundleDir, skillName, 'SKILL.md');
+        if (!existsSync(skillMd)) continue;
+        if (!readFileSync(skillMd, 'utf-8').includes('invocation: explicit')) continue;
+        const installedPath = join(commandsDir, bundle, `${skillName}.md`);
+        expect(existsSync(installedPath)).toBe(true);
+      }
+    }
+  });
+
+  it('T-INST-6: no session bundle skill name appears under ~/.claude/commands/', () => {
+    expect(installStatus).toBe(0);
+    const commandsDir = join(tmpHome, '.claude', 'commands');
+    if (!existsSync(commandsDir)) return;
+
+    function walkDir(dir: string): string[] {
+      const out: string[] = [];
+      try {
+        for (const e of readdirSync(dir, { withFileTypes: true })) {
+          const full = join(dir, e.name);
+          if (e.isDirectory()) out.push(...walkDir(full));
+          else out.push(full);
+        }
+      } catch {}
+      return out;
+    }
+
+    const sessionNames = ['task', 'context-save', 'context-list', 'context-manage', 'context-promote'];
+    const allFiles = walkDir(commandsDir);
+    for (const name of sessionNames) {
+      const matches = allFiles.filter(f => {
+        const base = f.replace(commandsDir, '');
+        return base.includes(`/${name}`) || base.includes(`/${name}.`);
+      });
+      expect(matches).toEqual([]);
     }
   });
 });

@@ -11,8 +11,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { join } from 'path';
-import { existsSync, mkdirSync, writeFileSync } from 'fs';
+import { join, resolve } from 'path';
+import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
 import {
   createTestEnvironment,
   TestContext,
@@ -566,5 +566,97 @@ describe('T-SWITCH-1: Exactly one @import after each task switch', () => {
     const r4 = await runScript('update-import', ['sw1-task-a'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
     expect(r4.exitCode).toBe(0);
     assertSingleImport('sw1-task-a');
+  });
+});
+
+// ==========================================================================
+// Test 2.5 – 2.7: T-TASK-5, T-TASK-6, T-TASK-7 (inline description UX)
+// ==========================================================================
+
+describe('Test 2.5: Inline Description Creates Task Without Second Prompt (T-TASK-5)', () => {
+  let ctx: TestContext;
+
+  beforeEach(async () => {
+    ctx = createTestEnvironment('task5');
+    writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test\n');
+    await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+  });
+
+  afterEach(() => ctx.cleanup());
+
+  it('T-TASK-5: task-create with positional description creates CLAUDE.md with description under ## Focus and updates .claude/CLAUDE.md', async () => {
+    const desc = 'Refactor OAuth implementation in src/auth/';
+    const result = await runScript('task-create', ['oauth-inline', desc], ctx.projectDir, {
+      CLAUDE_HOME: ctx.personalBase,
+    });
+
+    expect(result.exitCode).toBe(0);
+
+    const taskMdPath = join(ctx.projectDir, '.claude', 'tasks', 'oauth-inline', 'CLAUDE.md');
+    expect(fileExists(taskMdPath)).toBe(true);
+    const taskMd = readFile(taskMdPath);
+    expect(taskMd).toContain('## Focus');
+    expect(taskMd).toContain(desc);
+
+    const claudeMd = readFile(join(ctx.projectDir, '.claude', 'CLAUDE.md'));
+    expect(claudeMd).toContain('oauth-inline');
+  });
+});
+
+describe('Test 2.6: /task Without Description Errors with Usage Example (T-TASK-6)', () => {
+  let ctx: TestContext;
+
+  beforeEach(async () => {
+    ctx = createTestEnvironment('task6');
+    writeFileSync(join(ctx.projectDir, 'CLAUDE.md'), '# Test\n');
+    await runScript('init-project', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+  });
+
+  afterEach(() => ctx.cleanup());
+
+  it('T-TASK-6: task-create with empty description exits non-zero and creates no task directory', async () => {
+    const result = await runScript('task-create', ['no-desc-task', ''], ctx.projectDir, {
+      CLAUDE_HOME: ctx.personalBase,
+    });
+
+    expect(result.exitCode).not.toBe(0);
+    expect(fileExists(join(ctx.projectDir, '.claude', 'tasks', 'no-desc-task'))).toBe(false);
+  });
+
+  it('T-TASK-6: SKILL.md contains /task <task-id> <description> usage example and stop instruction', () => {
+    const repoRoot = resolve(__dirname, '..', '..');
+    const skillMd = readFileSync(
+      resolve(repoRoot, 'src', 'skills', 'context-curator', 'session', 'task', 'SKILL.md'),
+      'utf-8',
+    );
+    expect(skillMd).toMatch(/\/task <task-id> <description>|\/task <id> <description>/);
+    expect(skillMd).toMatch(/Stop here|does NOT create/);
+  });
+});
+
+describe('Test 2.7: Uninitialized Project Auto-Inits Before Task Creation (T-TASK-7)', () => {
+  it('T-TASK-7: init-project then task-create succeeds on a project with no .claude/ directory', async () => {
+    const freshCtx = createTestEnvironment('task7');
+    try {
+      expect(fileExists(join(freshCtx.projectDir, '.claude'))).toBe(false);
+
+      const initResult = await runScript('init-project', [], freshCtx.projectDir, {
+        CLAUDE_HOME: freshCtx.personalBase,
+      });
+      expect(initResult.exitCode).toBe(0);
+
+      const createResult = await runScript(
+        'task-create',
+        ['fresh-task', 'Work in a fresh project'],
+        freshCtx.projectDir,
+        { CLAUDE_HOME: freshCtx.personalBase },
+      );
+      expect(createResult.exitCode).toBe(0);
+
+      expect(fileExists(join(freshCtx.projectDir, '.claude', 'tasks', 'fresh-task', 'CLAUDE.md'))).toBe(true);
+      expect(fileExists(join(freshCtx.projectDir, '.claude', 'CLAUDE.md'))).toBe(true);
+    } finally {
+      freshCtx.cleanup();
+    }
   });
 });

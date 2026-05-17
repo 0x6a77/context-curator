@@ -659,3 +659,220 @@ parentPort.postMessage(errors);
     expect(parseErrors).toEqual([]);
   }, 30000);
 });
+
+// ---------------------------------------------------------------------------
+// F-CTX-MONITOR-STATUS: Stop Hook Output Format (T-MON-14/15)
+// ---------------------------------------------------------------------------
+
+describe('T-MON-14: status-line.js outputs valid JSON systemMessage to stdout only', () => {
+  let ctx: TestContext;
+
+  beforeEach(() => { ctx = createTestEnvironment('mon14'); });
+  afterEach(() => ctx.cleanup());
+
+  it('stdout is parseable JSON with systemMessage string; stderr is empty', async () => {
+    writeMonitorState(ctx.personalBase, {
+      fillPct: 47.5,
+      tokensSinceBaseline: 31000,
+      estimatedCost: 0.18,
+      burnRatePerMessage: 2100,
+      currentZone: 'productive',
+      zoneSentinels: { degrading: false, critical: false },
+    });
+
+    const result = await runScript('status-line', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+
+    expect(result.exitCode).toBe(0);
+
+    // stderr must be empty (Stop hook must not emit plain text)
+    const implStderr = result.stderr.split('\n')
+      .filter(line => !/\[DEP\d+\]|DeprecationWarning|node --trace-deprecation/i.test(line))
+      .join('\n').trim();
+    expect(implStderr).toBe('');
+
+    // stdout must be valid JSON
+    let parsed: any;
+    expect(() => { parsed = JSON.parse(result.stdout); }).not.toThrow();
+    expect(parsed).toHaveProperty('systemMessage');
+    expect(typeof parsed.systemMessage).toBe('string');
+    expect(parsed.systemMessage.length).toBeGreaterThan(0);
+  });
+});
+
+describe('T-MON-15: systemMessage matches expected status line format regex', () => {
+  let ctx: TestContext;
+
+  beforeEach(() => { ctx = createTestEnvironment('mon15'); });
+  afterEach(() => ctx.cleanup());
+
+  it('systemMessage matches /^\\[.+ \\d+% \\| \\+\\d+k since warm-up \\| ~\\$[\\d.]+ \\| [\\d.]+k tok\\/msg\\]$/', async () => {
+    writeMonitorState(ctx.personalBase, {
+      fillPct: 47.5,
+      currentTokens: 95000,
+      contextWindowSize: 200000,
+      tokensSinceBaseline: 31000,
+      estimatedCost: 0.18,
+      burnRatePerMessage: 2100,
+      currentZone: 'productive',
+      zoneSentinels: { degrading: false, critical: false },
+    });
+
+    const result = await runScript('status-line', [], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+
+    expect(result.exitCode).toBe(0);
+    const parsed = JSON.parse(result.stdout);
+    const pattern = /^\[.+ \d+% \| \+\d+k since warm-up \| ~\$[\d.]+ \| [\d.]+k tok\/msg\]$/;
+    expect(parsed.systemMessage).toMatch(pattern);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// F-CTX-MONITOR-COST: Real API Token Counts (T-MON-16/17/18)
+// ---------------------------------------------------------------------------
+
+describe('T-MON-16: update-monitor-state reads input_tokens not char count', () => {
+  let ctx: TestContext;
+
+  beforeEach(() => { ctx = createTestEnvironment('mon16'); });
+  afterEach(() => ctx.cleanup());
+
+  it('currentTokens equals API-reported sum, not char-count estimate', async () => {
+    const projectId = sanitizePath(ctx.projectDir);
+    const sessionDir = join(ctx.personalBase, 'projects', projectId);
+    mkdirSync(sessionDir, { recursive: true });
+    const sessionId = '00000000-0000-0000-0000-000000000016';
+
+    // 1M-char user message → char estimate ~250k tokens
+    // but API reports only 500 input_tokens
+    const sessionContent = [
+      JSON.stringify({ type: 'user', content: 'x'.repeat(1_000_000) }),
+      JSON.stringify({ type: 'assistant', message: {
+        role: 'assistant', content: 'ok',
+        usage: {
+          input_tokens: 500,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 0,
+          output_tokens: 10,
+        },
+      }}),
+    ].join('\n') + '\n';
+    writeFileSync(join(sessionDir, `${sessionId}.jsonl`), sessionContent);
+
+    writeMonitorState(ctx.personalBase, {
+      fillPct: 0,
+      zoneSentinels: { degrading: false, critical: false },
+    });
+
+    const payload = JSON.stringify({
+      session_id: sessionId,
+      project_dir: ctx.projectDir,
+      model: 'claude-sonnet-4-6',
+    });
+    const result = await runScriptWithStdin('update-monitor-state', payload, [], ctx.projectDir, {
+      CLAUDE_HOME: ctx.personalBase,
+    });
+
+    expect(result.exitCode).toBe(0);
+    const state = readMonitorState(ctx.personalBase);
+    // Must use API-reported 500, not char-based ~250000
+    expect(state.currentTokens).toBe(500);
+    expect(state.fillPct).toBeLessThanOrEqual(100);
+  });
+});
+
+describe('T-MON-17: fillPct calculated from all three cache-aware input token fields', () => {
+  let ctx: TestContext;
+
+  beforeEach(() => { ctx = createTestEnvironment('mon17'); });
+  afterEach(() => ctx.cleanup());
+
+  it('(input:80k + creation:10k + read:50k) / 200k = 70.0% (±0.1)', async () => {
+    const projectId = sanitizePath(ctx.projectDir);
+    const sessionDir = join(ctx.personalBase, 'projects', projectId);
+    mkdirSync(sessionDir, { recursive: true });
+    const sessionId = '00000000-0000-0000-0000-000000000017';
+
+    const sessionContent = JSON.stringify({ type: 'assistant', message: {
+      role: 'assistant', content: 'response',
+      usage: {
+        input_tokens: 80000,
+        cache_creation_input_tokens: 10000,
+        cache_read_input_tokens: 50000,
+        output_tokens: 1000,
+      },
+    }}) + '\n';
+    writeFileSync(join(sessionDir, `${sessionId}.jsonl`), sessionContent);
+
+    writeMonitorState(ctx.personalBase, {
+      fillPct: 0,
+      currentTokens: 0,
+      contextWindowSize: 200000,
+      zoneSentinels: { degrading: false, critical: false },
+    });
+
+    const payload = JSON.stringify({
+      session_id: sessionId,
+      project_dir: ctx.projectDir,
+      model: 'claude-sonnet-4-6',
+    });
+    const result = await runScriptWithStdin('update-monitor-state', payload, [], ctx.projectDir, {
+      CLAUDE_HOME: ctx.personalBase,
+    });
+
+    expect(result.exitCode).toBe(0);
+    const state = readMonitorState(ctx.personalBase);
+    expect(state.currentTokens).toBe(140000);
+    expect(Math.abs(state.fillPct - 70.0)).toBeLessThan(0.1);
+  });
+});
+
+describe('T-MON-18: fillPct never exceeds 100 even when historical chars exceed window', () => {
+  let ctx: TestContext;
+
+  beforeEach(() => { ctx = createTestEnvironment('mon18'); });
+  afterEach(() => ctx.cleanup());
+
+  it('20 large messages + API usage 100k → fillPct = 50.0 (≤ 100)', async () => {
+    const projectId = sanitizePath(ctx.projectDir);
+    const sessionDir = join(ctx.personalBase, 'projects', projectId);
+    mkdirSync(sessionDir, { recursive: true });
+    const sessionId = '00000000-0000-0000-0000-000000000018';
+
+    // 20 x 50k-char messages → char-estimated 250k tokens → would exceed 200k window
+    // but API reports: 50000 + 20000 + 30000 = 100000 tokens → fillPct = 50.0
+    const history = Array.from({ length: 20 }, () =>
+      JSON.stringify({ type: 'user', content: 'x'.repeat(50_000) })
+    );
+    const last = JSON.stringify({ type: 'assistant', message: {
+      role: 'assistant', content: 'ok',
+      usage: {
+        input_tokens: 50000,
+        cache_creation_input_tokens: 20000,
+        cache_read_input_tokens: 30000,
+        output_tokens: 500,
+      },
+    }});
+    writeFileSync(join(sessionDir, `${sessionId}.jsonl`), [...history, last].join('\n') + '\n');
+
+    writeMonitorState(ctx.personalBase, {
+      fillPct: 0,
+      contextWindowSize: 200000,
+      zoneSentinels: { degrading: false, critical: false },
+    });
+
+    const payload = JSON.stringify({
+      session_id: sessionId,
+      project_dir: ctx.projectDir,
+      model: 'claude-sonnet-4-6',
+    });
+    const result = await runScriptWithStdin('update-monitor-state', payload, [], ctx.projectDir, {
+      CLAUDE_HOME: ctx.personalBase,
+    });
+
+    expect(result.exitCode).toBe(0);
+    const state = readMonitorState(ctx.personalBase);
+    expect(state.fillPct).toBeLessThanOrEqual(100);
+    expect(state.currentTokens).toBeLessThanOrEqual(200000);
+    expect(Math.abs(state.fillPct - 50.0)).toBeLessThan(0.1);
+  });
+});

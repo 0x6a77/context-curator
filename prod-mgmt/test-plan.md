@@ -198,6 +198,12 @@ class ContextCuratorTestCase:
 | T-INIT-7 | `init-project --project-install` creates `.claude/skills/context-curator/` containing at least the five skill directories (`task`, `context-save`, `context-list`, `context-manage`, `context-promote`), each with a `SKILL.md` file and a `scripts/` subdirectory |
 | T-INIT-8 | After a project-scope install, typing `/context-save` in a Claude Code session resolves to the skill in `.claude/skills/context-curator/context-save/` — not to any user-scope skill of the same name; verified by checking that the skill SKILL.md path in the session context matches the project path |
 | T-INIT-9 | A developer who clones a project with `.claude/skills/context-curator/` committed has all five slash commands available without running `install.sh`; verified by running `claude` in a fresh environment with no `~/.claude/skills/` directory and confirming `/task` is a recognized command |
+| T-INST-1 | After `install.sh`, `~/.claude/settings.json` `.hooks.PostToolUse` contains exactly one entry whose `command` ends with `update-monitor-state.js` |
+| T-INST-2 | After `install.sh`, `~/.claude/settings.json` `.hooks.Stop` contains exactly one entry whose `command` ends with `status-line.js` |
+| T-INST-3 | After `install.sh`, `~/.claude/settings.json` `.hooks.SessionStart` contains exactly one entry whose `command` ends with `session-start-hook.js` |
+| T-INST-4 | Running `install.sh` a second time produces no duplicate hook entries; each hook array has exactly one entry after two runs |
+| T-INST-5 | After `install.sh`, every SKILL.md in the authoring and monitor bundles with `invocation: explicit` exists at `~/.claude/commands/<bundle>/<skill-name>.md` |
+| T-INST-6 | After `install.sh`, no file exists under `~/.claude/commands/` whose path contains any of: `task`, `context-save`, `context-list`, `context-manage`, `context-promote` |
 
 ### Test 1.1: Initialize Fresh Project (No CLAUDE.md)
 
@@ -444,7 +450,81 @@ def test_cloned_repo_commands_available():
 
 ---
 
-## 2. Task Creation Tests · F-TASK-CREATE
+### Test 1.9: install.sh Registers All Three Lifecycle Hooks (T-INST-1/2/3)
+
+**Validation:**
+```python
+def test_install_registers_lifecycle_hooks():
+    settings_path = Path.home() / ".claude" / "settings.json"
+    settings_path.write_text(json.dumps({"theme": "light"}))
+    result = subprocess.run(["bash", "install.sh"], capture_output=True, text=True,
+                            cwd=str(REPO_ROOT))
+    assert result.returncode == 0
+    settings = json.loads(settings_path.read_text())
+    hooks = settings.get("hooks", {})
+    post_cmds  = [h.get("command", "") for h in hooks.get("PostToolUse",  [])]
+    stop_cmds  = [h.get("command", "") for h in hooks.get("Stop",         [])]
+    start_cmds = [h.get("command", "") for h in hooks.get("SessionStart", [])]
+    assert any(c.endswith("update-monitor-state.js") for c in post_cmds)
+    assert any(c.endswith("status-line.js") for c in stop_cmds)
+    assert any(c.endswith("session-start-hook.js") for c in start_cmds)
+```
+
+---
+
+### Test 1.10: install.sh Hook Registration Is Idempotent (T-INST-4)
+
+**Validation:**
+```python
+def test_install_hooks_idempotent():
+    settings_path = Path.home() / ".claude" / "settings.json"
+    settings_path.write_text(json.dumps({"theme": "light"}))
+    subprocess.run(["bash", "install.sh"], capture_output=True, cwd=str(REPO_ROOT))
+    subprocess.run(["bash", "install.sh"], capture_output=True, cwd=str(REPO_ROOT))
+    settings = json.loads(settings_path.read_text())
+    hooks = settings.get("hooks", {})
+    assert len(hooks.get("PostToolUse",  [])) == 1, "Duplicate PostToolUse hooks"
+    assert len(hooks.get("Stop",         [])) == 1, "Duplicate Stop hooks"
+    assert len(hooks.get("SessionStart", [])) == 1, "Duplicate SessionStart hooks"
+```
+
+---
+
+### Test 1.11: Explicit Skills Installed to ~/.claude/commands/ (T-INST-5)
+
+**Validation:**
+```python
+def test_explicit_skills_installed_to_commands():
+    subprocess.run(["bash", "install.sh"], capture_output=True, cwd=str(REPO_ROOT))
+    commands_dir = Path.home() / ".claude" / "commands"
+    for bundle in ["authoring", "monitor"]:
+        bundle_dir = REPO_ROOT / "src/skills/context-curator" / bundle
+        for skill_dir in bundle_dir.iterdir():
+            if not skill_dir.is_dir(): continue
+            skill_md = skill_dir / "SKILL.md"
+            if not skill_md.exists(): continue
+            if "invocation: explicit" not in skill_md.read_text(): continue
+            installed = commands_dir / bundle / f"{skill_dir.name}.md"
+            assert installed.exists(), f"Missing: {installed}"
+```
+
+---
+
+### Test 1.12: Session Bundle Skills Not in ~/.claude/commands/ (T-INST-6)
+
+**Validation:**
+```python
+def test_session_skills_not_in_commands():
+    subprocess.run(["bash", "install.sh"], capture_output=True, cwd=str(REPO_ROOT))
+    commands_dir = Path.home() / ".claude" / "commands"
+    session_names = ["task", "context-save", "context-list", "context-manage", "context-promote"]
+    for name in session_names:
+        matches = list(commands_dir.rglob(f"*{name}*"))
+        assert len(matches) == 0, f"Session skill '{name}' found in commands/: {matches}"
+```
+
+---
+
 
 **Acceptance Criteria:**
 
@@ -454,6 +534,9 @@ def test_cloned_repo_commands_available():
 | T-TASK-2 | `task-create` with uppercase name exits non-zero AND creates no task directory |
 | T-TASK-3 | `task-create` with multi-line description preserves all lines in the Focus section |
 | T-TASK-4 | `task-create` with empty description exits non-zero and creates no task directory |
+| T-TASK-5 | `/task <id> <description>` creates `<id>/CLAUDE.md` with the description under `## Focus` and updates `.claude/CLAUDE.md` without any intermediate prompt to the user |
+| T-TASK-6 | `/task <id>` (no description) for a non-existent task ID produces output containing `/task <id> <description>` as a usage example and does NOT create a task directory |
+| T-TASK-7 | On a project with no `.claude/` directory, `/task <id> <description>` completes successfully; `.claude/CLAUDE.md` and `<id>/CLAUDE.md` both exist after the call |
 
 ### Test 2.1: Create New Task with Valid Name
 
@@ -600,17 +683,86 @@ What should this task focus on? > [press enter]
 **Validation:**
 ```python
 def test_create_task_empty_description():
-    # Verify task created with generic description
-    task_md = Path(".claude/tasks/minimal-task/CLAUDE.md").read_text()
-    assert len(task_md) > 0  # Should have some default content
+    result = subprocess.run(
+        ["node", TASK_CREATE_SCRIPT, "minimal-task", ""],
+        capture_output=True, text=True
+    )
+    assert result.returncode != 0
+    assert not Path(".claude/tasks/minimal-task").exists()
     
-    # Should still be functional
-    assert verify_file_exists(".claude/tasks/minimal-task/contexts/")
 ```
 
 ---
 
-## 3. Task Switching Tests · F-TASK-SWITCH
+### Test 2.5: Inline Description Creates Task Without Second Prompt (T-TASK-5)
+
+**Validation:**
+```python
+def test_create_task_inline_description():
+    desc = "Refactor OAuth implementation in src/auth/"
+    result = subprocess.run(
+        ["node", TASK_CREATE_SCRIPT, "oauth-refactor", desc],
+        capture_output=True, text=True, cwd=str(test_project)
+    )
+    assert result.returncode == 0
+    task_md = (test_project / ".claude/tasks/oauth-refactor/CLAUDE.md").read_text()
+    assert "## Focus" in task_md
+    assert desc in task_md
+    claude_md = (test_project / ".claude/CLAUDE.md").read_text()
+    assert "oauth-refactor" in claude_md
+```
+
+---
+
+### Test 2.6: /task Without Description Errors with Usage Example (T-TASK-6)
+
+**Validation:**
+```python
+def test_task_no_description_shows_usage_not_creates():
+    # Script-level: empty description exits non-zero, no directory created
+    result = subprocess.run(
+        ["node", TASK_CREATE_SCRIPT, "no-desc-task", ""],
+        capture_output=True, text=True, cwd=str(test_project)
+    )
+    assert result.returncode != 0
+    assert not (test_project / ".claude/tasks/no-desc-task").exists()
+
+def test_skill_contains_usage_guidance_for_missing_description():
+    # Skill-level: SKILL.md must instruct Claude to show /task <id> <description> usage
+    skill_md = (REPO_ROOT / "src/skills/context-curator/session/task/SKILL.md").read_text()
+    assert "/task <task-id> <description>" in skill_md or "/task <id> <description>" in skill_md
+    # Skill must say Stop or do not create when description is missing
+    assert "Stop here" in skill_md or "does NOT create" in skill_md
+```
+
+---
+
+### Test 2.7: Uninitialized Project Auto-Inits Before Task Creation (T-TASK-7)
+
+**Validation:**
+```python
+def test_task_create_on_uninitialized_project():
+    with tempfile.TemporaryDirectory() as fresh_dir:
+        fresh = Path(fresh_dir)
+        assert not (fresh / ".claude").exists()
+        # init-project must exit 0 on a project with no .claude/
+        init = subprocess.run(
+            ["node", str(REPO_ROOT / "dist/scripts/init-project.js")],
+            capture_output=True, text=True, cwd=fresh_dir
+        )
+        assert init.returncode == 0, f"init-project failed: {init.stderr}"
+        # task-create then succeeds
+        result = subprocess.run(
+            ["node", TASK_CREATE_SCRIPT, "fresh-task", "Work in a fresh project"],
+            capture_output=True, text=True, cwd=fresh_dir
+        )
+        assert result.returncode == 0
+        assert (fresh / ".claude/tasks/fresh-task/CLAUDE.md").exists()
+        assert (fresh / ".claude/CLAUDE.md").exists()
+```
+
+---
+
 
 **Acceptance Criteria:**
 
@@ -3980,6 +4132,8 @@ def test_reinject_graceful_on_missing_file():
 | T-MON-2 | Given a monitor state file with `fillPct: 47.5`, `tokensSinceBaseline: 31000`, `estimatedCost: 0.18`, `burnRatePerMessage: 2100`, and `currentZone: productive`, the status line output matches the pattern `47` and `31k` and `0.18` and `2.1k` |
 | T-MON-3 | With `CLAUDE_SESSION_TYPE=headless` set, the status line script exits 0 and produces no stdout or stderr |
 | T-MON-4 | With no checkpoint metadata present, `tokensSinceBaseline` equals `currentTokens` and the status line renders without error |
+| T-MON-14 | `status-line.js` (with a valid state file) writes to stdout only; the output is valid JSON with a `systemMessage` string field; stderr is empty |
+| T-MON-15 | The `systemMessage` value matches `^\[.+ \d+% \| \+\d+k since warm-up \| ~\$[\d.]+ \| [\d.]+k tok\/msg\]$` |
 
 #### Test 21.1: Status Line Reads Only State File (T-MON-1)
 
@@ -4074,7 +4228,52 @@ def test_status_no_baseline():
 
 ---
 
-### 21b. Threshold Warnings · F-CTX-MONITOR-WARN
+#### Test 21.14: status-line.js Outputs JSON systemMessage to stdout (T-MON-14)
+
+**Validation:**
+```python
+def test_status_line_outputs_json_system_message():
+    write_monitor_state(fill_pct=47.5, tokens_since_baseline=31000,
+                        estimated_cost=0.18, burn_rate_per_message=2100,
+                        current_zone="productive")
+    result = subprocess.run(
+        ["node", str(DIST_DIR / "scripts/status-line.js")],
+        capture_output=True, text=True
+    )
+    assert result.returncode == 0
+    impl_stderr = "\n".join(
+        l for l in result.stderr.splitlines()
+        if not re.search(r'\[DEP\d+\]|DeprecationWarning', l)
+    ).strip()
+    assert impl_stderr == "", f"Unexpected stderr: {impl_stderr!r}"
+    parsed = json.loads(result.stdout)
+    assert "systemMessage" in parsed
+    assert isinstance(parsed["systemMessage"], str)
+    assert len(parsed["systemMessage"]) > 0
+```
+
+---
+
+#### Test 21.15: systemMessage Matches Status Line Format (T-MON-15)
+
+**Validation:**
+```python
+def test_status_line_system_message_format():
+    write_monitor_state(fill_pct=47.5, tokens_since_baseline=31000,
+                        estimated_cost=0.18, burn_rate_per_message=2100,
+                        current_zone="productive")
+    result = subprocess.run(
+        ["node", str(DIST_DIR / "scripts/status-line.js")],
+        capture_output=True, text=True
+    )
+    assert result.returncode == 0
+    msg = json.loads(result.stdout)["systemMessage"]
+    pattern = r'^\[.+ \d+% \| \+\d+k since warm-up \| ~\$[\d.]+ \| [\d.]+k tok\/msg\]$'
+    assert re.match(pattern, msg), f"Format mismatch: {msg!r}"
+```
+
+---
+
 
 **Acceptance Criteria:**
 
@@ -4202,6 +4401,9 @@ def test_session_start_clears_sentinels():
 | T-MON-11 | Cost estimation: given a known token count, model name, and rate config file with explicit rates, the cost script output matches hand-calculated expected cost within 1% |
 | T-MON-12 | With `baselineTokens: 42000` in checkpoint metadata and current tokens 95000, the state file contains `tokensSinceBaseline: 53000` (not 95000) |
 | T-MON-13 | State file write is atomic: a concurrent reader never observes a partially-written file; verified by running writer and reader in parallel and asserting every read produces valid JSON |
+| T-MON-16 | `update-monitor-state` reads `currentTokens` as `input_tokens + cache_creation_input_tokens + cache_read_input_tokens` from the last message entry with a `message.usage` field; no char-count arithmetic is performed |
+| T-MON-17 | Given a session JSONL whose last assistant entry has `message.usage: {input_tokens: 80000, cache_creation_input_tokens: 10000, cache_read_input_tokens: 50000}` and `contextWindowSize: 200000`, the written state has `fillPct` equal to 70.0 (±0.1) |
+| T-MON-18 | A session JSONL with historical content totalling >200k char-estimated tokens but whose last assistant usage shows 100k total input tokens produces a state file with `fillPct <= 100` and `currentTokens <= 200000` |
 
 #### Test 21.10: Burn Rate Calculation Correct (T-MON-10)
 
@@ -4312,7 +4514,95 @@ def test_state_file_write_atomic():
 
 ---
 
-## 22. User Documentation System Tests · F-DOC
+#### Test 21.16: update-monitor-state Uses Real input_tokens Not Char Count (T-MON-16)
+
+**Validation:**
+```python
+def test_monitor_uses_real_input_tokens_not_char_count():
+    # A large user message that would read as ~250k char-estimated tokens,
+    # but the API-reported input_tokens is only 500.
+    session_lines = [
+        json.dumps({"type": "user", "content": "x" * 1_000_000}),
+        json.dumps({"type": "assistant", "message": {
+            "role": "assistant", "content": "ok",
+            "usage": {"input_tokens": 500,
+                       "cache_creation_input_tokens": 0,
+                       "cache_read_input_tokens": 0,
+                       "output_tokens": 10}}})
+    ]
+    write_session_jsonl(session_lines)
+    subprocess.run(
+        ["node", str(DIST_DIR / "scripts/update-monitor-state.js")],
+        input=json.dumps({"session_id": TEST_SESSION_ID,
+                          "project_dir": str(TEST_PROJECT_DIR)}),
+        capture_output=True, text=True
+    )
+    state = json.loads(Path(MONITOR_STATE_PATH).read_text())
+    assert state["currentTokens"] == 500, \
+        f"Expected 500 (API-reported), got {state['currentTokens']} (char-based would be ~250000)"
+    assert state["fillPct"] <= 100, f"fillPct exceeded 100%: {state['fillPct']}"
+```
+
+---
+
+#### Test 21.17: Exact fillPct from Known Cache-Aware Usage (T-MON-17)
+
+**Validation:**
+```python
+def test_monitor_fill_pct_cache_aware_calculation():
+    session_lines = [json.dumps({"type": "assistant", "message": {
+        "role": "assistant", "content": "response",
+        "usage": {"input_tokens": 80000,
+                   "cache_creation_input_tokens": 10000,
+                   "cache_read_input_tokens": 50000,
+                   "output_tokens": 1000}}})]
+    write_session_jsonl(session_lines)
+    write_monitor_state(context_window_size=200000)
+    subprocess.run(
+        ["node", str(DIST_DIR / "scripts/update-monitor-state.js")],
+        input=json.dumps({"session_id": TEST_SESSION_ID,
+                          "project_dir": str(TEST_PROJECT_DIR)}),
+        capture_output=True, text=True
+    )
+    state = json.loads(Path(MONITOR_STATE_PATH).read_text())
+    # (80000 + 10000 + 50000) / 200000 * 100 = 70.0
+    assert state["currentTokens"] == 140000
+    assert abs(state["fillPct"] - 70.0) < 0.1, \
+        f"Expected fillPct 70.0, got {state['fillPct']}"
+```
+
+---
+
+#### Test 21.18: Long Session fillPct Never Exceeds 100 (T-MON-18)
+
+**Validation:**
+```python
+def test_monitor_fill_pct_never_exceeds_100_long_session():
+    # 20 large historical messages + final usage of 100k tokens
+    history = [json.dumps({"type": "user", "content": "x" * 50_000})
+               for _ in range(20)]
+    last = json.dumps({"type": "assistant", "message": {
+        "role": "assistant", "content": "ok",
+        "usage": {"input_tokens": 50000,
+                   "cache_creation_input_tokens": 20000,
+                   "cache_read_input_tokens": 30000,
+                   "output_tokens": 500}}})
+    write_session_jsonl(history + [last])
+    subprocess.run(
+        ["node", str(DIST_DIR / "scripts/update-monitor-state.js")],
+        input=json.dumps({"session_id": TEST_SESSION_ID,
+                          "project_dir": str(TEST_PROJECT_DIR)}),
+        capture_output=True, text=True
+    )
+    state = json.loads(Path(MONITOR_STATE_PATH).read_text())
+    assert state["fillPct"] <= 100, f"fillPct exceeded 100%: {state['fillPct']}"
+    assert state["currentTokens"] <= 200000
+    # (50000+20000+30000)/200000*100 = 50.0
+    assert abs(state["fillPct"] - 50.0) < 0.1
+```
+
+---
+
 
 **Acceptance Criteria:**
 
@@ -4675,8 +4965,8 @@ This test plan provides comprehensive coverage of context-curator functionality 
 - Enable confident refactoring
 
 **Test Coverage:**
-- ✅ Project initialization (F-INIT) — T-INIT-1 through T-INIT-9
-- ✅ Task creation (F-TASK-CREATE) — T-TASK-1 through T-TASK-4
+- ✅ Project initialization and installer (F-INIT) — T-INIT-1 through T-INIT-9, T-INST-1 through T-INST-6
+- ✅ Task creation (F-TASK-CREATE) — T-TASK-1 through T-TASK-7
 - ✅ Task switching (F-TASK-SWITCH) — T-SWITCH-1 through T-SWITCH-6
 - ✅ Context saving — personal and golden (F-CTX-SAVE) — T-CTX-1 through T-CTX-6, T-MEM-1
 - ✅ Context listing (F-CTX-LIST) — T-LIST-1 through T-LIST-4
@@ -4695,7 +4985,7 @@ This test plan provides comprehensive coverage of context-curator functionality 
 - ✅ Document authoring skills (F-DOC-SKILLS) — T-DOC-1 through T-DOC-6
 - ✅ Skill marketplace (F-MARKETPLACE) — T-MKT-1 through T-MKT-4
 - ✅ PostCompact task re-injection hook (F-HOOK-POST) — T-HOOK-POST-1 through T-HOOK-POST-3
-- ✅ Context monitor — status line, threshold warnings, cost estimation (F-CTX-MONITOR) — T-MON-1 through T-MON-13
+- ✅ Context monitor — status line, threshold warnings, cost estimation (F-CTX-MONITOR) — T-MON-1 through T-MON-18
 - ✅ User documentation system (F-DOC) — T-UDOC-1 through T-UDOC-8
 - ✅ Process sequencing skill (F-PROCESS) — T-PROC-1 through T-PROC-6
 

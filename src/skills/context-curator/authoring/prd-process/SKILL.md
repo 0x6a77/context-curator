@@ -87,17 +87,48 @@ To bypass this warning and proceed anyway, say: "proceed with implementation --f
 Do NOT proceed with implementation until the user explicitly says `--force` or
 acknowledges the warning and confirms they want to skip the adversary step.
 
+## On any test plan request (Phase 1 → Phase 2 transition)
+
+When the user asks to write, start, or update the test plan — before doing anything else:
+
+1. Check recent git history for commits that look like fixes:
+   ```bash
+   git log --oneline --since="60 days ago" 2>/dev/null | grep -iE "fix|bug|patch|hotfix|revert|broken|wrong|incorrect"
+   ```
+
+2. Prompt the user:
+   ```
+   Before we start the test plan — were any bugs fixed or behaviors changed since
+   the PRD was last updated?
+
+   Hotfixes, ad-hoc edge case handling, and behavior corrections found during
+   implementation all need AC rows in prd.md before the test plan is written —
+   otherwise the test plan will not cover them and they stay untested.
+
+   Recent commits that may be fixes:
+   [output from git log above, or "none found"]
+
+   → If yes: add AC rows to the relevant feature sections in prd.md first,
+     then return here to write the test plan.
+   → If no or already captured: confirm and we will proceed.
+
+   To skip: "proceed to test plan --force"
+   ```
+
+3. Do NOT start writing the test plan until the user confirms all fixes are captured
+   or explicitly uses \`--force\`.
+
 ## On any PRD update
 
-After the user makes changes to `prd.md`, remind them:
+After the user makes changes to \`prd.md\`, remind them:
 ```
 PRD updated. Recommended next steps:
-  1. Run /docs-markdown then /docs-html (Phase 1a — update user docs)
-  2. When ready for implementation: run /task adversary first (Phase 5)
+  1. If this update included bug fixes or behavior changes: add AC rows to the
+     relevant feature sections before moving to the test plan.
+  2. Run /docs-markdown then /docs-html (Phase 1a — update user docs)
+  3. When ready for implementation: run /task adversary first (Phase 5)
      to audit tests against the new features before writing code.
 ```
-
-## Resistance Level
 
 The skill **warns and requires explicit bypass** — it does not hard-block.
 The bypass phrase is "proceed with implementation --force" (or any clear statement

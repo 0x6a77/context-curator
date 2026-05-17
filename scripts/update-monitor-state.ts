@@ -45,6 +45,23 @@ interface MonitorState {
   lastUpdated: string;
 }
 
+interface ApiUsage {
+  input_tokens?: number;
+  output_tokens?: number;
+  cache_creation_input_tokens?: number;
+  cache_read_input_tokens?: number;
+}
+
+interface SessionMessage {
+  tokens?: number;
+  usage?: ApiUsage;
+  message?: {
+    usage?: ApiUsage;
+    role?: string;
+    content?: unknown;
+  };
+}
+
 async function atomicWrite(filePath: string, content: string): Promise<void> {
   const tmp = `${filePath}.tmp.${process.pid}`;
   await fs.writeFile(tmp, content, 'utf-8');
@@ -106,19 +123,6 @@ async function readStdinJson(): Promise<Record<string, any>> {
   });
 }
 
-interface ApiUsage {
-  input_tokens?: number;
-  output_tokens?: number;
-  cache_creation_input_tokens?: number;
-  cache_read_input_tokens?: number;
-}
-
-interface SessionMessage {
-  message?: { usage?: ApiUsage };
-  usage?: ApiUsage;
-}
-
-// Real input token count = non-cached + cache-write + cache-read
 function totalInputTokens(u: ApiUsage | undefined): number {
   if (!u) return 0;
   return (u.input_tokens ?? 0)
@@ -126,13 +130,18 @@ function totalInputTokens(u: ApiUsage | undefined): number {
     + (u.cache_read_input_tokens ?? 0);
 }
 
+function estimateTokensFromContent(content: unknown): number {
+  const str = typeof content === 'string' ? content : JSON.stringify(content ?? '');
+  return Math.ceil(str.length / 4);
+}
+
 function computeBurnRate(messages: SessionMessage[], n: number): number {
-  const withUsage = messages.filter(m => m.message?.usage ?? m.usage);
-  const recent = withUsage.slice(-n);
+  const recent = messages.slice(-n);
   if (recent.length === 0) return 0;
   const total = recent.reduce((sum, m) => {
     const u = m.message?.usage ?? m.usage;
-    return sum + totalInputTokens(u) + (u?.output_tokens ?? 0);
+    const t = m.tokens ?? (u ? totalInputTokens(u) : 0);
+    return sum + t;
   }, 0);
   return Math.round(total / recent.length);
 }
@@ -162,11 +171,22 @@ async function main() {
 
   // Parse session JSONL
   let messages: SessionMessage[] = [];
+  let totalChars = 0;
   try {
     const raw = await fs.readFile(sessionPath, 'utf-8');
     const lines = raw.split('\n').filter(l => l.trim());
     messages = lines.map(l => {
-      try { return JSON.parse(l); } catch { return {}; }
+      try {
+        const parsed = JSON.parse(l) as SessionMessage;
+        // Track chars for burn rate fallback
+        const content = parsed.message?.content ?? (parsed as any).content ?? '';
+        const chars = typeof content === 'string' ? content.length : JSON.stringify(content).length;
+        totalChars += chars;
+        // Attach char-based token estimate as fallback for burn rate
+        return { tokens: estimateTokensFromContent(content), ...parsed };
+      } catch {
+        return {} as SessionMessage;
+      }
     });
   } catch {
     process.exit(0);
@@ -175,12 +195,11 @@ async function main() {
   const config = await readConfig();
   const existing = await readStateOrDefault();
 
-  // Use actual input_tokens from the most recent assistant message with usage data.
-  // This is the real context window occupancy reported by the API, which correctly
-  // accounts for prompt caching (input + cache_creation + cache_read).
+  // Use API-reported input tokens from last assistant message with usage data.
+  // Fall back to char-count estimate only when no usage field is present (e.g., older sessions).
   const lastWithUsage = [...messages].reverse().find(m => m.message?.usage ?? m.usage);
   const lastUsage = lastWithUsage?.message?.usage ?? lastWithUsage?.usage;
-  const currentTokens = lastUsage ? totalInputTokens(lastUsage) : existing.currentTokens;
+  const currentTokens = lastUsage ? totalInputTokens(lastUsage) : Math.ceil(totalChars / 4);
 
   const contextWindowSize = existing.contextWindowSize || 200000;
   const fillPct = (currentTokens / contextWindowSize) * 100;
@@ -192,7 +211,7 @@ async function main() {
 
   const burnRatePerMessage = computeBurnRate(messages, config.burnRateWindow);
 
-  // Cost = input tokens at model rate (cache reads are cheaper but close enough for display)
+  // Estimate cost from model rates
   const rates = config.models[model] ?? config.models['default'] ?? { input: 3.00, output: 15.00 };
   const estimatedCost = (currentTokens / 1e6) * rates.input;
 
