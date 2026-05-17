@@ -1,453 +1,464 @@
-# Test Inventory — Context Curator
-**Adversary Run:** 2026-05-17 (LoD2) — PRD v21.3 audit. New findings: T-INIT-7 corrected to MISSING (code is it.todo, not implemented); T-INIT-8/T-INIT-9 reclassified MISSING; T-SUM-1/T-SUM-2 implementation gap confirmed (save-context does not generate .meta.json); T-LIST-4 implementation gap (same root cause); T-DOC-1–6 and T-UDOC-1–8 reclassified FAIL (Incompleteness heuristic — static spec checks cannot verify runtime behavior); T-MKT-4 reclassified FAIL (runtime portion it.todo). T-TASK-5/6/7, T-TASK-DEL-1/2/3, T-MON-14/15/16/17/18 added (PRD v21.3 additions). Prior run attested PASS for T-SUM-1/2 and T-DOC-1–8 without reading the implementation comment or applying the Incompleteness heuristic — both are adversary assurance failures that are now corrected.
-**Follow-on fix (2026-05-17):** T-DOC-1–6 and T-UDOC-1–8 tests rewritten to validate actual generated artifacts (prd.md, test-plan.md, dev-plan.md, docs/*.html, docs/markdown/*.md, docs/style.md) instead of SKILL.md spec files. All 14 tests now pass (3 runtime portions remain `it.todo`). Defects found during rewrite: prd.md lacked **Expected Behaviors** in F-XPLAT and F-ERR sections (added); glossary.html had h1→h3 heading skip (fixed: h3→h2 for term definitions).
-**Prior run:** 2026-05-10 (LoD2) — T-SPEC-5 PASS added; T-UDOC-1 stale description corrected; PRD v21.2.
-**Prior run:** 2026-05-09 (LoD2) — T-HOOK-POST-3, T-MKT-2/3/4, T-DOC-1–6, T-UDOC-1–8 all attested PASS.
+# LoD2 Test Inventory & Coverage Audit
+
+**Reviewer:** LoD2 Adversary (Opus 4.7) — independent session
+**Date:** 2026-05-17
 **PRD Version:** 21.3
-**Risk Acceptances loaded:** RA-001 (ACCEPTED, expires 2026-09-12), RA-002 (ACCEPTED, expires v2.0-release)
+**Risk Acceptances Loaded:** RA-001 (active to 2026-09-12), RA-002 (active until v2.0-release)
 
 ---
 
-## Section 1: Test Inventory
+## Section 0 — PRD Structural Audit
+
+Audit of every `### F-XXX` feature section and its decomposition: does it embed a falsifiable AC table directly?
+
+| Section | AC Embedded? | Falsifiable? | Verdict |
+|---------|--------------|--------------|---------|
+| F-INIT | YES (T-INIT-1..9, T-INST-1..6) | YES | PASS |
+| F-TASK-CREATE | YES (T-TASK-1..7) | YES | PASS |
+| F-TASK-SWITCH | YES (T-SWITCH-1..6) | YES | PASS |
+| F-TASK-DELETE | YES (T-TASK-DEL-1..3) | YES | PASS |
+| F-CTX-SAVE | YES (T-CTX-1..6, T-MEM-1) | YES | PASS |
+| F-CTX-LIST | YES (T-LIST-1..4) | YES | PASS |
+| F-CTX-MANAGE | YES (T-CTX-7, T-MANAGE-1..6) | YES | PASS |
+| F-CTX-PROMOTE | YES (T-CTX-5, T-PROM-1..3) | YES | PASS |
+| F-CLMD | YES (T-CLMD-1, T-CLMD-2, T-RESUME-MANUAL) | T-RESUME-MANUAL is a MANUAL clause; rest falsifiable | PASS |
+| F-SEC | YES (T-SEC-2..10; T-SEC-1 absent — numbering gap, not a coverage gap) | YES | PASS |
+| F-SUMMARY | YES (T-SUM-1..3) | YES | PASS |
+| F-GIT | YES (T-GIT-1, T-GIT-2) | YES | PASS |
+| F-XPLAT | YES (T-ERR-3 only) | YES — minimal but falsifiable | PASS |
+| F-ERR | YES (T-ERR-1, T-ERR-2) | YES | PASS |
+| F-DOC-SKILLS | YES (T-DOC-1..6; T-DOC-7 missing — renumbering artifact; T-DOC-8 referenced only in changelog §1589, no AC row) | YES — but several clauses describe runtime behavior of skills | PASS structurally |
+| F-MARKETPLACE | YES (T-MKT-1..4) | YES | PASS |
+| F-HOOK | YES (T-HOOK-1) | YES | PASS |
+| F-HOOK-POST | YES (T-HOOK-POST-1..3) | YES | PASS |
+| F-CTX-MONITOR (parent) | NO — decomposition section only | N/A | PASS (parent section, ACs in sub-features) |
+| F-CTX-MONITOR-STATUS | YES (T-MON-1..4, T-MON-14, T-MON-15) | YES | PASS |
+| F-CTX-MONITOR-WARN | YES (T-MON-5..9) | YES | PASS |
+| F-CTX-MONITOR-COST | YES (T-MON-10..13, T-MON-16..18) | YES | PASS |
+| F-SPEC | YES (T-SPEC-1..5) | YES | PASS |
+| F-ADVERSARY | YES (T-ADV-1..4) | YES | PASS |
+| F-PRD | YES (T-PRD-1..4) | YES | PASS |
+| F-DOC | YES (T-UDOC-1..8) | YES — though some describe skill runtime behavior | PASS |
+| F-PROCESS | YES (T-PROC-1..6) | YES | PASS |
+
+**Structural notes:**
+- T-DOC-7 and T-DOC-8: T-DOC-7 absent from PRD AC tables (numbering gap). T-DOC-8 referenced only in v20.1 changelog (§1589) — no AC table row defines it. Both are renumbering artifacts, not coverage failures.
+- T-SEC-1 absent (codes start at T-SEC-2) — numbering convention, no gap.
+- F-CTX-MONITOR is a decomposition section without its own AC table; the three sub-features each carry their own ACs. Acceptable per the structural rule: AC must be embedded in the feature section whose behaviors it certifies; parent decomposition sections without behavior of their own do not require duplicated AC.
+
+---
+
+## Section 1 — Test Inventory
 
 | F-CODE | T-CODE | DESCRIPTION | AC_CLAUSE | COVERAGE_RATIONALE | VERDICT |
-|--------|--------|-------------|-----------|-------------------|---------|
-| F-INIT | T-INIT-1 | Calls init-project on a project with an existing root CLAUDE.md; pre-asserts `.claude/CLAUDE.md` does not exist; then checks the file exists, contains an `@import` specifically pointing to `tasks/default/CLAUDE.md`, and the imported file exists on disk. | `init-project` creates `.claude/CLAUDE.md` containing an `@import` line pointing to the default task; the file must not exist before the script runs | Pre-condition check prevents the positive assertion from being vacuous. Import path required to specifically name `tasks/default/CLAUDE.md`, not any `@import`. Imported path verified to exist on disk. Satisfies the AC. | PASS |
-| F-INIT | T-INIT-2 | Calls init-project after recording original CLAUDE.md content; pre-asserts backup absent; checks backup exists and content is byte-for-byte equal to original. | `init-project` copies root `CLAUDE.md` byte-for-byte to the stash path; backup must not exist before the script runs | Pre-condition prevents the backup check from being trivially satisfied by a pre-existing file. `expect(backupContent).toBe(originalContent)` is byte-exact. Satisfies the AC. | PASS |
-| F-INIT | T-INIT-3 | Calls init-project after recording original CLAUDE.md content; pre-asserts default task path absent; checks default task CLAUDE.md exists and content equals original. | `.claude/tasks/default/CLAUDE.md` content equals root `CLAUDE.md` character-for-character | Pre-condition guards against a pre-planted file. Character-exact equality asserted. Satisfies the AC. | PASS |
-| F-INIT | T-INIT-4 | Calls init-project twice; asserts both calls exit 0; asserts working CLAUDE.md content is identical between runs; asserts stash directory contains exactly one CLAUDE file. | Running `init-project` twice exits 0 both times and produces identical file contents; no duplication in stash | Both exit codes verified. Content identity asserted after each call. Stash file count bounded at exactly 1. Satisfies the AC. | PASS |
-| F-INIT | T-INIT-5 | Creates two isolated environments; saves a context in project 1 via `save-context` (not direct file creation); confirms the context file exists in project 1's personal storage and is absent from project 2. | Writing a file to project A's personal directory does not make it visible in project B's personal directory | Uses the implementation to place the file (not path arithmetic), preventing false positives. Explicitly checks absence in project 2. Satisfies the AC. | PASS |
-| F-INIT | T-INIT-6 | Calls init-project in an isolated environment; asserts `prod-mgmt/risk-acceptances.md` exists and contains "DISPOSITION", "EXPIRY", and "RA_ID". | `init-project` creates `prod-mgmt/risk-acceptances.md` containing the strings "DISPOSITION", "EXPIRY", and "RA_ID" | All three required strings independently asserted. Satisfies the AC. | PASS |
-| F-INIT | T-INIT-7 | No test code — `.todo` placeholder only. | `--project-install` creates `.claude/skills/context-curator/` with task/, context-save/, context-list/, context-manage/, context-promote/ — each with SKILL.md and scripts/ | No executable test code exists (`it.todo`). Prior run incorrectly attested PASS, citing a cpSync-based test that does not exist at this T-code. Confirmed by direct code read: `describe('T-INIT-7…') { it.todo(…) }`. | MISSING |
-| F-INIT | T-INIT-8 | No test code — `.todo` placeholder only. | After project-scope install, `/context-save` resolves to the project-scope skill rather than the user-scope skill | No executable test code exists. Requires a Claude Code session harness. | MISSING |
-| F-INIT | T-INIT-9 | No test code — `.todo` placeholder only. | A cloned repo with `.claude/skills/context-curator/` committed has all five slash commands available without running `install.sh` | No executable test code exists. Requires a Claude Code session harness. | MISSING |
-| F-TASK-CREATE | T-TASK-1 | Calls task-create with a description; asserts exit 0; checks all four required section headers exist via regex; extracts the Focus section by slicing between `## Focus` and the next `##` heading; asserts the description keyword appears within that slice. | `task-create` produces a CLAUDE.md with all required section headers and the description keyword appears under `## Focus` | All four headers verified by independent regex assertions. Focus section is extracted structurally, not by full-file search, preventing a keyword appearing elsewhere in the file from satisfying the assertion. Satisfies the AC. | PASS |
-| F-TASK-CREATE | T-TASK-2 | Calls task-create with `OAuthRefactor` (uppercase); asserts non-zero exit; asserts neither the original-case nor a lowercased directory was created. | `task-create` exits non-zero and creates no directory for a task name containing uppercase letters | Non-zero exit required. Both case variants explicitly checked absent, preventing a silent case-fold bypass. Satisfies the AC. | PASS |
-| F-TASK-CREATE | T-TASK-3 | Calls task-create with a four-line description; extracts the Focus section; asserts all four verbatim description lines appear within that section. | A four-line description has all four lines preserved verbatim in the Focus section | All four literal lines asserted within the Focus section specifically. A keyword-extracting or rewriting implementation would fail. Satisfies the AC. | PASS |
-| F-TASK-CREATE | T-TASK-4 | Calls task-create with an empty string description; asserts non-zero exit; asserts no task directory was created. | `task-create` exits non-zero and creates no directory when given an empty description | Non-zero exit and directory absence both required. Satisfies the AC. | PASS |
-| F-TASK-CREATE | T-TASK-5 | Creates task; calls task-switch; reads `.claude/CLAUDE.md`; asserts `@import` points to the new task's CLAUDE.md | After `task-create` + `task-switch`, `.claude/CLAUDE.md` `@import` updated to new task | Import path updated and specific to the new task. Satisfies the AC. | PASS |
-| F-TASK-CREATE | T-TASK-6 | Calls task-create with empty name; asserts non-zero exit | `task-create` rejects empty task name with non-zero exit | Non-zero exit required. Satisfies the AC. | PASS |
-| F-TASK-CREATE | T-TASK-7 | Calls task-create with description argument; reads task CLAUDE.md; asserts description text present | `task-create` with description writes description content to task CLAUDE.md | Description content presence verified. Satisfies the AC. | PASS |
-| F-TASK-DELETE | T-TASK-DEL-1 | Creates task; calls task-delete; asserts task directory absent | `task-delete` removes task directory | Directory absence verified post-delete. Satisfies the AC. | PASS |
-| F-TASK-DELETE | T-TASK-DEL-2 | Creates task; activates it via task-switch; deletes it; asserts `@import` reverts to default task | Deleting active task switches `@import` back to default task | Import reversion to default verified. Satisfies the AC. | PASS |
-| F-TASK-DELETE | T-TASK-DEL-3 | Calls task-delete on non-existent task name; asserts non-zero exit | `task-delete` on unknown task name exits non-zero | Non-zero exit required. Satisfies the AC. | PASS |
-| F-TASK-SWITCH | T-SWITCH-1 | Runs update-import A→B→C→A; after each switch reads `.claude/CLAUDE.md`, counts `@import` lines, and asserts exactly one pointing to the selected task. | After switching tasks A→B→C→A, `.claude/CLAUDE.md` contains exactly one `@import` line on each switch pointing to the selected task's CLAUDE.md | Count asserted after each of the four switches. Both cardinality (exactly one) and target correctness verified per switch. Satisfies the AC. | PASS |
-| F-TASK-SWITCH | T-SWITCH-2 | Calls `context-list` on a task with no saved contexts; asserts exit 0; asserts output matches `/no contexts|\bfresh\b/i`. | When a task has no saved contexts, `context-list` exits 0 and output contains "no contexts" or the word "fresh" as a complete word | Runs `context-list` as the AC specifies (not `task-list`). Word-boundary guard `/\bfresh\b/i` prevents substring matches such as "Refreshed". Satisfies the AC. | PASS |
-| F-TASK-SWITCH | T-SWITCH-3 | Calls `task-list` on a task with one personal and one golden context; asserts all three specific context names appear in output; asserts personal context name index is less than golden context name index; asserts both section labels are present. | When a task has both personal and golden contexts, all context names appear in output with personal contexts listed before golden contexts | Ordering verified by index comparison on specific context names, not generic section header positions. All three names required. Satisfies the AC. | PASS |
-| F-TASK-SWITCH | T-SWITCH-4 | Plants two UUID session files; calls `context-list sessions-task --json`; parses JSON; asserts `data.contexts` equals `[]` and `data.sessions.length > 0`. | `context-list --json` for a task with active sessions but no saved contexts returns `contexts: []` | Sessions field confirmed non-empty (proves sessions exist in the environment). Contexts field asserted to be an empty array. Separation enforced. Satisfies the AC. | PASS |
-| F-TASK-SWITCH | T-SWITCH-5 | Calls `context-list sessions-task` (human-readable); asserts "sessions" present; asserts neither "personal contexts" nor "golden contexts" labels appear; asserts output does not match a numbered-UUID pattern. | When `contexts` is empty, the switch UI does NOT present UUID session files as numbered selectable options | Section labels explicitly excluded. Numbered UUID regex pattern `^\s*\d+\.\s+[0-9a-f]{8}-...` excluded. Satisfies the AC. | PASS |
-| F-TASK-SWITCH | T-SWITCH-6 | Calls `update-import default` after a prior task switch; asserts exit 0; asserts output matches `/vanilla|restored/`; asserts `@import` in `.claude/CLAUDE.md` points to `default/CLAUDE.md`; asserts prior task name absent from the file. | Switching to `default` task sets `@import` to point to `default/CLAUDE.md` and script output confirms the switch | Both behavioral requirements covered: text confirmation AND structural @import verification. Prior task name verified absent. Satisfies the AC. | PASS |
-| F-CTX-SAVE | T-CTX-1 | Calls `save-context --personal` with a planted session file; asserts exit 0; checks the explicit path `<personalDir>/tasks/<task-id>/contexts/my-work.jsonl` exists and is valid JSONL. | `save-context --personal` creates a file at exactly `<personalDir>/tasks/<task-id>/contexts/<name>.jsonl` | Exact path verified unconditionally. JSONL validity checked. Satisfies the AC. | PASS |
-| F-CTX-SAVE | T-CTX-2 | Calls `save-context --personal`; asserts existence unconditionally (no `if` guard); asserts file is valid JSONL; asserts file is non-empty. | The saved context file parses as valid JSONL and is non-empty | Existence check is unconditional. JSONL validity and non-empty content both required. An empty file or a valid-but-empty JSONL would fail. Satisfies the AC. | PASS |
-| F-CTX-SAVE | T-CTX-3 | Calls `save-context --golden` three times with Stripe, GitHub, and AWS key fixtures; each: asserts non-zero exit; output names the specific secret type; golden file explicitly absent. | `save-context --golden` on a session with a secret exits non-zero; the secret type must be named in output; exit 0 with no prompt is a failure | Three distinct secret types covered independently. Type-specific output required (not generic "secret" keyword). Golden file absence verified for each. Satisfies the AC. | PASS |
-| F-CTX-SAVE | T-CTX-4 | Pre-asserts `statSync.size > 100*1024` before running the script; calls `save-context --golden` on the oversized file; asserts non-zero exit and output contains "100KB" or "too large"; asserts golden file absent. | `save-context --golden` on a session exceeding 100KB exits non-zero with output containing "100KB" or "too large" | Size pre-condition verified before script execution, preventing the script from failing for a different reason. Error message vocabulary specific. File absence verified. Satisfies the AC. | PASS |
-| F-CTX-SAVE | T-CTX-6 | Calls `save-context` twice with the same context name; captures original content before second save; asserts a `.backup-` file exists in the contexts directory; asserts backup content equals original content byte-for-byte. | `save-context` called twice with the same name creates a `.backup-` file containing the original content | Backup existence and content byte-equality both required. An implementation that truncates or corrupts the backup would fail. Satisfies the AC. | PASS |
-| F-CTX-SAVE | T-MEM-1 | Calls `save-context`; polls via `waitFor` (up to 5 s, 200 ms interval) until `<personalDir>/memory/MEMORY.md` appears; asserts the file contains both the task-id and context-name. | After `save-context`, `<personalDir>/memory/MEMORY.md` contains the task-id and context-name | `waitFor` prevents a false failure on async write latency. Both required strings independently asserted. Satisfies the AC. | PASS |
-| F-CTX-LIST | T-LIST-1 | Calls `task-list mixed-work`; asserts personal context name appears before golden context name in output by index comparison; asserts both section labels present. | Personal contexts are listed before golden contexts when both exist | Ordering verified by named-context index comparison, not section header positions. Satisfies the AC. | PASS |
-| F-CTX-LIST | T-LIST-2 | Creates two contexts (ctx-1: 5 messages, ctx-2: 30 messages); calls `context-list`; splits output into lines; finds the line containing each context name; asserts each line matches the exact count as a word boundary (`\b5\b`, `\b30\b`). | `context-list` shows exact message count matching `\b<N>\b` (word boundary, not `\d+`) | Two distinct known counts verified with word-boundary regex on the specific context-name line. A count of 50 when 5 is expected, or 300 when 30 is expected, fails. Circularity and broad-digit-regex patterns both prevented. Satisfies the AC. | PASS |
-| F-CTX-LIST | T-LIST-3 | Calls `task-create` then `context-list` on the new task (no saved contexts); asserts exit 0; asserts output matches `/\bfresh\b|\bempty\b|\bno contexts\b/i`. | When no contexts exist, `context-list` output contains "fresh", "empty", or "no contexts" | All three AC-specified phrases covered. Word boundaries on single-word phrases prevent substring matches like "Refreshed" or "nonempty". Satisfies the AC. | PASS |
-| F-CTX-LIST | T-LIST-4 | Calls `save-context` (expected to generate `.meta.json` with AI summary); calls `context-list`; finds the context-name line; asserts it contains `—` separator; asserts text after the separator contains an auth-domain keyword from the session content. | `context-list` shows a non-empty description string after each context name, not just metadata | Test design is sound: uses save-context through the implementation, requires content keyword. **IMPLEMENTATION GAP: `save-context` does not generate `.meta.json`. The test's precondition (that save-context writes `.meta.json`) is not satisfied by the implementation. Test currently fails in the suite. Same root cause as T-SUM-1/T-SUM-2.** | PASS¹ |
-| F-CTX-MANAGE | T-CTX-7 | Pre-asserts golden file exists; calls `delete-context` without `--force`; asserts non-zero exit; asserts golden file still exists after the failed call. | `delete-context` on a golden context exits non-zero without `--force`; the file survives the failed call | Pre-condition guards against the file being absent before the test. Non-zero exit and file survival both required. Satisfies the AC. | PASS |
-| F-CTX-MANAGE | T-MANAGE-1 | Calls `list-all-contexts` with two tasks each having contexts; asserts both specific context names and both task names appear in output. | `list-all-contexts` exits 0 and output includes context names from at least 2 different tasks | Both specific names and task names required. Would fail if only one task's contexts were listed. Satisfies the AC. | PASS |
-| F-CTX-MANAGE | T-MANAGE-2 | Sets a context file's mtime to 31 days in the past via `utimesSync`; calls `list-all-contexts`; finds the line for that context; asserts "stale" appears on the same line. | `list-all-contexts` marks a context as stale when its mtime is > 30 days old | mtime manipulation is explicit and verifiable. "Stale" required on the same line as the context name, preventing a coincidental match elsewhere. Satisfies the AC. | PASS |
-| F-CTX-MANAGE | T-MANAGE-3 | Creates two files with byte-identical content; calls `list-all-contexts`; asserts "duplicate" appears on each context's line. | `list-all-contexts` identifies two byte-for-byte identical context files as duplicates | Both files must be individually labeled. "Duplicate" required on each file's own output line. Satisfies the AC. | PASS |
-| F-CTX-MANAGE | T-MANAGE-4 | Calls `delete-context --dry-run`; asserts exit 0; asserts context name in output; asserts the file still exists. | `delete-context --dry-run` exits 0, prints what would be deleted, and does NOT delete the file | All three requirements verified independently. Satisfies the AC. | PASS |
-| F-CTX-MANAGE | T-MANAGE-5 | Calls `rename-context`; asserts exit 0; asserts old path absent; asserts new path is non-empty valid JSONL. | `rename-context` exits 0; old path does not exist; new path is a valid non-empty JSONL file | Old path explicitly verified absent. New path's JSONL validity and non-emptiness both required. Satisfies the AC. | PASS |
-| F-CTX-MANAGE | T-MANAGE-6 | Calls `archive-context`; asserts exit 0; asserts original path absent; asserts file exists at `contexts/archives/<context-name>.jsonl` and is valid JSONL. | `archive-context` exits 0; file exists at the archive path; original path does not exist | Archive path is the specific required subdirectory. Original path explicitly absent. JSONL verified. Satisfies the AC. | PASS |
-| F-CTX-PROMOTE | T-CTX-5 | Pre-asserts `statSync.size > 100_000`; calls `promote-context` on the oversized file; asserts non-zero exit; asserts output contains "100kb" or "too large"; asserts golden file absent. | `promote-context` on a context exceeding 100KB exits non-zero with output containing "100KB" or "too large" | Size pre-condition eliminates unrelated error bypass. Error vocabulary specific. File absence verified. Satisfies the AC. | PASS |
-| F-CTX-PROMOTE | T-PROM-1 | Calls `promote-context`; asserts exit 0; asserts both personal original and new golden path exist; asserts their byte content is identical. | After `promote-context`, both personal original and golden copy exist with byte-identical content | Both paths verified present. Byte equality required (not just existence). An implementation that creates an empty golden file would fail. Satisfies the AC. | PASS |
-| F-CTX-PROMOTE | T-PROM-2 | Calls `promote-context` on a context containing a `ghp_` token; asserts non-zero exit; asserts output matches `/ghp_|github token|github pat/i`. | `promote-context` on a context with a `ghp_` + 36 alphanumeric char token exits non-zero and output names the specific secret type | Requires the specific token prefix or type name — "github" alone would fail. Satisfies the AC. | PASS |
-| F-CTX-PROMOTE | T-PROM-3 | Creates personal context only (no golden); runs first promotion to create golden legitimately; runs second promotion to the same golden; asserts second call fails with `/already.*golden|already exists/i`. | `promote-context` when a golden already exists exits non-zero or warns | Setup creates personal context only, then uses the implementation to create golden via the first promotion. Second promotion detected and rejected. Satisfies the AC. | PASS |
-| F-CLMD | T-CLMD-1 | Runs init, two task-creates, and three update-imports; after all operations asserts root CLAUDE.md content is byte-equal to the pre-operation snapshot. | After any task operation, root `CLAUDE.md` content equals its pre-operation content | Multiple operations covering all mutation paths. Pre-operation snapshot captured before any script runs. Byte equality asserted after the full sequence. Satisfies the AC. | PASS |
-| F-CLMD | T-CLMD-2 | Runs two task-creates and two update-imports; counts `@import` lines in `.claude/CLAUDE.md`; asserts count is 1 and import contains the second task name; asserts first task name absent. | After two task switches, `.claude/CLAUDE.md` contains exactly one `@import` line | Exactly one import required. Stale first-task import verified absent. Satisfies the AC. | PASS |
-| F-CLMD | T-RESUME-MANUAL | No automated test. Manual end-to-end only. | After `/task <id>` + `/resume <session>`, Claude's response references task CLAUDE.md content | RA-002 active (approved 2026-03-12, expires v2.0-release). | ACCEPTED |
-| F-SEC | T-SEC-2 | Calls `scan-secrets` on a fixture containing an AKIA-prefixed key; asserts non-zero exit; asserts output matches `/akia/i`. | `scan-secrets` on a file with `AKIA` + 16 uppercase alphanumeric chars exits non-zero; output contains "AWS" or "AKIA" | Non-zero exit required. `/akia/i` targets the specific prefix, not a generic keyword. Satisfies the AC. | PASS |
-| F-SEC | T-SEC-3 | Calls `scan-secrets` on a Stripe key fixture; asserts non-zero exit; asserts output contains both `sk_test_` and `sk_live_` (independently, not as an OR). | `scan-secrets` detects both `sk_test_` and `sk_live_`; output names the specific key type | Both prefixes independently asserted. Satisfies the AC. | PASS |
-| F-SEC | T-SEC-4 | Calls `scan-secrets` on a three-message fixture with one secret per role (user, assistant, tool_result); asserts AKIA, sk_test_, and ghp_ patterns each appear in output. | A context with one secret in each of user, assistant, and tool_result message types has all three reported | Three-type fixture isolates each message role. Each pattern asserted independently. Satisfies the AC. | PASS |
-| F-SEC | T-SEC-5 | Calls `scan-secrets` on an isolated fixture containing only `AKIAIOSFODNN7EXAMPLE`; asserts non-zero exit; asserts output matches `/akia/i`. | `AKIAIOSFODNN7EXAMPLE` is treated as a true positive | Isolated fixture prevents cross-contamination. Policy assertion is unconditional. Satisfies the AC. | PASS |
-| F-SEC | T-SEC-6 | Calls `redact-secrets` on a fixture; asserts every line parses as JSON; then calls `scan-secrets` on the redacted file; asserts exit 0 and output contains "clean". | After `redact-secrets`, every line parses as JSON; a second `scan-secrets` run returns "clean" | Redacted file's JSONL validity verified. Re-scan required to confirm no secrets remain. Two-clause AC both covered. Satisfies the AC. | PASS |
-| F-SEC | T-SEC-7 | Calls `scan-secrets` on a five-secret fixture; asserts output matches `/\bfound\s+5\s+secret|\b5\s+secrets?\s+found/i`. | `scan-secrets` on a context with exactly 5 secrets: output matches `found 5 secret` or `5 secret(s) found` | Proximity-adjacent count assertion prevents "Scanning 5 messages…found 3 secrets" bypass. Both word-order variants covered. Satisfies the AC. | PASS |
-| F-SEC | T-SEC-8 | Calls `scan-secrets` on a GitHub PAT fixture; asserts non-zero exit; asserts output matches `/ghp_/i`. | `scan-secrets` on a context containing `ghp_` + 36 alphanumeric chars exits non-zero; output contains "ghp_" or "github" | Specific prefix required. Non-zero exit required. Satisfies the AC. | PASS |
-| F-SEC | T-SEC-9 | Calls `scan-secrets` on a private key fixture; asserts non-zero exit; asserts output matches `/rsa.*private|private.*key|BEGIN.*PRIVATE/i`. | `scan-secrets` on a context containing `-----BEGIN RSA PRIVATE KEY-----` exits non-zero; output matches RSA/private key patterns | Non-zero exit required. Pattern targets the specific header text. Satisfies the AC. | PASS |
-| F-SEC | T-SEC-10 | Calls `scan-secrets` on a password-assignment fixture; asserts non-zero exit; asserts output matches `/password/i`. | `scan-secrets` on a context containing `password=<value>` exits non-zero; output contains "password" (case-insensitive) | Non-zero exit required. Case-insensitive match specific to the assignment pattern type. Satisfies the AC. | PASS |
-| F-SUMMARY | T-SUM-1 | Calls `save-context`; asserts a `.meta.json` exists alongside the saved `.jsonl`; asserts summary length is between 20 and 500 characters; asserts summary contains a keyword from SMALL_CONTEXT. | After `save-context`, a `.meta.json` file exists with a `summary` string between 20 and 500 characters | Test design is sound: length bounds, content keyword, and file existence all required. **IMPLEMENTATION GAP: `save-context` does not generate `.meta.json`. Test file explicitly documents this: "The current implementation does NOT generate summaries — no .meta.json is written by save-context." Test currently fails in the suite. Prior run attest of PASS was in error.** | PASS¹ |
-| F-SUMMARY | T-SUM-2 | Saves two contexts from clearly different source conversations; asserts the two summaries differ; asserts each summary contains a keyword from its own source. | Two contexts from clearly different conversations produce different `summary` strings; each must contain a keyword from its source | Test design is sound: summaries required to differ with source-domain keywords. **IMPLEMENTATION GAP: same root cause as T-SUM-1. `.meta.json` not generated. Test currently fails in the suite.** | PASS¹ |
-| F-SUMMARY | T-SUM-3 | Captures session file content before `save-context`; asserts content after is byte-for-byte identical to the pre-save snapshot. | After `save-context`, the session source file is byte-for-byte identical to its pre-save snapshot | Pre-save snapshot taken before script runs. Byte equality asserted unconditionally after. Satisfies the AC. | PASS |
-| F-GIT | T-GIT-1 | Commits `.claude/.gitignore`; calls `git check-ignore .claude/CLAUDE.md`; asserts exit 0. | `git check-ignore .claude/CLAUDE.md` exits 0 in a real git repo after init | `.gitignore` committed before check (makes behavior portable across git versions). `git check-ignore` exit 0 is the precise git-native assertion. Satisfies the AC. | PASS |
-| F-GIT | T-GIT-2 | Runs `save-context` to create a personal context file; asserts the file exists at the explicit personal path; asserts that path starts outside `projectDir`; stages all project files; iterates git-status lines and asserts none contains the context filename. | After a full workflow, `git status --porcelain` does not show any path that resolves into the personal storage directory | File existence at the exact personal path asserted first. Structural isolation (path outside projectDir) verified independently. Git-status check uses the context filename (a relative identifier git would report) rather than an absolute path prefix it can never contain. Satisfies the AC. | PASS |
-| F-XPLAT | T-ERR-3 | Creates a project directory with a space in its path; runs init-project, task-create, and update-import; asserts each exits 0 and each expected output file exists. | All operations work when the project path contains a space | Three operations checked. Both exit code and output file existence verified per operation. An implementation that silently succeeds but writes no files would fail. Satisfies the AC. | PASS |
-| F-ERR | T-ERR-1 | Calls task-create on an uninitialized project; asserts non-zero exit; asserts output contains "init" or "not initialized"; asserts no Node.js stack-trace patterns in output. | Any script run without init exits non-zero with output containing "initialized" or "init" — not a stack trace | Non-zero exit required. Vocabulary check rules out both a generic error and a Node.js crash. Satisfies the AC. | PASS |
-| F-ERR | T-ERR-2 | Creates a malformed JSONL file; calls `scan-secrets`; asserts non-zero exit; asserts no stack-trace patterns; asserts error message names the corruption. | `scan-secrets` on malformed JSONL exits non-zero (not 0) | Non-zero exit required. Error message required to name the corruption. Stack-trace explicitly excluded. Satisfies the AC. | PASS |
-| F-DOC-SKILLS | T-DOC-1 | Reads `prod-mgmt/prd.md`; iterates all `### F-XXX` sections; asserts each contains `**Expected Behaviors**`, `**Acceptance Criteria**`, and at least one `| T-` table row; reports all failing section codes. | `/prd new-feature` produces a markdown section with all four required structural elements | Tests the live PRD artifact on every run. Each F-XXX section checked independently — a section missing a header fails even if another section has it. Structural regex applied per-section, not file-wide. Defects found and fixed during rewrite (F-XPLAT and F-ERR lacked Expected Behaviors). Satisfies the AC. | PASS |
-| F-DOC-SKILLS | T-DOC-2 | Static: reads `prd/SKILL.md`; asserts `invocation: auto` and `trigger-pattern: *prd*.md` in frontmatter. Runtime auto-invocation: `it.todo` (requires Claude Code session harness). | PRD skill auto-invokes on `*prd*.md` filename pattern | Verifiable static constraint (frontmatter spec) confirmed. Runtime trigger-pattern dispatch cannot be exercised without a Claude Code session harness; explicitly deferred as `it.todo`. Static portion satisfies the verifiable AC clause. | PASS |
-| F-DOC-SKILLS | T-DOC-3 | Reads `prod-mgmt/test-plan.md`; asserts six required section headers present (testing philosophy, banned patterns, fix priority tiers, environment setup, feature test groups, summary); asserts `>= 6` numbered banned-pattern items. | `/test-plan new` produces a document with all mandatory sections | Tests the live test plan artifact on every run. All six sections independently asserted. Banned-pattern count bounded below at 6. A test plan missing any section fails. Satisfies the AC. | PASS |
-| F-DOC-SKILLS | T-DOC-4 | Reads `prod-mgmt/dev-plan.md`; asserts `Based on: PRD v`, executive summary, phase sections, file structure, design decisions, and troubleshooting all present. | `/dev-plan new` produces a document with required header format and sections | Tests the live dev plan artifact on every run. All required sections independently asserted. Satisfies the AC. | PASS |
-| F-DOC-SKILLS | T-DOC-5 | Reads `prod-mgmt/prd.md`; extracts all AC table rows (`| T-` pattern); asserts none contain "handles gracefully" or "works correctly". | `/prd check-ac` flags vague criteria with rationale; clean PRD produces no flags | Tests the live PRD AC rows on every run. Vague-criteria patterns applied exhaustively to all AC rows (not prose). Proves that `/prd check-ac` would produce no flags on the current PRD. A PRD with vague AC language fails. Satisfies the AC. | PASS |
-| F-DOC-SKILLS | T-DOC-6 | Static: reads `test-inventory/SKILL.md`; asserts `guard: adversary-task-active` in frontmatter; asserts body specifies error output for inactive adversary task. Runtime guard enforcement: `it.todo` (requires Claude Code session harness). | The `test-inventory` skill is only loadable when the adversary task is active | Verifiable static constraint (guard frontmatter) confirmed. Runtime guard enforcement cannot be exercised without a Claude Code session harness; explicitly deferred as `it.todo`. Static portion satisfies the verifiable AC clause. | PASS |
-| F-MARKETPLACE | T-MKT-1 | Extracts the manifest heredoc from install.sh source; substitutes `$VERSION` (from `dist/version.json`) and `$(date...)` subshells; parses the result as JSON; asserts `bundles.authoring`, `bundles.session`, and `bundles.monitor` keys exist. | `install.sh` creates `~/.claude/context-curator-manifest.json`; valid JSON with `bundles.authoring`, `bundles.session`, `bundles.monitor` | Heredoc extracted via regex from install.sh source; shell variables substituted; `JSON.parse` invoked — a JSON syntax error or missing bundle key in install.sh's template causes the test to fail. Tests the source artifact without requiring a full install run. Satisfies the structural AC. | PASS |
-| F-MARKETPLACE | T-MKT-2 | Two tests: (1) cpSync `src/skills/context-curator/authoring/` to temp dir; assert `prd`, `test-plan`, `dev-plan`, `test-inventory` SKILL.md all present; assert `context-save` and `task` directories absent. (2) Parse manifest template from install.sh (same approach as T-MKT-1); assert `bundles.authoring.skills` contains no `session/` or `context-save` entries. | Authoring-bundle-only install: `/prd`, `/test-plan`, `/dev-plan`, `/test-inventory` available; `/context-save` not available | cpSync mirrors the exact install.sh bundle copy operation. Positive presence of all four authoring skills verified unconditionally. Absence of session skills verified unconditionally. Manifest template parsed and authoring skills array inspected. Satisfies the structural AC. | PASS |
-| F-MARKETPLACE | T-MKT-3 | Three tests: (1) `dist/version.json` exists with a non-empty `version` string; (2) install.sh template contains `"version": "$VERSION"` sourced from `dist/version.json`; (3) writes a manifest with version `"0.0.0-mismatch"` to a temp `CLAUDE_HOME`, runs `scripts/verify-manifest.ts`, asserts non-zero exit and output matches `/version/i`. | Manifest `version` field matches installed `dist/version.json`; a version mismatch exits non-zero | Version-match path: `dist/version.json` existence and install.sh's `$VERSION` both verified. Mismatch path: `verify-manifest.ts` now implemented; writes mismatched manifest to isolated temp dir; non-zero exit and "version" in output both required. Satisfies the full AC. | PASS |
-| F-MARKETPLACE | T-MKT-4 | Static test: writes a manifest JSON with a `custom` bundle to a temp `.claude/` dir; reads back and parses; asserts `bundles.custom` defined and description equals expected string. Runtime test for `/plugin marketplace list` output: `it.todo`. | A custom team manifest at `.claude/context-curator-manifest.json` with a `custom` bundle is discoverable via `/plugin marketplace list` | **Incompleteness heuristic: FAIL.** AC clause requires end-to-end discoverability via `/plugin marketplace list`. Static JSON round-trip verifies manifest format only. Runtime discovery behavior — that `/plugin marketplace list` surfaces the custom bundle — is `it.todo` with no executable test code. Test passes when the runtime discovery is broken. | FAIL |
-| F-HOOK | T-HOOK-1 | Plants a UUID session JSONL file; passes a JSON payload via stdin; calls `auto-save-context`; asserts a timestamped `.jsonl` appears in `<personalBase>/auto-saves/`; asserts valid JSONL; asserts non-empty; asserts contains specific source content string. | `auto-save-context` with a mock stdin payload creates a timestamped `.jsonl` file in the flat `<personalBase>/auto-saves/` directory | Payload delivered via stdin (correct hook interface). Saved file verified: path, JSONL validity, non-empty, source-content string. An empty auto-save or a wrongly pathed file would fail. Satisfies the AC. | PASS |
-| F-HOOK-POST | T-HOOK-POST-1 | Switches to a non-default task via `update-import`; calls `postcompact-reinject`; asserts exit 0; asserts stdout is non-empty; asserts stdout contains the task ID. | With a non-default task active, `postcompact-reinject` outputs a string containing the task ID; output must not be empty | Exit 0, non-empty output, and task ID presence all required independently. Satisfies the AC. | PASS |
-| F-HOOK-POST | T-HOOK-POST-2 | Leaves default task active; calls `postcompact-reinject`; asserts exit 0; asserts stdout is empty. | With the default task active, `postcompact-reinject` exits 0 and outputs nothing | Exit 0 and empty stdout both required. Satisfies the AC. | PASS |
-| F-HOOK-POST | T-HOOK-POST-3 | Writes `.claude/CLAUDE.md` pointing to a non-existent task; calls `postcompact-reinject`; asserts exit 0; filters tsx Node.js 26 DEP0205 `DeprecationWarning` and `node --trace-deprecation` lines from stderr; asserts remaining stderr matches `/warning|not found/i`. | `postcompact-reinject` with a missing task CLAUDE.md exits 0 and stderr contains "warning" or "not found" | tsx DEP0205 noise filtered before assertion: only lines not matching `\[DEP\d+\]\|DeprecationWarning\|node --trace-deprecation` are checked. The implementation emits `[postcompact] warning: task CLAUDE.md not found for <id>` which passes the filter and satisfies the regex. An implementation that emits no message would leave implStderr empty and fail. Satisfies the AC. | PASS |
-| F-CTX-MONITOR-STATUS | T-MON-1 | Writes a monitor state file; calls `status-line`; asserts exit 0 and non-empty output; reads `scripts/status-line.ts` source and asserts absence of `@anthropic-ai/sdk`, `node-fetch`, `cross-fetch`, `axios`, `node:(http|https)` import forms, and `require('http...')` patterns. | The status-line script reads values from the monitor state file only — no API calls, no model calls, no network I/O | Source-level import analysis is immune to the "quick-failing network call" bypass that exit-0 inference cannot distinguish. Checks all common network-capable import patterns. A future network import in status-line.ts would cause this test to fail immediately. Satisfies the AC. | PASS |
-| F-CTX-MONITOR-STATUS | T-MON-2 | Writes a state file with known values (fillPct 47.5, tokensSinceBaseline 31000, estimatedCost 0.18, burnRatePerMessage 2100); calls `status-line`; asserts output matches `/47/`, `/31k/`, `/0\.18/`, and `/2\.1k/`. | Given a monitor state file with those specific values, the status-line output matches the patterns 47, 31k, 0.18, and 2.1k | All four field values checked by independent assertions. Uses `toMatch` (presence check), not empty-stderr checks, so tsx DEP0205 stderr noise cannot produce a false pass or false failure here. Satisfies the AC. | PASS |
-| F-CTX-MONITOR-STATUS | T-MON-3 | Writes a state file; calls `status-line` with `CLAUDE_SESSION_TYPE=headless`; asserts exit 0; asserts stdout trim equals `''`; asserts stderr trim equals `''`. | With `CLAUDE_SESSION_TYPE=headless`, the status-line script exits 0 and produces no stdout or stderr | Both stdout and stderr asserted empty. Exit 0 asserted. Satisfies the AC. | PASS |
-| F-CTX-MONITOR-STATUS | T-MON-4 | Writes a session JSONL and pre-writes state with `baselineTokens: null`; calls `update-monitor-state`; reads state file and asserts `tokensSinceBaseline === currentTokens`; then calls `status-line` and asserts exit 0. | With no checkpoint metadata present, `tokensSinceBaseline` equals `currentTokens` and the status line renders without error | State-file value verified. `status-line` invoked after state update; exit 0 required. Both halves of the AC clause are covered. Satisfies the AC. | PASS |
-| F-CTX-MONITOR-WARN | T-MON-5 | Writes state at 65% fill (sentinel false); calls `warn`; asserts stderr contains "degrading" and a save suggestion. Then writes state at 64.9% fill; calls `warn`; filters tsx Node.js 26 DEP0205 `DeprecationWarning` and `node --trace-deprecation` lines from stderr; asserts remaining stderr is empty. | At 65% fill the warning script emits "degrading" and a save suggestion; at 64.9% fill stderr is empty | tsx DEP0205 noise filtered from the 64.9% silent case before asserting empty. 65% positive assertion is unchanged and unaffected by noise. An implementation that emits any non-noise stderr below 65% would fail the filtered empty check. Satisfies the AC. | PASS |
-| F-CTX-MONITOR-WARN | T-MON-6 | Writes state at 80% fill (degrading sentinel true); calls `warn`; asserts stderr contains "critical" and a restart suggestion. Writes state at 79.9%; calls `warn`; asserts stderr contains "degrading" but not "critical". | At 80% fill stderr contains "critical" and a restart suggestion; at 79.9% it emits the degrading warning only | Both zone boundaries tested. Critical zone requires restart suggestion specifically. Degrading-only case explicitly excludes "critical". Positive-presence assertions are not vulnerable to tsx stderr noise. Satisfies the AC. | PASS |
-| F-CTX-MONITOR-WARN | T-MON-7 | Sets degrading sentinel to true via first warn invocation; confirms sentinel is written to state; writes state at 66% with sentinel true; calls `warn` again; filters tsx Node.js 26 DEP0205 `DeprecationWarning` and `node --trace-deprecation` lines from stderr; asserts remaining stderr is empty. | After the sentinel is set, a second invocation at 66% exits 0 and stderr is empty (sentinel suppresses repeat) | tsx DEP0205 noise filtered before empty-stderr assertion. Sentinel pre-condition (degrading=true in state) explicitly verified. An implementation that ignores the sentinel and emits the warning again would leave non-empty implStderr and fail. Satisfies the AC. | PASS |
-| F-CTX-MONITOR-WARN | T-MON-8 | Writes state with degrading sentinel true; calls `on-compaction`; asserts sentinel is now false in state file; writes state at 65% with fresh sentinels; calls `warn`; asserts stderr contains "degrading". | After compaction, the degrading sentinel is cleared; re-crossing 65% fires the warning again | Three-step sequence verified: sentinel set → compaction clears (state read confirmed) → re-entry fires warning. Sentinel state explicitly read after compaction. Satisfies the AC. | PASS |
-| F-CTX-MONITOR-WARN | T-MON-9 | Writes state with both sentinels true; calls `session-start-hook`; reads state; asserts both sentinels are false. | The SessionStart hook clears all zone sentinels | Both sentinels pre-set. Both verified false after the hook. Satisfies the AC. | PASS |
-| F-CTX-MONITOR-STATUS | T-MON-14 | Calls monitor scripts with project-scoped path env var; asserts state file read from expected project-relative location | Monitor reads session file from project-scoped path | Project path resolution verified through implementation. Satisfies the AC. | PASS |
-| F-CTX-MONITOR-STATUS | T-MON-15 | Calls `status-line`; asserts output is parseable JSON or matches structured field format | Monitor output is machine-parseable (JSON or structured text) | Parseable format asserted. Satisfies the AC. | PASS |
-| F-CTX-MONITOR-COST | T-MON-10 | Creates a 15-message JSONL fixture with known per-message token counts; calls `update-monitor-state`; reads state; asserts `|actual - 255| / 255 <= 0.05`. | The burn-rate with a 15-message fixture returns a value within 5% of the hand-calculated mean of the last 10 | Hand-calculated expected value (255) derived from the last-10 of the known token sequence. Tolerance expressed as a fraction. Satisfies the AC. | PASS |
-| F-CTX-MONITOR-COST | T-MON-11 | Writes state with `currentTokens: 100000` and a config with known rates; calls `estimate-cost --verbose`; asserts output matches `/0\.5[0-9]/`; asserts `match` on `/Total[:\s~$]+([0-9]+\.[0-9]+)/` is non-null; asserts extracted value is within 1% of hand-calculated 0.54. | Given a known token count, model, and rate config, the cost script output matches the hand-calculated expected cost within 1% | `expect(match).not.toBeNull()` is unconditional — a format change that removes the "Total:" line is a test failure, not a silent skip. 1% tolerance check executes unconditionally on the extracted value. Satisfies the AC. | PASS |
-| F-CTX-MONITOR-COST | T-MON-12 | Creates a session with 380000-char content (→ 95000 tokens); pre-writes state with `baselineTokens: 42000`; calls `update-monitor-state`; asserts `tokensSinceBaseline === 53000` and `currentTokens === 95000`. | With `baselineTokens: 42000` and current tokens 95000, the state file contains `tokensSinceBaseline: 53000` (a delta, not the total) | Exact delta (53000) asserted. currentTokens (95000) also verified. Content length is deterministic from character count. Satisfies the AC. | PASS |
-| F-CTX-MONITOR-COST | T-MON-13 | Spawns a `worker_threads` Worker that does a tight `while (Date.now() - start < 3000)` loop of `readFileSync` + `JSON.parse` on the state file; concurrently runs 20 subprocess `update-monitor-state` writes with 40 KB session content; worker reports parse errors; asserts empty. | State file writes are atomic: a concurrent reader never observes a partially-written file | Worker thread runs in a genuine OS thread, guaranteeing interleaving with subprocess write windows — equivalent to Python's `threading.Thread`. 40 KB session content increases partial-write probability. The tight loop runs for 3 s while writes execute; any non-atomic write window would produce a JSON.parse error. Satisfies the AC. | PASS |
-| F-CTX-MONITOR-COST | T-MON-16 | Calls `status-line` after multiple monitor state updates; asserts running session total cost field present in output | Monitor displays running session total cost | Session total field presence asserted. Satisfies the AC. | PASS |
-| F-CTX-MONITOR-COST | T-MON-17 | Resets monitor state (simulating context clear); calls `update-monitor-state`; asserts cost field reflects cleared state | Cost estimate resets when context is cleared | Cost reset verified through state manipulation. Satisfies the AC. | PASS |
-| F-CTX-MONITOR-COST | T-MON-18 | Creates known-size fixture; calls `estimate-cost`; asserts result within tolerance of hand-calculated expected value | Cost estimate matches expected value for known fixture within tolerance | Hand-calculated expected value with tolerance. Satisfies the AC. | PASS |
-| F-SPEC | T-SPEC-1 | Reads isolated adversary DNA from `<personalBase>/context-curator/specialized/adversary/CLAUDE.md`; runs task-create, update-import, and save-context on user tasks; re-reads the DNA; asserts byte-exact equality. | Read adversary CLAUDE.md before and after `task-create`, `update-import`, and `save-context`; assert content is byte-for-byte identical | Isolated DNA path (not the real system path) is used, making the test self-contained. All three required operations performed. Byte equality asserted unconditionally. Satisfies the AC. | PASS |
-| F-SPEC | T-SPEC-2 | Runs `save-context` with the adversary task active; calls `findJsonlFiles` (recursive `readdirSync` walk) on both the personal adversary task directory and the golden adversary contexts directory; asserts both scans return empty arrays. | No `.jsonl` file is created at any path within the adversary task directories when `save-context` is called with the adversary task active | `findJsonlFiles` walks the full directory tree recursively. Any `.jsonl` at any filename or subdirectory depth within either adversary task directory tree would be detected. Both personal and golden trees are scanned. Satisfies the AC. | PASS |
-| F-SPEC | T-SPEC-3 | Calls `context-list` for the adversary task; asserts exit 0; asserts output matches `/strict.isolation|no contexts.*isolation|isolation.*no contexts/i`; asserts output does not match a UUID pattern. | `context-list` for the adversary task exits 0; output matches the strict-isolation pattern; output does not surface any UUID | All three requirements verified independently. UUID exclusion pattern is explicit. Satisfies the AC. | PASS |
-| F-SPEC | T-SPEC-4 | Calls `update-import adversary`; counts `@import` lines; asserts exactly one; extracts the import path; asserts path ends with `specialized/adversary/CLAUDE.md`; resolves path; asserts file exists and content contains "ADVERSARY". | `update-import adversary` writes exactly one `@import` line; the imported path resolves to a file whose content contains "ADVERSARY" | Import line count asserted. Path suffix verified. File resolved and existence asserted. Content verified. Satisfies the AC. | PASS |
-| F-SPEC | T-SPEC-5 | Plants specialized DNA only at `<personalBase>/context-curator/specialized/adversary/CLAUDE.md` — no golden or personal task of that name. Calls `task-check adversary`; asserts exit 0; asserts `stdout.trim() === 'exists:specialized'`. Second assertion: `stdout` does NOT contain `not-found`. | `task-check <task-id>` exits 0 and outputs `exists:specialized` when the task's CLAUDE.md exists only in the specialized directory; it does NOT output `not-found` when no golden or personal task of that name exists | Setup plants DNA at the exact path the AC specifies (`~/.claude/context-curator/specialized/<task-id>/CLAUDE.md`), with no golden or personal task present — the scenario that exposed the `getTaskInfo()` bug. Exit 0 and exact-string `exists:specialized` both asserted independently. Negative assertion (`not-found` absent) guards the pre-bug fallthrough path. Satisfies the AC. | PASS |
-| F-ADVERSARY | T-ADV-1 | Mirrors install.sh step 5 in an isolated temp HOME by copying `specialized/` via `cpSync`; asserts the installed path exists; asserts content contains both "ADVERSARY" and "STRICT". | After `./install.sh`, `~/.claude/context-curator/specialized/adversary/CLAUDE.md` exists and contains both "ADVERSARY" and "STRICT" | Unconditional — no `skipIf`. Runs on every machine. Mirrors the exact install.sh copy operation. Both required strings asserted independently. Satisfies the AC. | PASS |
-| F-ADVERSARY | T-ADV-2 | Calls `update-import adversary`; asserts exit 0; asserts exactly one `@import` line; asserts path ends with `specialized/adversary/CLAUDE.md`; resolves path; asserts file exists and contains "ADVERSARY". | `update-import adversary` writes exactly one `@import` ending in `specialized/adversary/CLAUDE.md`; the file at that path exists and contains "ADVERSARY" | Import suffix, file existence, and content all independently verified. Satisfies the AC. | PASS |
-| F-ADVERSARY | T-ADV-3 | Same test block as T-SPEC-1: reads isolated DNA; runs the three required user task operations; asserts byte-exact equality before and after. | Read adversary DNA before `task-create oauth-refactor`, `update-import oauth-refactor`, `save-context test-ctx --personal`; assert content is byte-for-byte identical after all three operations | Isolated path. All three operations performed. Byte equality asserted. Satisfies the AC. | PASS |
-| F-ADVERSARY | T-ADV-4 | Same test block as T-SPEC-2: runs `save-context` with adversary task active; scans both personal and golden adversary task directory trees recursively for `.jsonl` files; asserts both scans return empty. | `save-context` with adversary task active exits non-zero; no `.jsonl` file exists at any path within the adversary task directories | Both personal and golden trees walked recursively. Any `.jsonl` at any filename or depth would be detected. Satisfies the AC. | PASS |
-| F-PRD | T-PRD-1 | Reads the live `prod-mgmt/prd.md`; collects all `### F-XXX` sections; asserts each contains "Acceptance Criteria" and at least one `T-XXX` row; reports all failing section codes. | Every feature section in the PRD contains an "Acceptance Criteria" table with at least one row | Reads the actual live PRD on every run. Missing AC sections reported with specific codes. No conditional guards. Satisfies the AC. | PASS |
-| F-PRD | T-PRD-2 | Extracts only AC table rows from the PRD (not prose references); counts occurrences of each T-XXX code via a Map; reports any code appearing more than once. | Every T-XXX code in the PRD is unique | Counts only AC-table rows, preventing prose occurrences from inflating counts. Duplicate detection is exhaustive. Satisfies the AC. | PASS |
-| F-PRD | T-PRD-3 | Creates a temp project; calls `init-project`; asserts `prod-mgmt/risk-acceptances.md` contains "DISPOSITION", "EXPIRY", and "RA_ID". | `prod-mgmt/risk-acceptances.md` contains "DISPOSITION", "EXPIRY", and "RA_ID" after `task-init` | All three strings asserted. Runs through the implementation. Satisfies the AC. | PASS |
-| F-PRD | T-PRD-4 | Reads PRD T-XXX codes into a Set; reads inventory T-XXX codes; asserts no inventory code is absent from the PRD set; silently skips if inventory absent. | `prod-mgmt/test-inventory.md` (when it exists) references only T-XXX codes that appear in the current PRD | The `if (!existsSync) return` matches the AC's "when it exists" conditional. When present, orphan detection is exhaustive. Satisfies the AC. | PASS |
-| F-DOC | T-UDOC-1 | Reads `docs/docs-brief.md`; asserts Feature Routing section present; counts `| F-` table rows; asserts `>= 15` F-XXX routing entries. | `/docs-markdown` prompts for section assignment on new F-XXX feature; updates feature routing | Tests the live feature routing artifact on every run. Row count bounded below at 15. The Feature Routing table reflects that the skill has been invoked on all current F-XXX features (18 entries confirmed). Satisfies the structural AC. | PASS |
-| F-DOC | T-UDOC-2 | Reads `docs/markdown/toc.md`; asserts all 9 required navigation pages linked: getting-started.md, managing-contexts.md, context-monitoring.md, hooks-automation.md, for-teams.md, security.md, reference.md, boss-fight-workflow.md, glossary.md. | After `/docs-markdown`, `docs/markdown/toc.md` links to every page in the Navigation Architecture of `docs-brief.md` | Tests the live toc.md on every run. All 9 required pages independently asserted. A missing navigation link fails. Satisfies the AC. | PASS |
-| F-DOC | T-UDOC-3 | Reads `docs/markdown/glossary.md`; asserts `>= 1` term headings; asserts core terms present: context, task, compaction, hook, warm-up. | After `/docs-markdown`, `docs/markdown/glossary.md` contains every Core Concepts term | Tests the live glossary on every run. All five core terms independently asserted. Heading count prevents an empty glossary. Satisfies the AC. | PASS |
-| F-DOC | T-UDOC-4 | Reads `docs/index.html`; asserts "Context Curator" product name present; asserts `>= 4` unique HTML page links; asserts "getting-started.html" linked. | After `/docs-html`, `docs/index.html` exists and contains content from `introduction.md` and `toc.md` | Tests the live index.html on every run. Product name and navigation links independently asserted. Link count bounded below at 4. Satisfies the structural AC. | PASS |
-| F-DOC | T-UDOC-5 | Loops all `docs/*.html` files; for each asserts `<nav` element present, `href="index.html"` home link, and "glossary" reference. | All generated HTML pages have `<nav>` with home and glossary links | Tests all live HTML files on every run. All three structural constraints applied per file. A new HTML file without `<nav>` or home link fails. Satisfies the AC. | PASS |
-| F-DOC | T-UDOC-6 | Loops all `docs/*.html` files; extracts all `<h[1-6]>` headings; asserts no heading jumps more than one level from the previous maximum seen. | Generated HTML heading hierarchy never skips levels | Tests all live HTML files on every run. Algorithm tracks running maximum heading level; a jump of 2+ is reported with file name and position. Defect found and fixed during rewrite: glossary.html had h1→h3 skip (fixed h3→h2 for term definitions). Satisfies the AC. | PASS |
-| F-DOC | T-UDOC-7 | Reads `docs/style.md`; asserts "color" and "typeface" or "font" present. | When `style.md` absent, `/docs-html` bootstraps it with content containing "color" and "typeface"/"font" | Tests the live style.md on every run. Both required content areas independently asserted. The bootstrap has been invoked; style.md contains the required content. Satisfies the structural AC. | PASS |
-| F-DOC | T-UDOC-8 | Loops all `docs/*.html` files; finds all `<img>` tags; asserts each has a non-empty `alt` attribute. | All `<img>` elements in generated HTML have non-empty `alt` attribute | Tests all live HTML files on every run. Every `<img>` tag checked individually. A new image without `alt` or with empty `alt` fails. Satisfies the AC. | PASS |
-| F-PROCESS | T-PROC-1 | Writes only `prd.md`; calls `prd-process-status`; asserts exit 0; parses JSON output; asserts `currentPhase === 1`, `nextPhase === 2`, and `completedPhases` contains 1. | With only `prod-mgmt/prd.md` present, `prd-process-status` exits 0 with `currentPhase: 1` and `nextPhase: 2` | All required fields asserted with specific values. JSON parse required. Satisfies the AC. | PASS |
-| F-PROCESS | T-PROC-2 | Uses `utimesSync` to set inventory mtime 10 s before prd mtime; calls `prd-process-status`; asserts `adversaryStale === true` and `warnings` contains a string matching `/stale|adversary/i`. | With `test-inventory.md` modified before `prd.md`, output JSON has `adversaryStale: true` and a warning matching `/stale|adversary/i` | mtime manipulation is explicit and verifiable. Boolean and warning content both asserted. Satisfies the AC. | PASS |
-| F-PROCESS | T-PROC-3 | Uses `utimesSync` to set prd mtime before inventory mtime; calls `prd-process-status`; asserts `adversaryStale === false`; asserts `warnings.every(w => !/stale|adversary/i.test(w))`. | With `test-inventory.md` modified after `prd.md`, output JSON has `adversaryStale: false` and warnings contain no adversary-stale message | Boolean verified. Warning array exhaustively checked via `every()` — a partial scan could not mask a false positive. Satisfies the AC. | PASS |
-| F-PROCESS | T-PROC-4 | Creates project with no `prd.md`; calls `prd-process-status`; asserts non-zero exit; asserts combined output contains "PRD". | With no `prod-mgmt/prd.md`, `prd-process-status` exits non-zero and output contains "PRD" | Non-zero exit and vocabulary check both required. Satisfies the AC. | PASS |
-| F-PROCESS | T-PROC-5 | Writes test-plan, dev-plan, and test files but no inventory; calls `prd-process-status`; asserts `currentPhase === 4` and `nextPhase === 5`. | With test-plan and dev-plan present but no `test-inventory.md`, output JSON has `currentPhase: 4` and `nextPhase: 5` | Artifact set carefully selected to reach phase 4. Both phase values asserted. Satisfies the AC. | PASS |
-| F-PROCESS | T-PROC-6 | Calls `prd-process-status` in two configurations (PRD-only and full-artifact); asserts all five required output fields exist with correct types; asserts `artifacts` sub-object in full-artifact case. | Output is always valid JSON with fields `completedPhases` (array), `currentPhase`, `nextPhase`, `adversaryStale` (boolean), and `warnings` (array) | Both configurations tested. All five fields verified with type assertions. Satisfies the AC. | PASS |
+|--------|--------|-------------|-----------|---------------------|---------|
+| F-INIT | T-INIT-1 | Pre-asserts no `.claude/CLAUDE.md`, runs init-project, asserts file exists with @import resolving to `tasks/default/CLAUDE.md` | init-project creates `.claude/CLAUDE.md` containing an @import line; file must not exist before script runs | Pre-condition removes self-fulfilling setup; resolved-path check is specific. A stub returning a generic @import without resolving to default/CLAUDE.md would fail. | PASS |
+| F-INIT | T-INIT-2 | Pre-asserts no backup, runs init, asserts backup created and content equals original byte-for-byte | init-project copies root CLAUDE.md byte-for-byte to stash; backup must not exist before script runs | Pre-condition + byte-equality. | PASS |
+| F-INIT | T-INIT-3 | Pre-asserts default task CLAUDE.md does not exist, runs init, asserts content equals root verbatim | default/CLAUDE.md content equals root char-for-char | Strict byte-equality with pre-condition. | PASS |
+| F-INIT | T-INIT-4 | Two init runs; asserts exit 0 each, identical `.claude/CLAUDE.md` content, exactly one stash backup file | Two runs exit 0 and produce identical file contents | Exit codes + content identity + non-duplication of stash. | PASS |
+| F-INIT | T-INIT-5 | Two project envs initialized; save-context run in project 1; asserts file appears only in project 1's personal path, not project 2's | Writing to project A's personal dir does not make it visible in project B's | End-to-end exercise of save-context with disjoint personalBase roots. Positive + negative assertions. | PASS |
+| F-INIT | T-INIT-6 | After init: asserts prod-mgmt/risk-acceptances.md exists containing DISPOSITION, EXPIRY, RA_ID; idempotency check verifies file not overwritten on second init | risk-acceptances.md exists with required strings; idempotent | All three required strings asserted; idempotency separately verified. | PASS |
+| F-INIT | T-INIT-7 | First `it.todo` placeholder; second describe block replicates install.sh cpSync of bundles into temp project, then asserts five session skill dirs each have SKILL.md and scripts/ | `init-project --project-install` creates `.claude/skills/context-curator/` with five skill dirs each with SKILL.md and scripts/ | The test does NOT invoke `init-project --project-install`. It mirrors install.sh's copy logic, validating that the source tree (src/skills/...) has the required shape. A regression in `init-project --project-install` that fails to copy bundles when the flag is passed would not be caught. The AC's subject is the script's behavior under the flag, not the source artifact. | FAIL |
+| F-INIT | T-INIT-8 | `it.todo` only; no test exists | Project-scope `/context-save` resolves to .claude/skills/.../context-save not user-scope | No implementation. | FAIL (MISSING) |
+| F-INIT | T-INIT-9 | `it.todo` only; no test exists | Cloned repo with committed skills has `/task` available without install.sh | No implementation. | FAIL (MISSING) |
+| F-INIT (Install) | T-INST-1 | Runs install.sh in temp HOME; asserts settings.json hooks.PostToolUse has an entry whose command ends with update-monitor-state.js | PostToolUse contains **exactly one** entry ending with update-monitor-state.js | Test uses `.some()` not `.length === 1`. AC says "exactly one"; duplicate entries would not fail this test (T-INST-4 separately covers idempotency but T-INST-1 alone does not enforce uniqueness). | FAIL |
+| F-INIT (Install) | T-INST-2 | Same shape as T-INST-1 for Stop hook | Stop contains **exactly one** entry ending with status-line.js | Same `.some()` gap. | FAIL |
+| F-INIT (Install) | T-INST-3 | Same shape as T-INST-1 for SessionStart hook | SessionStart contains **exactly one** entry ending with session-start-hook.js | Same `.some()` gap. | FAIL |
+| F-INIT (Install) | T-INST-4 | Two install.sh runs; asserts each hook array has `.length === 1` | After two runs, each hook array has exactly one entry | Direct length check. | PASS |
+| F-INIT (Install) | T-INST-5 | Walks repo bundles, filters `invocation: explicit` SKILL.md files, asserts each installed at `~/.claude/commands/<bundle>/<skill>.md` | Every explicit-invocation SKILL.md exists at the expected commands path | Iterates source then checks installed path; falsifiable. | PASS |
+| F-INIT (Install) | T-INST-6 | Walks `~/.claude/commands/` recursively; asserts no session-bundle skill name appears | No file under `~/.claude/commands/` whose path contains task/context-save/context-list/context-manage/context-promote | Early-return when `commandsDir` does not exist — if install.sh fails to create commands/ at all, this test passes vacuously. T-INST-5 mitigates by independently checking the directory exists, but T-INST-6 alone is not robust. | ESCALATE |
+| F-TASK-CREATE | T-TASK-1 | Runs task-create; asserts required headers in CLAUDE.md, description keyword in extracted Focus section, @import directive updated | task-create produces CLAUDE.md with required headers; description keyword appears under ## Focus | Focus section extraction by string offset; per-section keyword check. | PASS |
+| F-TASK-CREATE | T-TASK-2 | Asserts uppercase task name → non-zero exit AND no directory at either uppercase or lowercased name | Exit non-zero AND no directory created for uppercase task name | Both clauses verified. | PASS |
+| F-TASK-CREATE | T-TASK-3 | Creates task with 4-line description; extracts Focus section; asserts every line verbatim | Four-line description preserved verbatim in Focus section | Strict per-line `toContain`. A keyword-rewriting impl would fail. | PASS |
+| F-TASK-CREATE | T-TASK-4 | Empty description → non-zero exit AND no task directory | Empty description rejected; no directory | Both clauses verified. | PASS |
+| F-TASK-CREATE | T-TASK-5 | Runs task-create with positional description; asserts CLAUDE.md contains description; .claude/CLAUDE.md references task | Inline description creates task without second prompt; updates .claude/CLAUDE.md | The "without any intermediate prompt" clause is not falsifiably tested — there is no interactive harness; the script runs in non-interactive mode. An implementation that prints a non-blocking confirmation and proceeds with defaults would pass. The file-output checks confirm the create succeeded; they do not exclude a no-op prompt. | ESCALATE |
+| F-TASK-CREATE | T-TASK-6 | Sub-test 1: empty description → no directory, non-zero exit. Sub-test 2: reads SKILL.md and verifies it contains usage example string | Output (of the running command) contains `/task <id> <description>` usage example and does NOT create a task directory | Sub-test 1 verifies non-creation. Sub-test 2 verifies documentation strings in SKILL.md, not the actual stdout/stderr from invoking the command without a description. The AC names the command's output as the subject; the test substitutes the static skill docs. | FAIL |
+| F-TASK-CREATE | T-TASK-7 | In a fresh project with no .claude/, runs init-project then task-create; asserts both files exist | On a project with no `.claude/`, `/task <id> <description>` completes successfully | The AC's subject is `/task <id> <description>` completing on an uninitialized project (per PRD §540, the v21.3 expected behavior). The test pre-invokes init-project explicitly as a separate step; auto-init via task-create alone is not exercised. An impl that fails to auto-init when invoked without prior init would pass this test. | FAIL |
+| F-TASK-SWITCH | T-SWITCH-1 | Switches A→B→C→A; after each, asserts `.claude/CLAUDE.md` has exactly one @import line containing the selected task ID | Exactly one @import line on each switch, pointing to selected task | Strict 1-line + ID-containment assertion per switch. | PASS |
+| F-TASK-SWITCH | T-SWITCH-2 | context-list on empty task; asserts output matches `/no contexts|\bfresh\b/i` and exit 0 | When task has no contexts: exit 0, output contains "no contexts" or "fresh" (complete word) | Word boundary on "fresh" avoids "Refreshed" substring match. | PASS |
+| F-TASK-SWITCH | T-SWITCH-3 | Task with both personal and golden contexts; asserts personal context name appears before golden context name in output | All context names appear; personal listed before golden | Ordering check uses specific context names, not generic section labels. | PASS |
+| F-TASK-SWITCH | T-SWITCH-4 | Plants UUID session files; runs `context-list --json`; asserts `contexts: []` and `sessions` populated | --json returns contexts:[] even with active UUID sessions | Direct JSON shape assertion. | PASS |
+| F-TASK-SWITCH | T-SWITCH-5 | Same plant; human-readable output: asserts no "personal contexts"/"golden contexts" headers, no numbered-UUID pattern | UI does not present UUID sessions as numbered selectable options | Numbered-UUID regex is specific and falsifiable. | PASS |
+| F-TASK-SWITCH | T-SWITCH-6 | Switches to default; asserts output mentions vanilla/restored AND @import points to default/CLAUDE.md AND no longer contains the previous task ID | Switch to default sets @import to default/CLAUDE.md and confirms switch in output | Conjunctive check + negation of previous task ID. | PASS |
+| F-TASK-DELETE | T-TASK-DEL-1 | Creates task; runs delete-task; asserts exit 0 and both golden and personal directories removed | delete-task exits 0 and removes both directories | Direct assertion on both directories. | PASS |
+| F-TASK-DELETE | T-TASK-DEL-2 | Runs delete-task default; asserts non-zero exit and default directory still exists | delete-task exits non-zero for default and removes no directories | Asserts default persists. Does NOT enumerate other tasks to verify they remain — an impl that rejected default but deleted other tasks could slip through. AC says "removes no directories"; coverage is partial. | ESCALATE |
+| F-TASK-DELETE | T-TASK-DEL-3 | Runs delete-task on non-existent task; asserts non-zero exit and matching error output | delete-task exits non-zero for non-existent task-id and removes no directories | Same gap as T-TASK-DEL-2 — does not verify other directories untouched. | ESCALATE |
+| F-CTX-SAVE | T-CTX-1 | save-context --personal; asserts exit 0 and file at exact expected path; asserts valid JSONL | save-context --personal creates file at exact expected path | Direct path + JSONL validity. | PASS |
+| F-CTX-SAVE | T-CTX-2 | Same save; asserts file exists, isValidJsonl true, non-empty content | Saved context file parses as valid JSONL unconditionally | Both validity and non-emptiness asserted; non-empty check prevents trivial-pass on isValidJsonl for empty file. | PASS |
+| F-CTX-SAVE | T-CTX-3 | Multiple sub-tests: clean save outputs scan/secret evidence; AWS/Stripe/GitHub key saves exit non-zero with type-specific output AND no golden file created | Real-secret saves exit non-zero or produce a prompt; exit 0 with no prompt is a failure; scan must BLOCK file creation | Block-file-creation assertion is strong. The "produces a prompt" branch in the AC is not directly exercised (test asserts only non-zero), but combined with the no-creation assertion this is acceptable — the PRD framing favors blocking and the no-creation assertion forecloses the "prompt then save anyway" path. | PASS |
+| F-CTX-SAVE | T-CTX-4 | (Implicit in test 4.5) Empty session → non-zero exit; 150KB session → non-zero with "100KB"/"too large" output and no file created. Size precondition `statSync.size > 100KB` asserted | save-context --golden on 150KB session exits non-zero with "100KB"/"too large" output | Size precondition prevents vacuous pass; output regex specific; file-non-creation asserted. | PASS |
+| F-CTX-SAVE | T-CTX-6 | Saves with same name twice; captures original content; asserts backup file exists in contexts dir matching pattern and contains captured original | Second save with same name creates `.backup-` file containing original content | Captures + asserts byte-equality. Duplicate coverage in two test files. | PASS |
+| F-CTX-SAVE | T-MEM-1 | After save-context, asserts `<personalDir>/memory/MEMORY.md` contains task-id and context-name | After save-context, file `<personalDir>/memory/MEMORY.md` contains the task-id and context-name | Test comment in source: "the DoD spec says ~/.claude/projects/<sanitized>/MEMORY.md but the implementation adds a memory/ subdirectory. Test what the implementation actually writes." This is a Coupling heuristic violation. The PRD AC (§627) was updated to match the impl path, so the test currently matches PRD. The vulnerability: this is a coupling-by-rewrite pattern — the AC was reshaped to match what the impl does rather than the spec. Conditional on the current PRD text, the test is correct. | PASS |
+| F-CTX-LIST | T-LIST-1 | (Multi-test) Personal-only case asserts "Personal" present, "Golden" absent; mixed case asserts personal-ctx index < golden-ctx index | Output: indexOf("Personal") < indexOf("Golden") AND specific context names appear | Ordering uses specific context names; negative assertion when only one section. | PASS |
+| F-CTX-LIST | T-LIST-2 | Asserts ctx-1 line matches `\b5\b` and ctx-2 line matches `\b30\b` | Exact message count word-boundary match (not `\d+`) | Per-context line check with word-boundary regex. | PASS |
+| F-CTX-LIST | T-LIST-3 | Asserts output matches `/\bfresh\b|\bempty\b|\bno contexts\b/i` | Output contains "fresh", "empty", or "no contexts" | Word boundaries on all three alternatives. | PASS |
+| F-CTX-LIST | T-LIST-4 | Saves a context; asserts meta.json has content-derived summary keyword AND context-list output line for the context contains the `—` separator and a content keyword after it | Non-empty content-derived description after each context name, not just metadata | Two-part check: metadata correctness + display separator + content-derived keyword. | PASS |
+| F-CTX-MANAGE | T-CTX-7 | Asserts delete-context on golden (no --force) exits non-zero and file still exists | delete-context on golden exits non-zero without --force; file still exists | Direct. | PASS |
+| F-CTX-MANAGE | T-MANAGE-1 | Creates contexts in two tasks; asserts list-all-contexts stderr contains both context names and both task names | list-all-contexts shows context names from ≥2 tasks | Four specific strings asserted. | PASS |
+| F-CTX-MANAGE | T-MANAGE-2 | Sets mtime 31 days ago; asserts "stale" appears on same line as context name | Marks context stale when mtime > 30 days | Same-line `lines.find().toContain('stale')`. | PASS |
+| F-CTX-MANAGE | T-MANAGE-3 | Writes two byte-identical files; asserts both lines contain "duplicate" | Identifies byte-identical files as duplicates | Per-line assertion on both. | PASS |
+| F-CTX-MANAGE | T-MANAGE-4 | Runs delete-context --dry-run; asserts exit 0, output contains context name, file still exists | --dry-run exits 0, prints what would be deleted, does not delete | All three clauses. | PASS |
+| F-CTX-MANAGE | T-MANAGE-5 | Runs rename-context; asserts old path absent, new path is valid non-empty JSONL | rename-context exits 0; old absent; new valid non-empty | Three unconditional assertions. | PASS |
+| F-CTX-MANAGE | T-MANAGE-6 | Runs archive-context; asserts file at archives/<name>.jsonl, original absent, valid JSONL | archive-context exits 0; file at archives path; original gone | Direct. | PASS |
+| F-CTX-PROMOTE | T-CTX-5 | Promotes 150KB context; asserts non-zero exit, output matches `/100kb|too large/i`, golden file not created; size precondition `statSync.size > 100_000` | promote on 150KB context exits non-zero with "100KB"/"too large"; promotion blocked | Size precondition prevents vacuous pass. Block-creation assertion present. Two test files. | PASS |
+| F-CTX-PROMOTE | T-PROM-1 | Promotes clean context; asserts both personal original and golden copy exist with byte-identical content | Both exist; contents byte-for-byte identical | Direct byte-equality. | PASS |
+| F-CTX-PROMOTE | T-PROM-2 | Promotes context with GitHub token; asserts non-zero exit and output matches `/ghp_|github token|github pat/i` | Output names the specific secret type | Tightened from prior `/github/i` substring vacuity to require the prefix or an explicit type label. | PASS |
+| F-CTX-PROMOTE | T-PROM-3 | First promotion legit-creates golden; second promotion asserted non-zero with "already golden"/"already exists" message | Setup must create personal context only; second promotion fails | Setup confirms golden didn't exist before first promotion. | PASS |
+| F-CLMD | T-CLMD-1 | Multi sub-test: asserts root CLAUDE.md content unchanged after init, task-create x2, switching A↔B↔default; git status doesn't show root CLAUDE.md modified | Root CLAUDE.md content equals pre-operation content | Multiple operation paths covered. | PASS |
+| F-CLMD | T-CLMD-2 | After two task switches, asserts exactly one @import line containing task-2, not task-1 | After two task switches, .claude/CLAUDE.md contains exactly one @import line | Strict line count + content negation. | PASS |
+| F-CLMD | T-RESUME-MANUAL | Test 8.5 is a structural proxy: asserts @import is correctly set after task-create + update-import; the AC itself is MANUAL | After /task + /resume, Claude's response references task CLAUDE.md content | Risk-accepted RA-002 (expires v2.0-release). Structural proxy verifies only the writing-side of the contract. Manual verification pending. | ACCEPTED (RA-002) |
+| F-SEC | T-SEC-2 | scan-secrets on AWS fixture; asserts non-zero exit, output matches `/akia/i` | AKIA + 16 chars exits non-zero; output contains "AWS" or "AKIA" | Specific pattern check. | PASS |
+| F-SEC | T-SEC-3 | scan-secrets on Stripe fixture; asserts output contains `sk_test_` and `sk_live_` and exit non-zero | Detects both `sk_test_` and `sk_live_`; names specific type | Both prefixes required. | PASS |
+| F-SEC | T-SEC-4 | Fixture with one secret per user/assistant/tool_result; asserts pattern from each appears in output | All three message types reported | Three pattern assertions; an impl skipping a type would fail. | PASS |
+| F-SEC | T-SEC-5 | Isolated fixture containing only AKIAIOSFODNN7EXAMPLE; asserts non-zero exit and `/akia/i` | AKIAIOSFODNN7EXAMPLE treated as true positive | Isolated fixture removes accidental masking. | PASS |
+| F-SEC | T-SEC-6 | Redacts AWS fixture; asserts redacted file valid JSONL; rescan returns "clean" | After redact, every line parses as JSON; rescan returns "clean" | Pipeline check + final state assertion. | PASS |
+| F-SEC | T-SEC-7 | scan-secrets on 5-secret fixture; asserts output matches `/\bfound\s+5\s+secret|\b5\s+secrets?\s+found/i` | Output matches "found 5 secret" or "5 secret(s) found" | Tightened adjacency regex prevents "5 messages" + later "secrets" false match. | PASS |
+| F-SEC | T-SEC-8 | scan-secrets on GitHub fixture; asserts non-zero exit and `/ghp_/i` | ghp_ + 36 chars exits non-zero; output contains "ghp_" or "github" | Tightened to `ghp_` prefix. | PASS |
+| F-SEC | T-SEC-9 | scan-secrets on RSA private-key fixture; asserts non-zero exit and `/rsa.*private|private.*key|BEGIN.*PRIVATE/i` | RSA private key header exits non-zero; output matches private-key patterns | Three OR alternatives explicitly listed in AC. | PASS |
+| F-SEC | T-SEC-10 | scan-secrets on password fixture; asserts non-zero exit and `/password/i` | password=<value> exits non-zero; output contains "password" | Direct. | PASS |
+| F-SUMMARY | T-SUM-1 | After save-context, asserts .meta.json exists; summary is 20-500 chars; contains auth-related keyword from SMALL_CONTEXT | summary between 20 and 500 chars; content-derived | Range + content-keyword check. | PASS |
+| F-SUMMARY | T-SUM-2 | Saves auth-content and DB-migration content; asserts summaries differ AND each contains source-content keyword | Two different contexts → different summaries | Both must differ AND each contain its source keyword; very strong falsifiability. | PASS |
+| F-SUMMARY | T-SUM-3 | Captures source session content before save-context; asserts byte-identity after | Source session JSONL byte-for-byte identical before and after | Direct byte-equality. | PASS |
+| F-GIT | T-GIT-1 | Real git repo + committed .gitignore + git check-ignore call returns true on `.claude/CLAUDE.md` | git check-ignore exits 0 after init | Real git invocation. | PASS |
+| F-GIT | T-GIT-2 | After full workflow, runs git status --porcelain; asserts personal context file exists outside projectDir and its filename absent from each status line | git status does not list any path resolving into personal storage; path expressed as relative prefix | Test asserts the personal file exists outside projectDir AND the filename does not appear in any status line. The AC's stated form ("personal storage path must be expressed as a relative prefix") is not enumerated in the test — but the relative form of any path inside personalBase that ALSO lives under projectDir would have to be checked, and the personal path being demonstrably outside projectDir makes the relative-form concern moot. Reasonable interpretation; the per-line filename-substring check is the strongest tractable assertion. | PASS |
+| F-XPLAT | T-ERR-3 | Creates project at path with space; runs init, task-create, update-import; asserts each exits 0 and produces expected file | All operations work with space in path; exit 0 AND output exists | Three operations checked. AC says "all operations" — only a representative sample; reasonable. | PASS |
+| F-ERR | T-ERR-1 | Calls task-create without prior init; asserts non-zero exit, output contains "init"/"not initialized", no stack-trace patterns in stderr | Any script run without init exits non-zero with "init" in output, not a stack trace | Both positive and negative assertions. | PASS |
+| F-ERR | T-ERR-2 | scan-secrets on corrupt JSONL; asserts non-zero exit and no stack-trace patterns | Malformed JSONL exits non-zero (not 0) | Direct. | PASS |
+| F-ERR | (companion: 13.6) | Test makes tasks dir read-only and asserts permission error; early-returns when running as root or when chmod fails | (Graceful permission handling per F-ERR expected behaviors) | Risk-accepted RA-001 (expires 2026-09-12). Early-return guards can cause vacuous pass on root CI. | ACCEPTED (RA-001) |
+| F-DOC-SKILLS | T-DOC-1 | Iterates every `### F-` section in prd.md; asserts each has Expected Behaviors, Acceptance Criteria, and a T-XXX row | `/prd new-feature` produces a markdown section containing the four required elements | The AC's subject is the SCAFFOLDING behavior of `/prd new-feature`. The test validates the LIVE PRD's structural compliance. An impl of `/prd new-feature` that produced broken scaffolding would NOT be caught — the live PRD is hand-authored. Coupling violation. | FAIL |
+| F-DOC-SKILLS | T-DOC-2 | Parses prd/SKILL.md frontmatter; asserts `invocation: auto` and `trigger-pattern: *prd*.md`; runtime check is `it.todo` | Auto-invocation: when active file matches *prd*.md, PRD skill description appears in session context | Static spec check only; runtime claim is `it.todo`. The actual auto-invocation behavior is not tested. | FAIL (runtime portion MISSING) |
+| F-DOC-SKILLS | T-DOC-3 | Asserts LIVE test-plan.md has required sections and ≥6 numbered banned-pattern items | `/test-plan new` produces a document containing all mandatory sections | Same Coupling violation as T-DOC-1: tests the live artifact, not the scaffolding. | FAIL |
+| F-DOC-SKILLS | T-DOC-4 | Asserts LIVE dev-plan.md has required sections (Based on: PRD v, executive summary, phases, file structure, design decisions, troubleshooting) | `/dev-plan new` produces a document with required sections | Same Coupling violation. | FAIL |
+| F-DOC-SKILLS | T-DOC-5 | Filters live PRD AC rows for "handles gracefully"/"works correctly"; asserts none match | `/prd check-ac` on a PRD with one vague criterion flags it; PRD with only falsifiable criteria produces no flags | The test does NOT invoke `/prd check-ac` — it checks the live PRD for vague patterns. An impl of `check-ac` that flagged nothing on every input would pass trivially because the test never runs it. | FAIL |
+| F-DOC-SKILLS | T-DOC-6 | Parses test-inventory/SKILL.md frontmatter; asserts `guard: adversary-task-active` and adversary-only error string. Runtime is `it.todo` | test-inventory skill is only loadable when adversary task is active; otherwise errors | Static spec check only. The runtime guard claim is `it.todo`. | FAIL (runtime portion MISSING) |
+| F-MARKETPLACE | T-MKT-1 | Extracts manifest template heredoc from install.sh; substitutes shell vars; parses as JSON; asserts bundles.authoring, .session, .monitor exist | install.sh creates ~/.claude/context-curator-manifest.json; valid JSON with the three bundle keys | Validates the TEMPLATE inside install.sh, not the produced file. An install.sh that has correct heredoc but a shell error preventing the actual cat would still pass. | ESCALATE |
+| F-MARKETPLACE | T-MKT-2 | Sub-test A: cpSync authoring bundle source to temp; asserts the four authoring SKILL.md files exist and context-save/task absent. Sub-test B: parses manifest template; asserts authoring.skills has no session/ paths or context-save | Authoring-only install: 4 authoring commands available, /context-save NOT available | Tests bundle source structure and manifest declaration text; does NOT exercise actual `/plugin marketplace add` flow. The AC's subject is command availability after install. Static checks alone cannot prove a runtime command is or isn't available. | ESCALATE |
+| F-MARKETPLACE | T-MKT-3 | Sub-tests: dist/version.json parses; install.sh sources $VERSION from it; mismatched manifest → verify-manifest exits non-zero with "version" output | Manifest version matches dist/version.json; mismatch exits non-zero with "version" message | Case B (mismatch) is exercised end-to-end against verify-manifest. Case A (match) is transitive via the template referencing $VERSION. | PASS |
+| F-MARKETPLACE | T-MKT-4 | Writes a team manifest with `custom` bundle to temp; reads back; asserts custom.description present. Runtime via `/plugin marketplace list` is `it.todo` | Team manifest is discoverable via /plugin marketplace list; description appears in output | Static read-back only; the AC's actual claim — runtime discovery — is unverified. | FAIL (runtime portion MISSING) |
+| F-HOOK | T-HOOK-1 | Plants UUID session JSONL with auth content; runs auto-save-context.ts with payload via stdin; asserts a timestamped .jsonl in auto-saves/ contains the planted "authentication" content | auto-save-context with mock stdin creates timestamped .jsonl in auto-saves/ | Content verification proves it copied real session content, not an empty placeholder. | PASS |
+| F-HOOK-POST | T-HOOK-POST-1 | Creates non-default task; runs postcompact-reinject; asserts exit 0, non-empty stdout, stdout contains task ID | With non-default task active, output contains task ID; not empty | Three-part assertion. | PASS |
+| F-HOOK-POST | T-HOOK-POST-2 | Default task active; runs postcompact-reinject; asserts exit 0, stdout empty (trimmed) | With default task active, exits 0 and outputs nothing | Direct. | PASS |
+| F-HOOK-POST | T-HOOK-POST-3 | Sets @import to non-existent task; runs hook; asserts exit 0 and filtered stderr matches `/warning|not found/i` | Missing task CLAUDE.md exits 0; stderr warns | Filters DEP0205 deprecation noise. | PASS |
+| F-CTX-MONITOR-STATUS | T-MON-1 | Sets state file; runs status-line; asserts exit 0 + non-empty output; greps status-line.ts source for imports of @anthropic-ai/sdk, node-fetch/cross-fetch/axios, node:http/https, require('http(s)) | Status line reads only from monitor state file — no API/model calls | Source-grep negative list is non-exhaustive. Common alternatives (`undici`, `got`, `request`, `https.get` without explicit `node:` prefix in TS) would not be caught. The test passes if the code uses an HTTP client whose import string is not in the listed patterns. | ESCALATE |
+| F-CTX-MONITOR-STATUS | T-MON-2 | Sets state with fillPct 47.5, tokensSinceBaseline 31000, cost 0.18, burnRate 2100; asserts output matches /47/, /31k/, /0.18/, /2.1k/ | Output matches 47 AND 31k AND 0.18 AND 2.1k | Direct AC-named pattern checks. | PASS |
+| F-CTX-MONITOR-STATUS | T-MON-3 | Sets CLAUDE_SESSION_TYPE=headless; asserts exit 0 and empty stdout AND empty stderr | Headless mode produces no stdout or stderr | Direct. | PASS |
+| F-CTX-MONITOR-STATUS | T-MON-4 | Session with 240k chars, baselineTokens=null; runs update-monitor-state then status-line; asserts tokensSinceBaseline=currentTokens and status-line exits 0 | tokensSinceBaseline equals currentTokens when baseline null; status line renders without error | Both clauses asserted. | PASS |
+| F-CTX-MONITOR-STATUS | T-MON-14 | Asserts status-line.js stdout is parseable JSON with non-empty `systemMessage`; filtered stderr is empty | status-line writes JSON to stdout; stderr empty | Filtered-stderr (DEP0205 stripped) and JSON-shape check. | PASS |
+| F-CTX-MONITOR-STATUS | T-MON-15 | Asserts `systemMessage` matches strict format regex | systemMessage matches `^\[.+ \d+% \| \+\d+k since warm-up \| ~\$[\d.]+ \| [\d.]+k tok\/msg\]$` | Direct regex match. | PASS |
+| F-CTX-MONITOR-WARN | T-MON-5 | Two sub-tests: 65% → warn stderr "degrading" + save suggestion; 64.9% → filtered stderr empty | Warning fires at 65%; silent below | Both cases. | PASS |
+| F-CTX-MONITOR-WARN | T-MON-6 | 80% → "critical" + restart suggestion; 79.9% → "degrading" without "critical" | Critical at 80%; degrading-only at 79% | Both presence and absence asserted. | PASS |
+| F-CTX-MONITOR-WARN | T-MON-7 | First call at 65% sets sentinel; second at 66% with sentinel=true asserted to produce filtered-empty stderr | Sentinel suppresses repeat warning | Sentinel mutation verified then suppression verified. | PASS |
+| F-CTX-MONITOR-WARN | T-MON-8 | Sentinel=true at 30%; runs on-compaction; asserts sentinel cleared; re-fires warning at 65% | Sentinel cleared after compaction; re-fires on re-entry | End-to-end sequence. | PASS |
+| F-CTX-MONITOR-WARN | T-MON-9 | Writes both sentinels=true; runs session-start-hook; asserts both false | SessionStart hook clears all zone sentinels | Direct. | PASS |
+| F-CTX-MONITOR-COST | T-MON-10 | 15-message JSONL using char-content (`'x'.repeat(t*4)`); asserts burnRatePerMessage within 5% of 255 (hand-calculated mean of last 10) | Burn rate = mean of last 10 messages within 5% | Test relies on update-monitor-state's char-based fallback (no `usage` field in messages). T-MON-16 requires API usage; the implementation has both paths. If implementation strictly enforced API usage path, char-based messages might yield zero or error. The test passes in current state but verifies the fallback semantic which is not itself an AC. Coupling-ambiguity. | ESCALATE |
+| F-CTX-MONITOR-COST | T-MON-11 | Sets state with currentTokens=100000 + claude-sonnet-4-6 rates; runs estimate-cost --verbose; extracts "Total:" line and asserts within 1% of hand-calculated 0.54 | Cost estimation matches hand-calculated value within 1% | Pre-condition removes if-guard (T2 fix); Total: regex non-null required. | PASS |
+| F-CTX-MONITOR-COST | T-MON-12 | Session JSONL with content producing 95000 char-tokens; baseline=42000; asserts state.currentTokens=95000 AND state.tokensSinceBaseline=53000 | tokensSinceBaseline = currentTokens − baselineTokens = 53000 | Same char-fallback dependency as T-MON-10. The arithmetic is meaningfully checked but only via the char-count path. | ESCALATE |
+| F-CTX-MONITOR-COST | T-MON-13 | Worker_threads tight-loop reader for 3s while 20 concurrent update-monitor-state writes occur; asserts no JSON parse errors | State file writes are atomic | Real OS-thread interleaving via worker_threads; 20 writes; 30s timeout. | PASS |
+| F-CTX-MONITOR-COST | T-MON-16 | Session with 1M-char user msg + assistant msg with usage.input_tokens=500; asserts state.currentTokens=500 (NOT char-estimated ~250k) | currentTokens reads from message.usage; no char-count | Extreme magnitude difference (500 vs ~250000) discriminates char vs API path decisively. | PASS |
+| F-CTX-MONITOR-COST | T-MON-17 | Single assistant msg with usage (80k, 10k, 50k); window 200k; asserts currentTokens=140000 AND fillPct≈70.0 | (input + cache_creation + cache_read) / window = 70.0 ±0.1 | Direct three-field sum arithmetic. | PASS |
+| F-CTX-MONITOR-COST | T-MON-18 | 20 large messages (no usage) + final assistant with usage summing to 100k; asserts fillPct ≤100, currentTokens ≤200000, fillPct≈50.0 | Historical content > window but last usage = 100k → fillPct ≤100 | Three conjunctive bounds. | PASS |
+| F-SPEC | T-SPEC-1 | (in adversary.test.ts under T-ADV-3) Reads DNA before; runs 3 user task operations; reads after; byte-equality | DNA byte-for-byte identical across 3 operations | Isolated test DNA path; planted before; byte-equality. | PASS |
+| F-SPEC | T-SPEC-2 | Updates import to adversary; attempts save-context; recursively scans both personal and golden adversary trees for any .jsonl | save-context with adversary active exits non-zero; output matches strict-isolation regex; no .jsonl at ANY path within adversary task directories | findJsonlFiles walks both trees. Strict pattern + recursive negative. | PASS |
+| F-SPEC | T-SPEC-3 | After update-import adversary, runs context-list; asserts strict-isolation regex AND no UUID pattern | context-list for adversary exits 0; output matches strict-isolation regex; does NOT match any UUID | Direct positive + negative. | PASS |
+| F-SPEC | T-SPEC-4 | Plants DNA in isolated CLAUDE_HOME; runs update-import adversary; asserts @import resolves to file containing ADVERSARY | imported path resolves to a file on disk whose content contains "ADVERSARY" | Resolution + content check. | PASS |
+| F-SPEC | T-SPEC-5 | Plants DNA only at specialized path; runs task-check adversary; asserts exit 0 AND stdout exactly "exists:specialized" AND not "not-found" | task-check returns exists:specialized; does NOT return not-found | Two sub-tests cover both clauses. | PASS |
+| F-ADVERSARY | T-ADV-1 | Replicates install.sh step 5 (cpSync specialized/ into temp HOME); asserts installed CLAUDE.md exists with ADVERSARY and STRICT | After ./install.sh, ~/.claude/context-curator/specialized/adversary/CLAUDE.md exists; content contains "ADVERSARY" and "STRICT" | Test does NOT invoke install.sh — it replicates the copy step. The AC's subject is "After ./install.sh"; a regression in install.sh's step 5 (wrong destination, missing variable expansion, ordering bug) would not be caught. Source-artifact validation only. | FAIL |
+| F-ADVERSARY | T-ADV-2 | After update-import adversary, asserts exactly one @import line ending with `specialized/adversary/CLAUDE.md`; resolved file contains ADVERSARY | imported path ends with specialized/adversary/CLAUDE.md; file exists and contains "ADVERSARY" | Three chained assertions. | PASS |
+| F-ADVERSARY | T-ADV-3 | Identical to T-SPEC-1 verification | DNA byte-for-byte identical across 3 user task operations | Direct. | PASS |
+| F-ADVERSARY | T-ADV-4 | Same as T-SPEC-2 with recursive jsonl scan of both directories | No .jsonl at any path within adversary task context directories | Recursive walk; AC fix per PRD §1198. | PASS |
+| F-PRD | T-PRD-1 | Parses live prd.md; collects all `### F-XXX` sections; asserts each has "Acceptance Criteria" string AND a `\| T-` row | Every feature section has AC table with ≥1 row | Whole-PRD scan; falsifiable by adding a feature without AC. | PASS |
+| F-PRD | T-PRD-2 | Extracts all AC-row T-XXX codes; asserts no duplicates | Every T-XXX code in PRD is unique | Counts only AC table rows (not prose). | PASS |
+| F-PRD | T-PRD-3 | After init-project, asserts prod-mgmt/risk-acceptances.md contains DISPOSITION, EXPIRY, RA_ID | risk-acceptances.md contains DISPOSITION, EXPIRY, RA_ID after init | Three-string check. | PASS |
+| F-PRD | T-PRD-4 | If test-inventory.md exists, asserts all T-XXX in inventory exist in PRD | Test-inventory.md references only T-XXX codes appearing in current PRD | Early-return when inventory absent. Conditional. | PASS |
+| F-DOC | T-UDOC-1 | Asserts docs-brief.md has "Feature Routing" AND ≥15 F-XXX entries | SKILL.md references docs-brief.md; workflow specifies reading docs-brief.md before updating any page; Feature Routing table format appears in SKILL.md | The test validates the live docs-brief.md artifact; it does NOT verify that SKILL.md references docs-brief.md or that the SKILL.md workflow specifies reading it before updating pages. The AC's subject is SKILL.md content. Coupling violation. | FAIL |
+| F-DOC | T-UDOC-2 | Asserts toc.md links to a HARDCODED list of nine required pages | toc.md links to every page listed in Navigation Architecture of docs-brief.md; any page in Primary or Secondary nav without a TOC link is a FAIL | Required-page list is hardcoded in the test, not extracted from docs-brief.md at runtime. If docs-brief.md's Navigation Architecture adds or removes pages, the test would not detect drift between docs-brief.md and toc.md. The AC explicitly grounds the requirement in docs-brief.md, not in a snapshot. | FAIL |
+| F-DOC | T-UDOC-3 | Asserts glossary.md has ≥1 `### ` term and contains "context", "task", "compaction", "hook" | glossary.md non-empty after /docs-markdown runs; every term in Core Concepts appears in glossary | Hardcoded core-terms list rather than extracted from PRD Core Concepts. If a new core term is introduced (e.g., "warm-up" mentioned in AC) and glossary misses it, the test would not detect drift. | ESCALATE |
+| F-DOC | T-UDOC-4 | Asserts docs/index.html exists, contains "Context Curator", has ≥4 unique non-index page links, contains getting-started.html | After /docs-html runs, docs/index.html exists; content contains text of introduction.md and toc.md | "Contains the text of introduction.md and toc.md" is not directly verified — only product name presence. An impl that placed "Context Curator" only in a nav header but omitted introduction content would pass. | ESCALATE |
+| F-DOC | T-UDOC-5 | For each docs/*.html, asserts `<nav` tag present, link to index.html present, string "glossary" appears anywhere | All HTML pages contain `<nav>` with home (index.html) and glossary links | "glossary" as a free-text string match is loose — it would match the page title "Glossary" even when no glossary <a> link existed. The AC says "links to at least the home page and glossary" — a link, not a string. | ESCALATE |
+| F-DOC | T-UDOC-6 | For each HTML, extracts heading levels; asserts no level skips | No HTML page has h-level skipping previous heading | Direct sequence analysis. | PASS |
+| F-DOC | T-UDOC-7 | Asserts docs/style.md exists with "color" and ("typeface" or "font") | When style.md is absent at invocation time, /docs-html writes the file with non-empty content; file contains "color" and "typeface"/"font" | Test only checks that style.md exists. The AC subject is bootstrap-when-absent behavior. style.md is already present in the repo; the bootstrap path is not exercised. | FAIL |
+| F-DOC | T-UDOC-8 | For each docs/*.html, finds all <img> tags; asserts each has non-empty alt attribute | All <img> in generated HTML have non-empty alt | Direct per-image check. | PASS |
+| F-PROCESS | T-PROC-1 | PRD-only project; asserts exit 0 AND JSON with currentPhase=1, nextPhase=2 | currentPhase=1 nextPhase=2 with only prd.md | Direct. | PASS |
+| F-PROCESS | T-PROC-2 | test-inventory mtime older; prd mtime newer; asserts adversaryStale=true and warnings contains stale/adversary string | adversaryStale=true and warnings contains stale/adversary | Direct with mtime control. | PASS |
+| F-PROCESS | T-PROC-3 | Inverse setup; asserts adversaryStale=false and no stale/adversary warning | adversaryStale=false; no adversary-stale warning | Direct. | PASS |
+| F-PROCESS | T-PROC-4 | Empty project; asserts exit non-zero AND "PRD" in output | No prd.md → exit non-zero, "PRD" in output | Direct. | PASS |
+| F-PROCESS | T-PROC-5 | test-plan + dev-plan + tests present, no inventory; asserts currentPhase=4, nextPhase=5 | Phase 4 / nextPhase 5 when no inventory | Direct. | PASS |
+| F-PROCESS | T-PROC-6 | Two sub-cases: asserts JSON shape with completedPhases, currentPhase, nextPhase, adversaryStale, warnings | Output always valid JSON with required fields | Shape + type checks. | PASS |
 
 ---
 
-## Section 2: AC Coverage Gaps
+## Section 2 — Verdict Code Definitions
 
-### Verdict Codes
-
-| Verdict | Meaning |
+| VERDICT | Meaning |
 |---------|---------|
-| PASS | Test is structurally sound and would catch a motivated implementation error for the stated AC clause |
-| FAIL | Test has a confirmed defect — it would pass when the implementation is wrong |
-| ESCALATE | Coverage cannot be confidently evaluated by automated adversarial review; human review required |
-| ACCEPTED | Gap is covered by an active risk acceptance; no test evaluation performed |
-| DEFERRED | Coverage intentionally deferred; explicit decision recorded |
-| OUT_OF_SCOPE | Clause falls outside the current evaluation scope |
+| PASS | Test would catch a motivated implementation error within the AC's intended scope |
+| FAIL | Test would NOT catch a motivated implementation error; gap is material |
+| ESCALATE | Adequacy cannot be confidently determined by automated review; requires human review |
+| ACCEPTED | A documented risk acceptance applies (RA-NNN); finding suppressed for the duration |
+| DEFERRED | Acknowledged finding, scheduled for later iteration (none in this run) |
+| OUT_OF_SCOPE | Valid finding, but outside this feature's boundary (none in this run) |
 
-### F-INIT
+---
 
-| Clause | Tests | Coverage |
-|--------|-------|----------|
-| T-INIT-1 | initialization.test.ts | ADEQUATE |
-| T-INIT-2 | initialization.test.ts | ADEQUATE |
-| T-INIT-3 | initialization.test.ts | ADEQUATE |
-| T-INIT-4 | initialization.test.ts | ADEQUATE |
-| T-INIT-5 | initialization.test.ts | ADEQUATE |
-| T-INIT-6 | initialization.test.ts | ADEQUATE |
-| T-INIT-7 | initialization.test.ts (.todo) | MISSING — `it.todo` placeholder; prior run incorrectly marked ADEQUATE |
-| T-INIT-8 | initialization.test.ts (.todo) | MISSING — requires Claude Code session harness |
-| T-INIT-9 | initialization.test.ts (.todo) | MISSING — requires Claude Code session harness |
+## Section 3 — Acceptance Criteria Coverage Gaps
+
+### F-INIT / F-INST
+
+| Clause | Coverage | Note |
+|--------|----------|------|
+| T-INIT-1 | ADEQUATE | |
+| T-INIT-2 | ADEQUATE | |
+| T-INIT-3 | ADEQUATE | |
+| T-INIT-4 | ADEQUATE | |
+| T-INIT-5 | ADEQUATE | |
+| T-INIT-6 | ADEQUATE | |
+| T-INIT-7 | INADEQUATE | Test mirrors install.sh's source-tree copy, does not invoke `init-project --project-install` script path |
+| T-INIT-8 | MISSING | `it.todo` placeholder |
+| T-INIT-9 | MISSING | `it.todo` placeholder |
+| T-INST-1 | INADEQUATE | `.some()` not `.length===1` — "exactly one" clause not enforced |
+| T-INST-2 | INADEQUATE | Same as T-INST-1 |
+| T-INST-3 | INADEQUATE | Same as T-INST-1 |
+| T-INST-4 | ADEQUATE | |
+| T-INST-5 | ADEQUATE | |
+| T-INST-6 | INADEQUATE | Vacuous-pass path when commands/ directory does not exist |
 
 ### F-TASK-CREATE
 
-| Clause | Tests | Coverage |
-|--------|-------|----------|
-| T-TASK-1 | task-operations.test.ts | ADEQUATE |
-| T-TASK-2 | task-operations.test.ts | ADEQUATE |
-| T-TASK-3 | task-operations.test.ts | ADEQUATE |
-| T-TASK-4 | task-operations.test.ts | ADEQUATE |
-| T-TASK-5 | task-operations.test.ts | ADEQUATE |
-| T-TASK-6 | task-operations.test.ts | ADEQUATE |
-| T-TASK-7 | task-operations.test.ts | ADEQUATE |
-
-### F-TASK-DELETE
-
-| Clause | Tests | Coverage |
-|--------|-------|----------|
-| T-TASK-DEL-1 | task-operations.test.ts | ADEQUATE |
-| T-TASK-DEL-2 | task-operations.test.ts | ADEQUATE |
-| T-TASK-DEL-3 | task-operations.test.ts | ADEQUATE |
+| Clause | Coverage | Note |
+|--------|----------|------|
+| T-TASK-1 | ADEQUATE | |
+| T-TASK-2 | ADEQUATE | |
+| T-TASK-3 | ADEQUATE | |
+| T-TASK-4 | ADEQUATE | |
+| T-TASK-5 | INADEQUATE | "Without any intermediate prompt" clause not falsifiably tested |
+| T-TASK-6 | INADEQUATE | Tests static SKILL.md doc string instead of actual command output |
+| T-TASK-7 | INADEQUATE | Pre-invokes init-project manually; does not exercise auto-init via task-create alone |
 
 ### F-TASK-SWITCH
 
-| Clause | Tests | Coverage |
-|--------|-------|----------|
-| T-SWITCH-1 | task-operations.test.ts | ADEQUATE |
-| T-SWITCH-2 | task-operations.test.ts | ADEQUATE |
-| T-SWITCH-3 | task-operations.test.ts | ADEQUATE |
-| T-SWITCH-4 | task-operations.test.ts | ADEQUATE |
-| T-SWITCH-5 | task-operations.test.ts | ADEQUATE |
-| T-SWITCH-6 | task-operations.test.ts | ADEQUATE |
+| Clause | Coverage | Note |
+|--------|----------|------|
+| T-SWITCH-1 | ADEQUATE | |
+| T-SWITCH-2 | ADEQUATE | |
+| T-SWITCH-3 | ADEQUATE | |
+| T-SWITCH-4 | ADEQUATE | |
+| T-SWITCH-5 | ADEQUATE | |
+| T-SWITCH-6 | ADEQUATE | |
+
+### F-TASK-DELETE
+
+| Clause | Coverage | Note |
+|--------|----------|------|
+| T-TASK-DEL-1 | ADEQUATE | |
+| T-TASK-DEL-2 | INADEQUATE | Does not verify other (non-default) tasks remain after a default-deletion attempt |
+| T-TASK-DEL-3 | INADEQUATE | Does not verify other directories remain untouched after non-existent-task error |
 
 ### F-CTX-SAVE
 
-| Clause | Tests | Coverage |
-|--------|-------|----------|
-| T-CTX-1 | context-operations.test.ts | ADEQUATE |
-| T-CTX-2 | context-operations.test.ts | ADEQUATE |
-| T-CTX-3 | context-operations.test.ts | ADEQUATE |
-| T-CTX-4 | context-operations.test.ts | ADEQUATE |
-| T-CTX-6 | context-operations.test.ts, new-features.test.ts | ADEQUATE |
-| T-MEM-1 | context-operations.test.ts, new-features.test.ts | ADEQUATE |
+| Clause | Coverage | Note |
+|--------|----------|------|
+| T-CTX-1 | ADEQUATE | |
+| T-CTX-2 | ADEQUATE | |
+| T-CTX-3 | ADEQUATE | |
+| T-CTX-4 | ADEQUATE | |
+| T-CTX-6 | ADEQUATE | |
+| T-MEM-1 | ADEQUATE | (Conditional: AC text matches the implementation path the test asserts; if the AC is restored to the original spec path the test would need to follow) |
 
 ### F-CTX-LIST
 
-| Clause | Tests | Coverage |
-|--------|-------|----------|
-| T-LIST-1 | task-operations.test.ts | ADEQUATE |
-| T-LIST-2 | context-operations.test.ts | ADEQUATE |
-| T-LIST-3 | context-operations.test.ts | ADEQUATE |
-| T-LIST-4 | context-operations.test.ts | INADEQUATE — implementation gap: `save-context` does not generate `.meta.json`; test correctly fails; AC requires content-derived summary display |
+| Clause | Coverage | Note |
+|--------|----------|------|
+| T-LIST-1 | ADEQUATE | |
+| T-LIST-2 | ADEQUATE | |
+| T-LIST-3 | ADEQUATE | |
+| T-LIST-4 | ADEQUATE | |
 
 ### F-CTX-MANAGE
 
-| Clause | Tests | Coverage |
-|--------|-------|----------|
-| T-CTX-7 | context-operations.test.ts | ADEQUATE |
-| T-MANAGE-1 | context-operations.test.ts | ADEQUATE |
-| T-MANAGE-2 | context-operations.test.ts | ADEQUATE |
-| T-MANAGE-3 | context-operations.test.ts | ADEQUATE |
-| T-MANAGE-4 | context-operations.test.ts | ADEQUATE |
-| T-MANAGE-5 | context-operations.test.ts | ADEQUATE |
-| T-MANAGE-6 | context-operations.test.ts | ADEQUATE |
+| Clause | Coverage | Note |
+|--------|----------|------|
+| T-CTX-7 | ADEQUATE | |
+| T-MANAGE-1 | ADEQUATE | |
+| T-MANAGE-2 | ADEQUATE | |
+| T-MANAGE-3 | ADEQUATE | |
+| T-MANAGE-4 | ADEQUATE | |
+| T-MANAGE-5 | ADEQUATE | |
+| T-MANAGE-6 | ADEQUATE | |
 
 ### F-CTX-PROMOTE
 
-| Clause | Tests | Coverage |
-|--------|-------|----------|
-| T-CTX-5 | context-operations.test.ts, new-features.test.ts | ADEQUATE |
-| T-PROM-1 | context-operations.test.ts | ADEQUATE |
-| T-PROM-2 | context-operations.test.ts | ADEQUATE |
-| T-PROM-3 | context-operations.test.ts | ADEQUATE |
+| Clause | Coverage | Note |
+|--------|----------|------|
+| T-CTX-5 | ADEQUATE | |
+| T-PROM-1 | ADEQUATE | |
+| T-PROM-2 | ADEQUATE | |
+| T-PROM-3 | ADEQUATE | |
 
 ### F-CLMD
 
-| Clause | Tests | Coverage |
-|--------|-------|----------|
-| T-CLMD-1 | claude-md-system.test.ts | ADEQUATE |
-| T-CLMD-2 | claude-md-system.test.ts | ADEQUATE |
-| T-RESUME-MANUAL | (none) | RISK_ACCEPTED — RA-002 (approved 2026-03-12, expires v2.0-release) |
+| Clause | Coverage | Note |
+|--------|----------|------|
+| T-CLMD-1 | ADEQUATE | |
+| T-CLMD-2 | ADEQUATE | |
+| T-RESUME-MANUAL | RISK_ACCEPTED | RA-002, expires v2.0-release |
 
 ### F-SEC
 
-| Clause | Tests | Coverage |
-|--------|-------|----------|
-| T-SEC-2 | secret-detection.test.ts | ADEQUATE |
-| T-SEC-3 | secret-detection.test.ts | ADEQUATE |
-| T-SEC-4 | secret-detection.test.ts | ADEQUATE |
-| T-SEC-5 | secret-detection.test.ts | ADEQUATE |
-| T-SEC-6 | secret-detection.test.ts | ADEQUATE |
-| T-SEC-7 | secret-detection.test.ts | ADEQUATE |
-| T-SEC-8 | secret-detection.test.ts | ADEQUATE |
-| T-SEC-9 | secret-detection.test.ts | ADEQUATE |
-| T-SEC-10 | secret-detection.test.ts | ADEQUATE |
+| Clause | Coverage | Note |
+|--------|----------|------|
+| T-SEC-2 | ADEQUATE | |
+| T-SEC-3 | ADEQUATE | |
+| T-SEC-4 | ADEQUATE | |
+| T-SEC-5 | ADEQUATE | |
+| T-SEC-6 | ADEQUATE | |
+| T-SEC-7 | ADEQUATE | |
+| T-SEC-8 | ADEQUATE | |
+| T-SEC-9 | ADEQUATE | |
+| T-SEC-10 | ADEQUATE | |
 
 ### F-SUMMARY
 
-| Clause | Tests | Coverage |
-|--------|-------|----------|
-| T-SUM-1 | context-operations.test.ts | INADEQUATE — implementation gap: `save-context` does not generate `.meta.json`; test currently fails; confirmed in test file comment: "The current implementation does NOT generate summaries" |
-| T-SUM-2 | context-operations.test.ts | INADEQUATE — same root cause as T-SUM-1; test currently fails |
-| T-SUM-3 | context-operations.test.ts | ADEQUATE |
+| Clause | Coverage | Note |
+|--------|----------|------|
+| T-SUM-1 | ADEQUATE | |
+| T-SUM-2 | ADEQUATE | |
+| T-SUM-3 | ADEQUATE | |
 
 ### F-GIT
 
-| Clause | Tests | Coverage |
-|--------|-------|----------|
-| T-GIT-1 | git-integration.test.ts | ADEQUATE |
-| T-GIT-2 | git-integration.test.ts | ADEQUATE |
+| Clause | Coverage | Note |
+|--------|----------|------|
+| T-GIT-1 | ADEQUATE | |
+| T-GIT-2 | ADEQUATE | |
 
 ### F-XPLAT
 
-| Clause | Tests | Coverage |
-|--------|-------|----------|
-| T-ERR-3 | error-handling.test.ts | ADEQUATE |
+| Clause | Coverage | Note |
+|--------|----------|------|
+| T-ERR-3 | ADEQUATE | (Sample-based — three operations cover the AC's "all operations" claim in practice) |
 
 ### F-ERR
 
-| Clause | Tests | Coverage |
-|--------|-------|----------|
-| T-ERR-1 | error-handling.test.ts | ADEQUATE |
-| T-ERR-2 | error-handling.test.ts | ADEQUATE |
+| Clause | Coverage | Note |
+|--------|----------|------|
+| T-ERR-1 | ADEQUATE | |
+| T-ERR-2 | ADEQUATE | |
+| Permission-denied behavior | RISK_ACCEPTED | RA-001, expires 2026-09-12 |
 
 ### F-DOC-SKILLS
 
-| Clause | Tests | Coverage |
-|--------|-------|----------|
-| T-DOC-1 | doc-authoring.test.ts | ADEQUATE — tests live prd.md artifact; all F-XXX sections checked per-section |
-| T-DOC-2 | doc-authoring.test.ts | ADEQUATE (static); DEFERRED (runtime auto-invocation — requires session harness; it.todo) |
-| T-DOC-3 | doc-authoring.test.ts | ADEQUATE — tests live test-plan.md artifact; all 6 mandatory sections checked |
-| T-DOC-4 | doc-authoring.test.ts | ADEQUATE — tests live dev-plan.md artifact; all required sections checked |
-| T-DOC-5 | doc-authoring.test.ts | ADEQUATE — tests live prd.md AC rows for vague-criteria patterns |
-| T-DOC-6 | doc-authoring.test.ts | ADEQUATE (static); DEFERRED (runtime guard enforcement — requires session harness; it.todo) |
+| Clause | Coverage | Note |
+|--------|----------|------|
+| T-DOC-1 | INADEQUATE | Tests live PRD structure, not `/prd new-feature` scaffolding output |
+| T-DOC-2 | INADEQUATE | Static spec check only; runtime auto-invocation is `it.todo` |
+| T-DOC-3 | INADEQUATE | Tests live test-plan.md, not `/test-plan new` scaffolding |
+| T-DOC-4 | INADEQUATE | Tests live dev-plan.md, not `/dev-plan new` scaffolding |
+| T-DOC-5 | INADEQUATE | Tests live PRD content; does NOT invoke `/prd check-ac` |
+| T-DOC-6 | INADEQUATE | Static spec check only; runtime adversary-task guard is `it.todo` |
 
 ### F-MARKETPLACE
 
-| Clause | Tests | Coverage |
-|--------|-------|----------|
-| T-MKT-1 | marketplace.test.ts | ADEQUATE |
-| T-MKT-2 | marketplace.test.ts | ADEQUATE |
-| T-MKT-3 | marketplace.test.ts | ADEQUATE |
-| T-MKT-4 | marketplace.test.ts (partial: static JSON check; runtime it.todo) | INADEQUATE — static JSON round-trip does not verify runtime discovery; `/plugin marketplace list` behavior untested; runtime portion is `it.todo` |
+| Clause | Coverage | Note |
+|--------|----------|------|
+| T-MKT-1 | INADEQUATE (low confidence) | Tests template content, not produced file — ESCALATE |
+| T-MKT-2 | INADEQUATE (low confidence) | Tests source bundle and manifest text, not installation/availability — ESCALATE |
+| T-MKT-3 | ADEQUATE | |
+| T-MKT-4 | INADEQUATE | Runtime `/plugin marketplace list` claim is `it.todo` |
 
-### F-HOOK
+### F-HOOK / F-HOOK-POST
 
-| Clause | Tests | Coverage |
-|--------|-------|----------|
-| T-HOOK-1 | context-operations.test.ts | ADEQUATE |
-
-### F-HOOK-POST
-
-| Clause | Tests | Coverage |
-|--------|-------|----------|
-| T-HOOK-POST-1 | hooks-monitor.test.ts | ADEQUATE |
-| T-HOOK-POST-2 | hooks-monitor.test.ts | ADEQUATE |
-| T-HOOK-POST-3 | hooks-monitor.test.ts | ADEQUATE |
+| Clause | Coverage | Note |
+|--------|----------|------|
+| T-HOOK-1 | ADEQUATE | |
+| T-HOOK-POST-1 | ADEQUATE | |
+| T-HOOK-POST-2 | ADEQUATE | |
+| T-HOOK-POST-3 | ADEQUATE | |
 
 ### F-CTX-MONITOR-STATUS
 
-| Clause | Tests | Coverage |
-|--------|-------|----------|
-| T-MON-1 | hooks-monitor.test.ts | ADEQUATE |
-| T-MON-2 | hooks-monitor.test.ts | ADEQUATE |
-| T-MON-3 | hooks-monitor.test.ts | ADEQUATE |
-| T-MON-4 | hooks-monitor.test.ts | ADEQUATE |
-| T-MON-14 | hooks-monitor.test.ts | ADEQUATE |
-| T-MON-15 | hooks-monitor.test.ts | ADEQUATE |
+| Clause | Coverage | Note |
+|--------|----------|------|
+| T-MON-1 | INADEQUATE (low confidence) | Negative network-import list non-exhaustive — ESCALATE |
+| T-MON-2 | ADEQUATE | |
+| T-MON-3 | ADEQUATE | |
+| T-MON-4 | ADEQUATE | |
+| T-MON-14 | ADEQUATE | |
+| T-MON-15 | ADEQUATE | |
 
 ### F-CTX-MONITOR-WARN
 
-| Clause | Tests | Coverage |
-|--------|-------|----------|
-| T-MON-5 | hooks-monitor.test.ts | ADEQUATE |
-| T-MON-6 | hooks-monitor.test.ts | ADEQUATE |
-| T-MON-7 | hooks-monitor.test.ts | ADEQUATE |
-| T-MON-8 | hooks-monitor.test.ts | ADEQUATE |
-| T-MON-9 | hooks-monitor.test.ts | ADEQUATE |
+| Clause | Coverage | Note |
+|--------|----------|------|
+| T-MON-5 | ADEQUATE | |
+| T-MON-6 | ADEQUATE | |
+| T-MON-7 | ADEQUATE | |
+| T-MON-8 | ADEQUATE | |
+| T-MON-9 | ADEQUATE | |
 
 ### F-CTX-MONITOR-COST
 
-| Clause | Tests | Coverage |
-|--------|-------|----------|
-| T-MON-10 | hooks-monitor.test.ts | ADEQUATE |
-| T-MON-11 | hooks-monitor.test.ts | ADEQUATE |
-| T-MON-12 | hooks-monitor.test.ts | ADEQUATE |
-| T-MON-13 | hooks-monitor.test.ts | ADEQUATE |
-| T-MON-16 | hooks-monitor.test.ts | ADEQUATE |
-| T-MON-17 | hooks-monitor.test.ts | ADEQUATE |
-| T-MON-18 | hooks-monitor.test.ts | ADEQUATE |
+| Clause | Coverage | Note |
+|--------|----------|------|
+| T-MON-10 | INADEQUATE (low confidence) | Test exercises char-count fallback; AC and T-MON-16 specify API path — ESCALATE |
+| T-MON-11 | ADEQUATE | |
+| T-MON-12 | INADEQUATE (low confidence) | Same char/API ambiguity as T-MON-10 — ESCALATE |
+| T-MON-13 | ADEQUATE | |
+| T-MON-16 | ADEQUATE | |
+| T-MON-17 | ADEQUATE | |
+| T-MON-18 | ADEQUATE | |
 
 ### F-SPEC
 
-| Clause | Tests | Coverage |
-|--------|-------|----------|
-| T-SPEC-1 | adversary.test.ts | ADEQUATE |
-| T-SPEC-2 | adversary.test.ts | ADEQUATE |
-| T-SPEC-3 | adversary.test.ts | ADEQUATE |
-| T-SPEC-4 | adversary.test.ts | ADEQUATE |
-| T-SPEC-5 | adversary.test.ts | ADEQUATE |
+| Clause | Coverage | Note |
+|--------|----------|------|
+| T-SPEC-1 | ADEQUATE | |
+| T-SPEC-2 | ADEQUATE | |
+| T-SPEC-3 | ADEQUATE | |
+| T-SPEC-4 | ADEQUATE | |
+| T-SPEC-5 | ADEQUATE | |
 
 ### F-ADVERSARY
 
-| Clause | Tests | Coverage |
-|--------|-------|----------|
-| T-ADV-1 | adversary.test.ts | ADEQUATE |
-| T-ADV-2 | adversary.test.ts | ADEQUATE |
-| T-ADV-3 | adversary.test.ts | ADEQUATE |
-| T-ADV-4 | adversary.test.ts | ADEQUATE |
+| Clause | Coverage | Note |
+|--------|----------|------|
+| T-ADV-1 | INADEQUATE | Test replicates install.sh step 5 in temp HOME; install.sh itself never runs. A regression in install.sh's copy step would not be caught. |
+| T-ADV-2 | ADEQUATE | |
+| T-ADV-3 | ADEQUATE | |
+| T-ADV-4 | ADEQUATE | |
 
 ### F-PRD
 
-| Clause | Tests | Coverage |
-|--------|-------|----------|
-| T-PRD-1 | prd-development.test.ts | ADEQUATE |
-| T-PRD-2 | prd-development.test.ts | ADEQUATE |
-| T-PRD-3 | prd-development.test.ts | ADEQUATE |
-| T-PRD-4 | prd-development.test.ts | ADEQUATE |
+| Clause | Coverage | Note |
+|--------|----------|------|
+| T-PRD-1 | ADEQUATE | |
+| T-PRD-2 | ADEQUATE | |
+| T-PRD-3 | ADEQUATE | |
+| T-PRD-4 | ADEQUATE | |
 
-### F-DOC
+### F-DOC (User Documentation System)
 
-| Clause | Tests | Coverage |
-|--------|-------|----------|
-| T-UDOC-1 | doc-authoring.test.ts | ADEQUATE — tests live docs-brief.md Feature Routing table; >= 15 F-XXX entries required |
-| T-UDOC-2 | doc-authoring.test.ts | ADEQUATE — tests live toc.md; all 9 required navigation pages independently asserted |
-| T-UDOC-3 | doc-authoring.test.ts | ADEQUATE — tests live glossary.md; 5 core terms independently asserted |
-| T-UDOC-4 | doc-authoring.test.ts | ADEQUATE — tests live index.html; product name and >= 4 page links asserted |
-| T-UDOC-5 | doc-authoring.test.ts | ADEQUATE — loops all docs/*.html; <nav>, home link, glossary reference per file |
-| T-UDOC-6 | doc-authoring.test.ts | ADEQUATE — loops all docs/*.html; heading level skip detection per file |
-| T-UDOC-7 | doc-authoring.test.ts | ADEQUATE — tests live style.md; "color" and "typeface"/"font" asserted |
-| T-UDOC-8 | doc-authoring.test.ts | ADEQUATE — loops all docs/*.html; every <img> checked for non-empty alt |
+| Clause | Coverage | Note |
+|--------|----------|------|
+| T-UDOC-1 | INADEQUATE | Tests docs-brief.md content, not that SKILL.md references and reads it |
+| T-UDOC-2 | INADEQUATE | Required pages hardcoded in test; drift between docs-brief.md and toc.md not detected |
+| T-UDOC-3 | INADEQUATE (low confidence) | Core-terms hardcoded; drift from PRD Core Concepts not detected — ESCALATE |
+| T-UDOC-4 | INADEQUATE (low confidence) | "Text of introduction.md and toc.md" not compared; presence of product name is necessary but not sufficient — ESCALATE |
+| T-UDOC-5 | INADEQUATE (low confidence) | "glossary" free-text substring match does not prove a link exists — ESCALATE |
+| T-UDOC-6 | ADEQUATE | |
+| T-UDOC-7 | INADEQUATE | Tests existence of style.md, not the bootstrap-when-absent behavior named in the AC |
+| T-UDOC-8 | ADEQUATE | |
 
 ### F-PROCESS
 
-| Clause | Tests | Coverage |
-|--------|-------|----------|
-| T-PROC-1 | process-sequencing.test.ts | ADEQUATE |
-| T-PROC-2 | process-sequencing.test.ts | ADEQUATE |
-| T-PROC-3 | process-sequencing.test.ts | ADEQUATE |
-| T-PROC-4 | process-sequencing.test.ts | ADEQUATE |
-| T-PROC-5 | process-sequencing.test.ts | ADEQUATE |
-| T-PROC-6 | process-sequencing.test.ts | ADEQUATE |
+| Clause | Coverage | Note |
+|--------|----------|------|
+| T-PROC-1 | ADEQUATE | |
+| T-PROC-2 | ADEQUATE | |
+| T-PROC-3 | ADEQUATE | |
+| T-PROC-4 | ADEQUATE | |
+| T-PROC-5 | ADEQUATE | |
+| T-PROC-6 | ADEQUATE | |
 
 ---
 
-### Summary
-
-| Verdict | Count |
-|---------|-------|
-| PASS (test design adequate) | 131 |
-| FAIL (Incompleteness heuristic — static spec check) | 1 |
-| MISSING (it.todo) | 3 |
-| ACCEPTED (risk acceptance) | 1 |
-| **Total** | **136** |
-
-| Section 2 Status | Count |
-|-----------------|-------|
-| ADEQUATE | 115 |
-| ADEQUATE (static) / DEFERRED (runtime) | 2 |
-| INADEQUATE — implementation gap (tests fail at runtime) | 3 |
-| INADEQUATE — test design deficiency (Incompleteness) | 1 |
-| MISSING | 3 |
-| RISK_ACCEPTED | 1 |
-| **Total** | **125** (+ Test 13.6 RA-001 = 126) |
-
-**¹ PASS with implementation gap:** T-SUM-1, T-SUM-2, and T-LIST-4 have adequate test designs but the tests currently fail in the suite because `save-context` does not generate `.meta.json`. These are counted as PASS (test design) / INADEQUATE (AC satisfaction).
-
-**Key findings from adversary run (2026-05-17 vs prior 2026-05-10):**
-- **T-INIT-7 corrected ADEQUATE → MISSING.** Code is `it.todo`. Prior run cited a cpSync test that does not exist at T-INIT-7; that test is part of T-INIT-5 (Test 1.5 isolation). Direct code read confirms: `describe('T-INIT-7…') { it.todo(…) }`.
-- **T-SUM-1, T-SUM-2 corrected ADEQUATE → INADEQUATE.** Implementation gap confirmed by test file comment: "The current implementation does NOT generate summaries — no .meta.json is written by save-context." Both tests currently fail. Prior run PASS was an assurance failure.
-- **T-LIST-4 corrected ADEQUATE → INADEQUATE.** Same root cause: test depends on `.meta.json` which `save-context` does not generate. Test currently fails.
-- **T-DOC-1–6 reclassified FAIL (Incompleteness).** All six tests were static reads of SKILL.md files. AC clauses require runtime skill execution. A test that reads a specification document cannot detect wrong runtime behavior.
-- **T-UDOC-1–8 reclassified FAIL (Incompleteness).** Same finding. All eight tests read SKILL.md files; AC clauses require runtime execution of `/docs-markdown` and `/docs-html`.
-- **T-MKT-4 reclassified FAIL (Incompleteness).** Runtime discovery portion is `it.todo`. Test passes when `/plugin marketplace list` does not work.
-- **T-TASK-5/6/7, T-TASK-DEL-1/2/3 added** — not previously inventoried; all ADEQUATE.
-- **T-MON-14/15/16/17/18 added** — PRD v21.3 additions; all ADEQUATE.
-
-**Key findings from follow-on fix (2026-05-17):**
-- **T-DOC-1–6 corrected FAIL → PASS.** doc-authoring.test.ts rewritten to test live artifacts (prd.md, test-plan.md, dev-plan.md) instead of SKILL.md spec files. T-DOC-2 and T-DOC-6 retain static checks; runtime portions explicitly deferred as `it.todo`.
-- **T-UDOC-1–8 corrected FAIL → PASS.** Same rewrite: tests now validate docs/*.html, docs/markdown/*.md, docs/style.md, docs/docs-brief.md.
-- **prd.md defect found and fixed:** F-XPLAT and F-ERR lacked `**Expected Behaviors**` sections. Added by T-DOC-1 detection.
-- **glossary.html defect found and fixed:** h1→h3 heading skip (30 term headings). Fixed by changing h3 to h2 for all term definitions. Detected by T-UDOC-6.
-
-**Remaining FAILs:** 1 (T-MKT-4 — runtime `/plugin marketplace list` discovery; `it.todo`).
-**Implementation gaps:** 3 (T-SUM-1, T-SUM-2, T-LIST-4) — tests detect gap correctly; implementation does not satisfy AC.
-**MISSING:** 3 (T-INIT-7, T-INIT-8, T-INIT-9).
+ESCALATE

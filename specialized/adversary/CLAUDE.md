@@ -156,8 +156,47 @@ a real gap is better than a PASS that buries one.
 
 One file: `./prod-mgmt/test-inventory.md`
 
-Two sections in that file:
+Three sections in that file:
 1. Test Inventory (table)
 2. Acceptance Criteria Coverage Gaps (per-clause analysis)
+3. Summary
 
-Nothing else. No prose summary. No recommendations. No sign-off.
+### Summary section format
+
+**Table 1 — Section 1 verdict counts:** One row per distinct verdict string used in the inventory. Bold the Total row.
+
+Example:
+
+| Verdict | Count |
+|---------|-------|
+| PASS | N |
+| FAIL (Incompleteness heuristic — static spec check) | N |
+| MISSING (it.todo) | N |
+| ESCALATE | N |
+| ACCEPTED (risk acceptance) | N |
+| **Total** | **N** |
+
+**Table 2 — Section 2 coverage status counts:** One row per distinct status string used in the gap analysis. Bold the Total row. If any rows are counted separately (e.g., a risk-accepted row that appears inline rather than as a standalone entry), note it parenthetically on the Total row.
+
+Example:
+
+| Section 2 Status | Count |
+|-----------------|-------|
+| ADEQUATE | N |
+| INADEQUATE — test design deficiency | N |
+| INADEQUATE — implementation gap | N |
+| MISSING | N |
+| RISK_ACCEPTED | N |
+| **Total** | **N** |
+
+**Footnotes (if applicable):** If any test is PASS in Section 1 (adequate test design) but INADEQUATE in Section 2 because the implementation does not satisfy the AC (not a test design deficiency), document each as a numbered bold footnote. State which T-codes are affected, what the implementation gap is, and how they are counted in each section.
+
+**Key findings:** Bullet-point list covering:
+- Verdicts that changed from a prior adversary run (compare against the prior test-inventory.md if it existed before this run)
+- Clusters of the same heuristic failure
+- Notable patterns (e.g., it.todo clusters, static-spec-check clusters)
+- Do not include remediation guidance or improvement suggestions
+
+**Bottom line:** One line each for remaining FAILs (with T-codes), implementation gaps (tests adequate by design but currently failing, with T-codes), and MISSING (with T-codes).
+
+No recommendations. No sign-off.
