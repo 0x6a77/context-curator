@@ -46,123 +46,123 @@
     <h1>Glossary</h1>
 
 
-    <h3 id="adversary-task">adversary task</h3>
+    <h2 id="adversary-task">adversary task</h2>
     <p>A specialized Claude Code task that reviews your tests against your PRD from a position of enforced ignorance — no prior session context, no knowledge of your intent. Used in the <a href="boss-fight-workflow.html">PRD-Driven Development</a> to catch tests that pass vacuously rather than verifying the requirement they claim to cover.</p>
 
 
-    <h3 id="auto-save">auto-save</h3>
+    <h2 id="auto-save">auto-save</h2>
     <p>A timestamped snapshot of the current session, written automatically before every compaction event by the <a href="hooks-automation.html">PreCompact hook</a>. Auto-saves are emergency fallbacks, not named contexts. They live in <code>~/.claude/projects/&lt;project&gt;/auto-saves/</code> and are never committed to git.</p>
 
 
-    <h3 id="boss-fight">boss fight</h3>
+    <h2 id="boss-fight">boss fight</h2>
     <p>The adversarial review phase of the <a href="boss-fight-workflow.html">PRD-Driven Development</a>. You must pass the adversary's test inventory review to advance to implementation. The adversary cannot be appeased by tweaking tests — only genuinely adequate tests pass.</p>
 
 
-    <h3 id="bundle">bundle</h3>
+    <h2 id="bundle">bundle</h2>
     <p>A named collection of skills that can be installed together. Context Curator ships three bundles: <code>authoring</code> (PRD document skills), <code>session</code> (context management), and <code>monitor</code> (status line). See <a href="for-teams.html">For Teams</a>.</p>
 
 
-    <h3 id="compaction">compaction</h3>
+    <h2 id="compaction">compaction</h2>
     <p>Claude Code's process of summarizing old conversation history to free up context space when the token count approaches the limit. After compaction, Claude's understanding of session-specific details — subsystem quirks, open threads, warm context — is partially or fully lost.</p>
 
 
-    <h3 id="context">context</h3>
+    <h2 id="context">context</h2>
     <p>A named snapshot of a Claude Code session. Contexts capture the conversation state at peak understanding and can be restored later, letting Claude resume without the warm-up cost. Contexts are either <a href="#personal-context">personal</a> or <a href="#golden-context">golden</a>.</p>
 
 
-    <h3 id="context-rot">context rot</h3>
+    <h2 id="context-rot">context rot</h2>
     <p>Degradation of Claude's session quality before the token ceiling is reached. As context fills, Claude's ability to recall multiple relevant details simultaneously (multi-needle recall) declines and suggestions become generic. The session is "rotting" even though it hasn't compacted yet.</p>
 
 
-    <h3 id="context-zone">context zone</h3>
+    <h2 id="context-zone">context zone</h2>
     <p>A label for the current state of context utilization, derived from real-time metrics. The three zones are: <strong>Healthy</strong> (performance near baseline), <strong>Degrading</strong> (recall dropping, save recommended), and <strong>Critical</strong> (imminent compaction, save now). Displayed in the <a href="context-monitoring.html">status line</a>.</p>
 
 
-    <h3 id="default-task">default task</h3>
+    <h2 id="default-task">default task</h2>
     <p>The base task active when no specific task has been switched to via <code>/task</code>. In the default task, <code>.claude/CLAUDE.md</code> contains universal project instructions and no task-specific import. The <a href="hooks-automation.html">post-compaction hook</a> does not inject context when the default task is active.</p>
 
 
-    <h3 id="dev-plan">dev plan</h3>
+    <h2 id="dev-plan">dev plan</h2>
     <p>A structured implementation roadmap tied to a specific PRD version. Organized into phases, with each phase stating files to change, design decisions, and expected test outcomes. Authored with the <code>/dev-plan</code> skill. See <a href="boss-fight-workflow.html">PRD-Driven Development</a>.</p>
 
 
-    <h3 id="docs-brief">docs brief</h3>
+    <h2 id="docs-brief">docs brief</h2>
     <p>The documentation design brief (<code>docs/docs-brief.md</code>). Defines the core message that anchors every page, reader journey gates (1–4) that determine what is revealed at each stage, navigation architecture, editorial rules, and the feature routing table. Maintained by the designer-developer; read by the <code>/docs-markdown</code> skill before updating any page.</p>
 
 
-    <h3 id="gate">gate</h3>
+    <h2 id="gate">gate</h2>
     <p>A stage in the reader journey defined in the <a href="boss-fight-workflow.html#user-documentation-docs-markdown-and-docs-html">docs brief</a>. Gate 1 delivers the core insight in five minutes. Gate 2 covers solo use over the first week. Gate 3 covers team workflows. Gate 4 covers the Boss-Fight governance methodology. A feature's gate assignment determines how prominently it appears in the documentation — not just which page it lands on.</p>
 
 
-    <h3 id="golden-context">golden context</h3>
+    <h2 id="golden-context">golden context</h2>
     <p>A context that has been <a href="for-teams.html#promoting-a-context">promoted</a> from personal to shared. Golden contexts are stored in the project repository (<code>.claude/tasks/&lt;task&gt;/contexts/</code>) and available to any teammate. All golden contexts are scanned for secrets before promotion.</p>
 
 
-    <h3 id="hook">hook</h3>
+    <h2 id="hook">hook</h2>
     <p>A shell command that Claude Code runs automatically in response to lifecycle events. Context Curator registers a <a href="hooks-automation.html#precompact-auto-save-hook">PreCompact hook</a> (saves session before compaction) and a <a href="hooks-automation.html#postcompact-task-re-injection-hook">PostCompact hook</a> (re-injects task context after compaction). Hooks are registered in <code>~/.claude/settings.json</code>.</p>
 
 
-    <h3 id="manifest">manifest</h3>
+    <h2 id="manifest">manifest</h2>
     <p>A JSON file (<code>context-curator-manifest.json</code>) that describes the available skill bundles and their contents. Used by <code>/plugin marketplace list</code> to enumerate installable skills. Version-matched against <code>dist/version.json</code>; a mismatch is flagged by <code>verify-manifest.ts</code>.</p>
 
 
-    <h3 id="monitor">monitor</h3>
+    <h2 id="monitor">monitor</h2>
     <p>The real-time context health tracking subsystem. Tracks token consumption, burn rate, estimated time to compaction, and accumulated cost. Displays status in the Claude Code <a href="context-monitoring.html">status line</a> and emits zone warnings at degradation thresholds.</p>
 
 
-    <h3 id="personal-context">personal context</h3>
+    <h2 id="personal-context">personal context</h2>
     <p>A context saved to your home directory (<code>~/.claude/projects/&lt;project&gt;/tasks/&lt;task&gt;/contexts/</code>). Personal contexts are never committed to git and never visible to teammates. They may contain secrets and sensitive session content that should not be shared.</p>
 
 
-    <h3 id="permuted-index">permuted index</h3>
+    <h2 id="permuted-index">permuted index</h2>
     <p>A documentation index in which every significant term is rotated to the front of its entry, so the index can be scanned from any angle. If "context rot" appears under both "context rot" and "rot, context", a reader who knows either word finds it. See <a href="permuted-index.html">Permuted Index</a>.</p>
 
 
-    <h3 id="prd">PRD</h3>
+    <h2 id="prd">PRD</h2>
     <p>Product Requirements Document. In the PRD-Driven Development workflow, the PRD is the authoritative source of acceptance criteria. All features are assigned F-XXX codes; all acceptance criteria are assigned T-XXX codes. The PRD is authored first, before tests or code.</p>
 
 
-    <h3 id="re-injection">re-injection</h3>
+    <h2 id="re-injection">re-injection</h2>
     <p>The PostCompact hook's action of inserting a concise task context summary into the session immediately after compaction. Re-injection prevents the session from going cold after compaction events. It reads the active task's CLAUDE.md and generates a one-paragraph reminder.</p>
 
 
-    <h3 id="risk-acceptance">risk acceptance</h3>
+    <h2 id="risk-acceptance">risk acceptance</h2>
     <p>A documented decision to accept a specific adversary finding rather than fix it. Stored in <code>prod-mgmt/risk-acceptances.md</code>. Re-running the adversary after adding an acceptance marks the finding ACCEPTED rather than FAIL. Each acceptance includes a rationale, approver, and expiry.</p>
 
 
-    <h3 id="session">session</h3>
+    <h2 id="session">session</h2>
     <p>A Claude Code conversation, stored as a <code>.jsonl</code> file in <code>~/.claude/projects/&lt;project&gt;/</code>. Sessions are UUID-named. Context Curator operates on sessions for the current project directory only.</p>
 
 
-    <h3 id="skill">skill</h3>
+    <h2 id="skill">skill</h2>
     <p>A SKILL.md file that Claude Code reads to gain specialized knowledge for a specific task. Skills are installed into <code>~/.claude/skills/</code> (user-scope) or <code>.claude/skills/</code> (project-scope). Context Curator's skills are organized into <a href="#bundle">bundles</a>. Project scope takes precedence over user scope.</p>
 
 
-    <h3 id="status-line">status line</h3>
+    <h2 id="status-line">status line</h2>
     <p>The metadata line shown in Claude Code's UI that displays real-time session health metrics: current zone, token count, burn rate, estimated time to compaction, and session cost. Populated by the monitor subsystem.</p>
 
 
-    <h3 id="task">task</h3>
+    <h2 id="task">task</h2>
     <p>A focused work environment in Context Curator. Each task has a unique ID, its own CLAUDE.md with instructions for Claude, and its own context store. Switching tasks (via <code>/task &lt;id&gt;</code>) updates which instructions Claude loads on the next <code>/resume</code>. See <a href="getting-started.html">Getting Started</a>.</p>
 
 
-    <h3 id="task-dna">task DNA</h3>
+    <h2 id="task-dna">task DNA</h2>
     <p>The SKILL.md file that defines how a specialized task (like the adversary) behaves. Stored in <code>~/.claude/context-curator/specialized/&lt;task-name&gt;/CLAUDE.md</code>. DNA is read-only for the task; it cannot be modified by the task itself.</p>
 
 
-    <h3 id="test-inventory">test inventory</h3>
+    <h2 id="test-inventory">test inventory</h2>
     <p>The adversary's output document (<code>prod-mgmt/test-inventory.md</code>). A table with one row per test, stating what the test actually does, which AC clause it covers, and a verdict (PASS, FAIL, ESCALATE, or ACCEPTED). Regenerated fresh on every adversary run.</p>
 
 
-    <h3 id="test-plan">test plan</h3>
+    <h2 id="test-plan">test plan</h2>
     <p>A document that maps PRD acceptance criteria to concrete test cases (Setup / Execution / Validation). Authored with the <code>/test-plan</code> skill. Includes a banned patterns list that the adversary checks for vacuous test constructs.</p>
 
 
-    <h3 id="warm-up">warm-up</h3>
+    <h2 id="warm-up">warm-up</h2>
     <p>The ramp-up period at the start of a Claude session before Claude has absorbed enough context to give useful, project-specific answers. Warm-up time is the cost Context Curator is designed to reduce. A restored context skips warm-up entirely.</p>
 
 
-    <h3 id="warm-up-baseline">warm-up baseline</h3>
+    <h2 id="warm-up-baseline">warm-up baseline</h2>
     <p>A calibration value set during initial monitor configuration. Used to estimate how much context has been consumed relative to the starting state and to estimate remaining time before the <a href="#context-zone">degrading zone</a> is reached.</p>
 
     <div class="page-footer"></div>

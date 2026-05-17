@@ -802,6 +802,12 @@ Maintains a minimal and conflict-free git footprint.
 
 Supports macOS and Linux with correct POSIX path handling. Windows native is out of scope; Windows users should use WSL2.
 
+**Expected Behaviors:**
+
+- All path operations use POSIX separators; paths containing spaces are handled correctly
+- Tool runs without modification on macOS (Apple Silicon and Intel) and Linux
+- WSL2 on Windows provides a supported path (native Windows is out of scope)
+
 **Acceptance Criteria:**
 
 | Test ID | Criterion |
@@ -811,6 +817,12 @@ Supports macOS and Linux with correct POSIX path handling. Windows native is out
 ### F-ERR · Error Handling & Edge Cases
 
 Provides graceful degradation, clear user-facing error messages, and atomic operations with rollback.
+
+**Expected Behaviors:**
+
+- Any script invoked without prior `task-init` exits non-zero with a human-readable message containing "init" — no raw stack traces
+- `scan-secrets` reports malformed or unreadable input as an error (non-zero exit) rather than silently succeeding
+- Write operations are atomic: if an error occurs mid-write, no partial output file is left behind
 
 **Acceptance Criteria:**
 
