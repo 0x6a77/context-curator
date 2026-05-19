@@ -22,12 +22,12 @@ Audit of every `### F-XXX` feature section and its decomposition: does it embed 
 | F-CTX-MANAGE | YES (T-CTX-7, T-MANAGE-1..6) | YES | PASS |
 | F-CTX-PROMOTE | YES (T-CTX-5, T-PROM-1..3) | YES | PASS |
 | F-CLMD | YES (T-CLMD-1, T-CLMD-2, T-RESUME-MANUAL) | T-RESUME-MANUAL is a MANUAL clause; rest falsifiable | PASS |
-| F-SEC | YES (T-SEC-2..10; T-SEC-1 absent — numbering gap, not a coverage gap) | YES | PASS |
+| F-SEC | YES (T-SEC-2..10; SEC code 1 absent — numbering gap, not a coverage gap) | YES | PASS |
 | F-SUMMARY | YES (T-SUM-1..3) | YES | PASS |
 | F-GIT | YES (T-GIT-1, T-GIT-2) | YES | PASS |
 | F-XPLAT | YES (T-ERR-3 only) | YES — minimal but falsifiable | PASS |
 | F-ERR | YES (T-ERR-1, T-ERR-2) | YES | PASS |
-| F-DOC-SKILLS | YES (T-DOC-1..6; T-DOC-7 missing — renumbering artifact; T-DOC-8 referenced only in changelog §1589, no AC row) | YES — but several clauses describe runtime behavior of skills | PASS structurally |
+| F-DOC-SKILLS | YES (T-DOC-1..6; DOC codes 7–8 absent — renumbering artifacts, no AC rows defined) | YES — but several clauses describe runtime behavior of skills | PASS structurally |
 | F-MARKETPLACE | YES (T-MKT-1..4) | YES | PASS |
 | F-HOOK | YES (T-HOOK-1) | YES | PASS |
 | F-HOOK-POST | YES (T-HOOK-POST-1..3) | YES | PASS |
@@ -42,8 +42,8 @@ Audit of every `### F-XXX` feature section and its decomposition: does it embed 
 | F-PROCESS | YES (T-PROC-1..6) | YES | PASS |
 
 **Structural notes:**
-- T-DOC-7 and T-DOC-8: T-DOC-7 absent from PRD AC tables (numbering gap). T-DOC-8 referenced only in v20.1 changelog (§1589) — no AC table row defines it. Both are renumbering artifacts, not coverage failures.
-- T-SEC-1 absent (codes start at T-SEC-2) — numbering convention, no gap.
+- DOC codes 7 and 8: absent from PRD AC tables (renumbering artifacts from v20.1 refactor). Code 8 referenced only in v20.1 changelog (§1589) — no AC row defines it. Not coverage failures.
+- SEC code 1 absent (sequence starts at T-SEC-2) — numbering convention, no gap.
 - F-CTX-MONITOR is a decomposition section without its own AC table; the three sub-features each carry their own ACs. Acceptable per the structural rule: AC must be embedded in the feature section whose behaviors it certifies; parent decomposition sections without behavior of their own do not require duplicated AC.
 
 ---
