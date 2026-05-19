@@ -34,10 +34,12 @@ describe('Error Handling Tests (Group 13)', () => {
   });
 
   describe('Test 13.1: Run /task Without Initialization', () => {
-    // T-ERR-1: Any script run without init exits non-zero with output containing "initialized" or "init" — not a stack trace
+    // T-ERR-1: Any script run without init exits non-zero with output containing "initialized" or "init" — not a stack trace.
+    // Note: task-create is excluded here because it auto-initializes (per T-TASK-7 AC).
+    // task-list is used instead — it is a genuine read operation that requires init.
     it('T-ERR-1: should handle missing .claude directory gracefully', async () => {
       // Don't run init-project
-      const result = await runScript('task-create', ['some-task', 'desc'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
+      const result = await runScript('task-list', ['some-task'], ctx.projectDir, { CLAUDE_HOME: ctx.personalBase });
 
       expect(result.exitCode).not.toBe(0);
       const output = result.stdout.toLowerCase() + result.stderr.toLowerCase();
