@@ -3,7 +3,7 @@
 set -e
 
 echo "╔════════════════════════════════════════╗"
-echo "║  Context Curator v15.0 Installer       ║"
+echo "║  Context Curator v15.2 Installer       ║"
 echo "╚════════════════════════════════════════╝"
 echo
 
@@ -23,8 +23,6 @@ done
 echo "📦 Creating installation directories..."
 mkdir -p "$INSTALL_DIR"
 mkdir -p "$HOME/.claude/projects"
-# Legacy commands dir kept for backwards compatibility
-mkdir -p "$HOME/.claude/commands/task"
 
 # 2. Build TypeScript (compile once for fast execution)
 echo "🔨 Building TypeScript..."
@@ -58,17 +56,7 @@ for bundle in authoring session monitor; do
   fi
 done
 
-# 5. Install legacy slash commands (kept for backwards compatibility)
-echo "📋 Installing legacy slash commands..."
-for cmd in commands/task/*.md; do
-  if [ -f "$cmd" ]; then
-    cmd_name=$(basename "$cmd")
-    cp "$cmd" "$HOME/.claude/commands/task/$cmd_name"
-    echo "   ✓ Installed $cmd_name"
-  fi
-done
-
-# 5b. Install explicit skills from authoring and monitor bundles as user-invocable commands
+# 5. Install explicit skills from authoring and monitor bundles as user-invocable commands
 echo "📋 Installing explicit authoring and monitor commands..."
 for bundle in authoring monitor; do
   bundle_dir="$SCRIPT_DIR/src/skills/context-curator/$bundle"
@@ -114,7 +102,7 @@ fi
 
 # 8. Write skill marketplace manifest
 echo "📋 Writing marketplace manifest..."
-VERSION="15.0"
+VERSION="15.2"
 if [ -f "$SCRIPT_DIR/dist/version.json" ]; then
   VERSION=$(cat "$SCRIPT_DIR/dist/version.json" | grep -o '"version":"[^"]*"' | cut -d'"' -f4)
 fi
@@ -216,7 +204,7 @@ echo "╔═══════════════════════�
 echo "║  Installation Complete!                ║"
 echo "╚════════════════════════════════════════╝"
 echo
-echo "✅ Context Curator v15.0 installed"
+echo "✅ Context Curator v15.2 installed"
 echo
 echo "Installation locations:"
 echo "  • Scripts:    ~/.claude/context-curator/dist/"
