@@ -5,7 +5,6 @@ description: >
   docs/docs-brief.md for gate assignments, navigation architecture, and
   editorial rules. Prompts for gate and page assignment on new F-XXX features.
   Updates affected pages, regenerates glossary and permuted index.
-invocation: explicit
 ---
 
 # /docs-markdown

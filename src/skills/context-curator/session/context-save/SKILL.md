@@ -4,7 +4,6 @@ description: >
   Save the current Claude Code session as a named context snapshot.
   Triggered when the user says "save context", "checkpoint this session",
   or uses /context-save. Prompts for personal vs golden, scans for secrets.
-invocation: explicit
 allowed-tools: Bash
 ---
 

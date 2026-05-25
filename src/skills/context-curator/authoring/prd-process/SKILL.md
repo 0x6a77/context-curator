@@ -5,7 +5,6 @@ description: >
   (PRD authoring, docs, test plan, dev plan, implementation, adversarial review,
   remediation, verification) and resists out-of-order steps. Use /prd-process
   to check status, or invoke any time the user proposes a phase-skipping action.
-invocation: explicit
 allowed-tools: Bash
 ---
 

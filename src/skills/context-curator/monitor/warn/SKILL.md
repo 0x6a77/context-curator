@@ -3,7 +3,6 @@ name: warn
 description: >
   Context window zone warning. Fires a one-time warning when entering degrading (65%)
   or critical (80%) zones. Suppressed by sentinel after first warning per session.
-invocation: auto
 ---
 
 # /warn — Zone Boundary Warnings

@@ -65,7 +65,7 @@ for bundle in authoring session monitor; do
   for skill_dir in "$bundle_dir"/*/; do
     skill_name=$(basename "$skill_dir")
     skill_md="$skill_dir/SKILL.md"
-    if [ -f "$skill_md" ] && grep -q "invocation: explicit" "$skill_md"; then
+    if [ -f "$skill_md" ]; then
       cp "$skill_md" "$HOME/.claude/commands/$bundle/$skill_name.md"
       echo "   ✓ Installed $bundle/$skill_name"
     fi

@@ -3,8 +3,6 @@ name: dev-plan
 description: >
   Dev plan authoring assistant. Load when working on a file matching *dev-plan*.md.
   Enforces phase structure, design decision conventions, and PRD version reference.
-invocation: auto
-trigger-pattern: "*dev-plan*.md"
 ---
 
 # /dev-plan — Dev Plan Format Skill

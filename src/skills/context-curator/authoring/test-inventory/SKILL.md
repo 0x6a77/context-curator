@@ -3,7 +3,6 @@ name: test-inventory
 description: >
   Adversary task output format skill. Only available when adversary task is active.
   Loads the test inventory output schema and verdict definitions for consistent LoD2 reporting.
-invocation: auto
 guard: adversary-task-active
 ---
 

@@ -4,8 +4,6 @@ description: >
   PRD authoring assistant. Load when working on a file matching *prd*.md.
   Enforces F-XXX/T-XXX code structure, falsifiable AC rules, and feature section format.
   Use /prd new-feature to scaffold, /prd check-ac to audit criteria.
-invocation: auto
-trigger-pattern: "*prd*.md"
 ---
 
 # /prd — PRD Format Skill

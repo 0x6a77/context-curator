@@ -4,7 +4,6 @@ description: >
   Switch to a task environment. Creates a new task if it doesn't exist (requires inline
   description), or lists saved contexts for an existing task.
   Usage: /task <task-id> [<description>]
-invocation: explicit
 allowed-tools: Bash, Read, Write
 ---
 

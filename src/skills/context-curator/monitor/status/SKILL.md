@@ -3,7 +3,6 @@ name: status
 description: >
   Show the current context window usage, burn rate, and cost estimate.
   Use /status to see a one-line summary of session health.
-invocation: explicit
 allowed-tools: Bash
 ---
 

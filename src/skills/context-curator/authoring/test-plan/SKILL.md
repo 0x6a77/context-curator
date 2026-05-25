@@ -3,8 +3,6 @@ name: test-plan
 description: >
   Test plan authoring assistant. Load when working on a file matching *test-plan*.md.
   Enforces banned patterns, fix priority tiers, and feature-group structure.
-invocation: auto
-trigger-pattern: "*test-plan*.md"
 ---
 
 # /test-plan — Test Plan Format Skill

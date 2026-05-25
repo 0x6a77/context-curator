@@ -4,7 +4,6 @@ description: >
   Generate HTML documentation from the markdown base.
   Reads docs/style.md for the design system. Bootstraps style.md if absent.
   Validates WCAG 2.1 AA compliance. Always run after /docs-markdown.
-invocation: explicit
 ---
 
 # /docs-html

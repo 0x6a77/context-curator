@@ -3,7 +3,6 @@ name: context-promote
 description: >
   Promote a personal context to golden (shared with the team via git).
   Scans for secrets before promotion. Use /context-promote <name>.
-invocation: explicit
 allowed-tools: Bash, Read, Write
 ---
 

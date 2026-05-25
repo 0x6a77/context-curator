@@ -3,7 +3,6 @@ name: context-manage
 description: >
   Interactive context management. Rename, delete, merge, promote, or demote
   saved contexts across all tasks. Use /context-manage to browse and organize.
-invocation: explicit
 allowed-tools: Bash, Read, Write, Edit
 ---
 

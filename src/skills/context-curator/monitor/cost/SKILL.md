@@ -3,7 +3,6 @@ name: cost
 description: >
   Show detailed cost breakdown for the current session. Use /cost to see
   input/output token counts and per-model pricing from monitor-config.json.
-invocation: explicit
 allowed-tools: Bash
 ---
 

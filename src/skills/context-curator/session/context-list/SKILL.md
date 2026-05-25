@@ -3,7 +3,6 @@ name: context-list
 description: >
   List active sessions and saved contexts with summaries. Use /context-list
   or /context-list <task-id> to see what contexts are available for a task.
-invocation: explicit
 allowed-tools: Bash
 ---
 
