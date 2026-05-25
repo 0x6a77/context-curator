@@ -12,19 +12,17 @@ trigger-pattern: "*prd*.md"
 
 ## Feature Section Template
 
-Every feature section must contain all four elements:
+Every feature section must contain all three elements:
 1. Heading: `### F-XXX · Feature Name`
 2. `**Expected Behaviors:**` bullet list
-3. `**Test Scenarios:**` numbered list
-4. `**Acceptance Criteria:**` table with `| T-XXX-N | Criterion |` rows
+3. `**Acceptance Criteria:**` table with `| Test ID | Criterion |` header and `| T-XXX-N | ... |` rows
 
 ## On /prd new-feature
 
 Scaffold a complete feature section with:
 - Placeholder `### F-NEW · [Feature Name]` heading
 - `**Expected Behaviors:**` with 3–5 placeholder bullets
-- `**Test Scenarios:**` with 3 numbered scenarios
-- `**Acceptance Criteria:**` table with 2 placeholder T-XXX rows
+- `**Acceptance Criteria:**` table with `| Test ID | Criterion |` header and 2 placeholder T-XXX rows
 
 ## On /prd check-ac
 
