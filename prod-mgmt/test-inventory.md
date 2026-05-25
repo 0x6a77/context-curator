@@ -65,8 +65,8 @@ Audit of every `### F-XXX` feature section and its decomposition: does it embed 
 | F-INIT (Install) | T-INST-2 | Same shape as T-INST-1 for Stop hook | Stop contains **exactly one** entry ending with status-line.js | Same `.some()` gap. | FAIL |
 | F-INIT (Install) | T-INST-3 | Same shape as T-INST-1 for SessionStart hook | SessionStart contains **exactly one** entry ending with session-start-hook.js | Same `.some()` gap. | FAIL |
 | F-INIT (Install) | T-INST-4 | Two install.sh runs; asserts each hook array has `.length === 1` | After two runs, each hook array has exactly one entry | Direct length check. | PASS |
-| F-INIT (Install) | T-INST-5 | Walks repo bundles, filters `invocation: explicit` SKILL.md files, asserts each installed at `~/.claude/commands/<bundle>/<skill>.md` | Every explicit-invocation SKILL.md exists at the expected commands path | Iterates source then checks installed path; falsifiable. | PASS |
-| F-INIT (Install) | T-INST-6 | Walks `~/.claude/commands/` recursively; asserts no session-bundle skill name appears | No file under `~/.claude/commands/` whose path contains task/context-save/context-list/context-manage/context-promote | Early-return when `commandsDir` does not exist — if install.sh fails to create commands/ at all, this test passes vacuously. T-INST-5 mitigates by independently checking the directory exists, but T-INST-6 alone is not robust. | ESCALATE |
+| F-INIT (Install) | T-INST-5 | Walks repo bundles (authoring, session, monitor), filters `invocation: explicit` SKILL.md files, asserts each installed at `~/.claude/commands/<bundle>/<skill>.md` | Every explicit-invocation SKILL.md exists at the expected commands path | Iterates source then checks installed path; falsifiable. | PASS |
+| F-INIT (Install) | T-INST-6 | Asserts each of the four known stale orphan files is absent under `~/.claude/commands/task/` | None of `context-delete.md`, `task-delete.md`, `task-list.md`, `task-manage.md` exist under `~/.claude/commands/task/` | Explicit path checks; no vacuous-pass risk. | PASS |
 | F-TASK-CREATE | T-TASK-1 | Runs task-create; asserts required headers in CLAUDE.md, description keyword in extracted Focus section, @import directive updated | task-create produces CLAUDE.md with required headers; description keyword appears under ## Focus | Focus section extraction by string offset; per-section keyword check. | PASS |
 | F-TASK-CREATE | T-TASK-2 | Asserts uppercase task name → non-zero exit AND no directory at either uppercase or lowercased name | Exit non-zero AND no directory created for uppercase task name | Both clauses verified. | PASS |
 | F-TASK-CREATE | T-TASK-3 | Creates task with 4-line description; extracts Focus section; asserts every line verbatim | Four-line description preserved verbatim in Focus section | Strict per-line `toContain`. A keyword-rewriting impl would fail. | PASS |
@@ -220,7 +220,7 @@ Audit of every `### F-XXX` feature section and its decomposition: does it embed 
 | T-INST-3 | INADEQUATE | Same as T-INST-1 |
 | T-INST-4 | ADEQUATE | |
 | T-INST-5 | ADEQUATE | |
-| T-INST-6 | INADEQUATE | Vacuous-pass path when commands/ directory does not exist |
+| T-INST-6 | ADEQUATE | |
 
 ### F-TASK-CREATE
 

@@ -498,8 +498,8 @@ Bootstraps a project for context-curator by creating the `.claude/` directory st
 | T-INST-2 | After `install.sh`, `~/.claude/settings.json` `.hooks.Stop` contains exactly one entry whose `command` ends with `status-line.js` |
 | T-INST-3 | After `install.sh`, `~/.claude/settings.json` `.hooks.SessionStart` contains exactly one entry whose `command` ends with `session-start-hook.js` |
 | T-INST-4 | Running `install.sh` a second time produces no duplicate hook entries; each hook array has exactly one entry after two runs |
-| T-INST-5 | After `install.sh`, every SKILL.md in the authoring and monitor bundles with `invocation: explicit` exists at `~/.claude/commands/<bundle>/<skill-name>.md` |
-| T-INST-6 | After `install.sh`, no file exists under `~/.claude/commands/` whose path contains any of: `task`, `context-save`, `context-list`, `context-manage`, `context-promote` |
+| T-INST-5 | After `install.sh`, every SKILL.md in the authoring, session, and monitor bundles with `invocation: explicit` exists at `~/.claude/commands/<bundle>/<skill-name>.md` |
+| T-INST-6 | After `install.sh`, none of the following stale commands exist under `~/.claude/commands/task/`: `context-delete.md`, `task-delete.md`, `task-list.md`, `task-manage.md` |
 
 ### F-TASK-CREATE · Task Creation (`/task <new-task-id>`)
 

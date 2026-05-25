@@ -56,9 +56,9 @@ for bundle in authoring session monitor; do
   fi
 done
 
-# 5. Install explicit skills from authoring and monitor bundles as user-invocable commands
-echo "📋 Installing explicit authoring and monitor commands..."
-for bundle in authoring monitor; do
+# 5. Install explicit skills from all bundles as user-invocable commands
+echo "📋 Installing explicit commands..."
+for bundle in authoring session monitor; do
   bundle_dir="$SCRIPT_DIR/src/skills/context-curator/$bundle"
   if [ ! -d "$bundle_dir" ]; then continue; fi
   mkdir -p "$HOME/.claude/commands/$bundle"
@@ -71,6 +71,16 @@ for bundle in authoring monitor; do
     fi
   done
 done
+
+# 5b. Clean up stale commands from previous installs (session bundle moved from task/ to session/)
+echo "📋 Cleaning up stale commands..."
+for name in context-delete task-delete task-list task-manage context-list context-manage context-promote context-save task; do
+  rm -f "$HOME/.claude/commands/task/$name.md"
+done
+if [ -d "$HOME/.claude/commands/task" ] && [ -z "$(ls -A "$HOME/.claude/commands/task" 2>/dev/null)" ]; then
+  rmdir "$HOME/.claude/commands/task"
+fi
+echo "   ✓ Removed stale task/ commands"
 
 # 6. Install specialized tasks (immutable DNA — never modified by user operations)
 echo "📋 Installing specialized tasks..."
