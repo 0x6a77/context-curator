@@ -8,6 +8,41 @@ This document collects ideas that I would like to add to Context-Curator
 
 The rough idea is a skill that recursively iterates across each of the source subdirectories and does a thorough analysis of the code in the subdirectory and summarizes that in a SUMMARY.md file in each subdirectory. Then, when we have a refactor task, we can focus Claude Code to just the right source directories. For very large projects and monorepos, this allows us to use the minimum context window to do the work. It's also token efficient in that we maintain hard-won "code understanding" without having to regenerate that for each Claude Code session in the future. This should also allow Claude Code to only pull out the parts of the summary that matter to the task at hand. It would be cool if this summary included an AST analysis with call-site information and other orthographic understanding that will greatly accelerate changes.
 
+### Auto-Restore Baseline Instead of Compact
+
+Motivation: I run `autoCompactWindow` low (150k) on purpose — focused context is more
+efficient than a bloated one — but that means native Claude Code auto-compact (generic
+LLM summarization) fires often, and every hit is a lossy, expensive re-summarize instead
+of a clean reset to a known-good task baseline.
+
+Findings from auditing the current hook wiring (2026-07):
+
+- `prepare-context.js` already does the hard part — it seeds a **new** session file from
+  a saved golden/personal context (`.claude/tasks/<id>/contexts/*.jsonl`) and hands back a
+  `/resume <id>`. This is the "restore baseline" primitive; it's just manual today.
+- `on-compaction.js` / `postcompact-reinject.js` are clearly written for a `PostCompact`
+  hook, but `~/.claude/settings.json` only registers `PostToolUse` / `Stop` /
+  `SessionStart`. **`PostCompact` isn't wired up at all** — so right now compaction runs
+  raw (generic summary) and the reinject step never fires. Fix this regardless of the
+  bigger idea below; it's a one-line settings change using code that already exists.
+- Just raising `autoCompactWindow` back toward 1M doesn't achieve "restore instead of
+  compact" — it only delays when the generic summarizer runs. It's not a substitute for
+  the baseline-restore idea.
+- Hard constraint: hooks can't swap the *live* transcript mid-session. `update-monitor-state.js`
+  can detect crossing the threshold on `PostToolUse`, but nothing in the Claude Code hook
+  system can then kill the current turn and splice in a different session file mid-flight.
+  Two real options:
+  1. **`PreCompact` hook** — can bias what the built-in summarizer preserves (still an LLM
+     summary, not a hard reset, but the only in-process lever before compaction runs).
+  2. **External supervisor** — a process outside the Claude Code hook system that watches
+     `monitor-state.json` (`fillPct` / `currentZone`) and, on crossing threshold, restarts
+     the `claude` CLI with `--resume <baseline-session>` via `prepare-context.js`. This is
+     really just automating the manual `prepare-context` flow that already exists.
+
+Next steps when I pick this back up: (1) wire `PostCompact` to the existing scripts as a
+quick win, (2) prototype the external supervisor since that's the only path to a true
+hard reset instead of a re-summarize.
+
 ## Code Tasks
 
 ### Three-Phase Refactor
